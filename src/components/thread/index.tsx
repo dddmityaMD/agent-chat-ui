@@ -13,6 +13,8 @@ import {
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
 import { LangGraphLogoSVG } from "../icons/langgraph";
+import { CaseBar } from "@/components/case-bar";
+import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   ArrowDown,
@@ -116,6 +118,7 @@ export function Thread() {
   const [artifactOpen, closeArtifact] = useArtifactOpen();
 
   const [threadId, _setThreadId] = useQueryState("threadId");
+  const [caseId] = useQueryState("caseId");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
     parseAsBoolean.withDefault(false),
@@ -137,6 +140,11 @@ export function Thread() {
   } = useFileUpload();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+
+  const [casePanelOpen, setCasePanelOpen] = useQueryState(
+    "casePanelOpen",
+    parseAsBoolean.withDefault(true),
+  );
 
   const stream = useStreamContext();
   const messages = stream.messages;
@@ -215,7 +223,7 @@ export function Thread() {
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
     stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context },
+      { case_id: caseId ?? undefined, messages: [...toolMessages, newHumanMessage], context },
       {
         streamMode: ["values"],
         streamSubgraphs: true,
@@ -223,6 +231,7 @@ export function Thread() {
         optimisticValues: (prev) => ({
           ...prev,
           context,
+          ...(caseId ? { case_id: caseId } : {}),
           messages: [
             ...(prev.messages ?? []),
             ...toolMessages,
@@ -284,8 +293,11 @@ export function Thread() {
 
       <div
         className={cn(
-          "grid w-full grid-cols-[1fr_0fr] transition-all duration-500",
-          artifactOpen && "grid-cols-[3fr_2fr]",
+          "grid w-full transition-all duration-500",
+          !casePanelOpen && !artifactOpen && "grid-cols-[1fr_0fr_0fr]",
+          casePanelOpen && !artifactOpen && "grid-cols-[3fr_2fr_0fr]",
+          !casePanelOpen && artifactOpen && "grid-cols-[3fr_0fr_2fr]",
+          casePanelOpen && artifactOpen && "grid-cols-[2fr_1fr_1fr]",
         )}
       >
         <motion.div
@@ -325,7 +337,8 @@ export function Thread() {
                   </Button>
                 )}
               </div>
-              <div className="absolute top-2 right-4 flex items-center">
+              <div className="absolute top-2 right-4 flex items-center gap-3">
+                <CaseBar />
                 <OpenGitHubRepo />
               </div>
             </div>
@@ -371,9 +384,23 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                <CaseBar />
                 <div className="flex items-center">
                   <OpenGitHubRepo />
                 </div>
+                <TooltipIconButton
+                  size="lg"
+                  className="p-4"
+                  tooltip={casePanelOpen ? "Hide case panel" : "Show case panel"}
+                  variant="ghost"
+                  onClick={() => setCasePanelOpen((p) => !p)}
+                >
+                  {casePanelOpen ? (
+                    <PanelRightClose className="size-5" />
+                  ) : (
+                    <PanelRightOpen className="size-5" />
+                  )}
+                </TooltipIconButton>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
@@ -545,7 +572,22 @@ export function Thread() {
             />
           </StickToBottom>
         </motion.div>
-        <div className="relative flex flex-col border-l">
+        <div className={cn("relative flex flex-col border-l", !casePanelOpen && "hidden")}>
+          <div className="absolute inset-0 flex min-w-[30vw] flex-col">
+            <div className="grid grid-cols-[1fr_auto] border-b p-4">
+              <div className="truncate overflow-hidden text-sm font-semibold">Case Summary</div>
+              <button
+                onClick={() => setCasePanelOpen(false)}
+                className="cursor-pointer"
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+            <CasePanel className="flex-grow" />
+          </div>
+        </div>
+
+        <div className={cn("relative flex flex-col border-l", !artifactOpen && "hidden")}>
           <div className="absolute inset-0 flex min-w-[30vw] flex-col">
             <div className="grid grid-cols-[1fr_auto] border-b p-4">
               <ArtifactTitle className="truncate overflow-hidden" />

@@ -25,7 +25,13 @@ import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
 import { toast } from "sonner";
 
-export type StateType = { messages: Message[]; ui?: UIMessage[] };
+export type StateType = {
+  messages: Message[];
+  ui?: UIMessage[];
+  // SAIS panel payload (not LangGraph UI messages)
+  sais_ui?: unknown;
+  case_id?: string;
+};
 
 const useTypedStream = useStream<
   StateType,
@@ -34,6 +40,7 @@ const useTypedStream = useStream<
       messages?: Message[] | Message | string;
       ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
       context?: Record<string, unknown>;
+      case_id?: string;
     };
     CustomEventType: UIMessage | RemoveUIMessage;
   }
