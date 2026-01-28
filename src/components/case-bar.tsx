@@ -3,6 +3,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import { useCases } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
 import { toast } from "sonner";
@@ -22,6 +30,10 @@ export function CaseBar() {
   const [threadId, setThreadId] = useQueryState("threadId");
 
   const [resumeAttempt, setResumeAttempt] = useState<ResumeAttempt | null>(null);
+
+  // State for "start immediately" dialog after case creation
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [pendingCaseId, setPendingCaseId] = useState<string | null>(null);
 
   const selected = useMemo(
     () => cases.find((c) => c.case_id === caseId) ?? null,
@@ -57,9 +69,36 @@ export function CaseBar() {
       setCaseId(row.case_id);
       setThreadId(null);
       toast.success("Case created");
+      // Show dialog asking whether to start immediately
+      setPendingCaseId(row.case_id);
+      setShowStartDialog(true);
     } catch (e) {
       toast.error("Failed to create case");
     }
+  };
+
+  const onStartImmediately = () => {
+    setShowStartDialog(false);
+    if (!pendingCaseId) return;
+
+    setThreadId(null);
+    setResumeAttempt({
+      caseId: pendingCaseId,
+      triedThreadId: null,
+      startedAt: Date.now(),
+      stage: "attempt",
+    });
+
+    stream.submit(
+      { case_id: pendingCaseId, messages: [] },
+      { streamMode: ["values"], streamResumable: true },
+    );
+    setPendingCaseId(null);
+  };
+
+  const onDismissStartDialog = () => {
+    setShowStartDialog(false);
+    setPendingCaseId(null);
   };
 
   const onDelete = async () => {
@@ -105,35 +144,57 @@ export function CaseBar() {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <>
       <div className="flex items-center gap-2">
-        <label className="text-xs text-muted-foreground">Case</label>
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
-          value={caseId ?? ""}
-          onChange={(e) => setCaseId(e.target.value || null)}
-        >
-          <option value="">(none)</option>
-          {cases.map((c) => (
-            <option key={c.case_id} value={c.case_id}>
-              {c.title ? c.title : c.case_id.slice(0, 8)} [{c.status}]
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">Case</label>
+          <select
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            value={caseId ?? ""}
+            onChange={(e) => setCaseId(e.target.value || null)}
+          >
+            <option value="">(none)</option>
+            {cases.map((c) => (
+              <option key={c.case_id} value={c.case_id}>
+                {c.title ? c.title : c.case_id.slice(0, 8)} [{c.status}]
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Button variant="secondary" size="sm" onClick={() => refresh()}>
+          Refresh
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onResume}>
+          Resume
+        </Button>
+        <Button variant="default" size="sm" onClick={onNewCase}>
+          New Case
+        </Button>
+        <Button variant="destructive" size="sm" onClick={onDelete}>
+          Delete
+        </Button>
       </div>
 
-      <Button variant="secondary" size="sm" onClick={() => refresh()}>
-        Refresh
-      </Button>
-      <Button variant="secondary" size="sm" onClick={onResume}>
-        Resume
-      </Button>
-      <Button variant="default" size="sm" onClick={onNewCase}>
-        New Case
-      </Button>
-      <Button variant="destructive" size="sm" onClick={onDelete}>
-        Delete
-      </Button>
-    </div>
+      {/* Dialog asking whether to start working immediately after case creation */}
+      <Sheet open={showStartDialog} onOpenChange={setShowStartDialog}>
+        <SheetContent side="bottom" className="max-h-[200px]">
+          <SheetHeader>
+            <SheetTitle>Start Investigation?</SheetTitle>
+            <SheetDescription>
+              Would you like to start working on this case immediately?
+            </SheetDescription>
+          </SheetHeader>
+          <SheetFooter className="flex-row gap-2 justify-end">
+            <Button variant="secondary" size="sm" onClick={onDismissStartDialog}>
+              Not Now
+            </Button>
+            <Button variant="default" size="sm" onClick={onStartImmediately}>
+              Start Now
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

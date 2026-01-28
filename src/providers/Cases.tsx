@@ -30,12 +30,24 @@ export type CaseSummary = {
   readiness?: Record<string, unknown>;
 };
 
+export type FindingsResponse = {
+  findings: Array<{
+    findings_id: string;
+    case_id: string;
+    version: number;
+    payload: Record<string, unknown>;
+    created_at: string;
+  }>;
+  latest: Record<string, unknown> | null;
+};
+
 type CasesContextType = {
   cases: CaseRow[];
   refresh: () => Promise<void>;
   createCase: (title?: string) => Promise<CaseRow>;
   deleteCase: (caseId: string) => Promise<void>;
   getCaseSummary: (caseId: string) => Promise<CaseSummary>;
+  getFindings: (caseId: string) => Promise<FindingsResponse>;
 };
 
 const CasesContext = createContext<CasesContextType | undefined>(undefined);
@@ -94,6 +106,12 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     return (await res.json()) as CaseSummary;
   }, []);
 
+  const getFindings = useCallback(async (caseId: string) => {
+    const res = await fetch(`${getBaseUrl()}/cases/${caseId}/findings`);
+    if (!res.ok) throw new Error("Failed to fetch findings");
+    return (await res.json()) as FindingsResponse;
+  }, []);
+
   useEffect(() => {
     refresh().catch(() => {
       // ignore; UI can still be used without cases api
@@ -101,8 +119,8 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ cases, refresh, createCase, deleteCase, getCaseSummary }),
-    [cases, refresh, createCase, deleteCase, getCaseSummary],
+    () => ({ cases, refresh, createCase, deleteCase, getCaseSummary, getFindings }),
+    [cases, refresh, createCase, deleteCase, getCaseSummary, getFindings],
   );
 
   return <CasesContext.Provider value={value}>{children}</CasesContext.Provider>;
