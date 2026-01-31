@@ -117,6 +117,7 @@ export function ArtifactProvider(props: { children?: ReactNode }) {
  * of the `LoadExternalComponent` component, to be consumed by the `useArtifact` hook
  * on the generative UI side.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useArtifact() {
   const id = useId();
   const context = useContext(ArtifactSlotContext);
@@ -169,6 +170,7 @@ export function useArtifact() {
 /**
  * General hook for detecting if any artifact is open.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useArtifactOpen() {
   const context = useContext(ArtifactSlotContext);
   const [ctxOpen, setCtxOpen] = context.open;
@@ -183,6 +185,7 @@ export function useArtifactOpen() {
  * Artifacts may at their discretion provide additional context
  * that will be used when creating a new run.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useArtifactContext() {
   const context = useContext(ArtifactSlotContext);
   return context.context;

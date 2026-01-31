@@ -282,6 +282,7 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
 };
 
 // Create a custom hook to use the context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useStreamContext = (): StreamContextType => {
   const context = useContext(StreamContext);
   if (context === undefined) {

@@ -72,7 +72,7 @@ export function CaseBar() {
       // Show dialog asking whether to start immediately
       setPendingCaseId(row.case_id);
       setShowStartDialog(true);
-    } catch (e) {
+    } catch {
       toast.error("Failed to create case");
     }
   };
@@ -178,7 +178,7 @@ export function CaseBar() {
 
       {/* Dialog asking whether to start working immediately after case creation */}
       <Sheet open={showStartDialog} onOpenChange={setShowStartDialog}>
-        <SheetContent side="bottom" className="max-h-[200px]">
+        <SheetContent side="center">
           <SheetHeader>
             <SheetTitle>Start Investigation?</SheetTitle>
             <SheetDescription>

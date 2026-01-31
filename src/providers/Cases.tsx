@@ -126,6 +126,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   return <CasesContext.Provider value={value}>{children}</CasesContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCases() {
   const ctx = useContext(CasesContext);
   if (!ctx) throw new Error("useCases must be used within CasesProvider");

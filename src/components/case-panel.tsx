@@ -144,7 +144,7 @@ export function CasePanel({ className }: { className?: string }) {
     };
   }, [caseId, getCaseSummary, getFindings, refreshKey]);
 
-  const { checks, missing } = useMemo(() => computeChecks(summary), [summary]);
+  const { checks, missing: _missing } = useMemo(() => computeChecks(summary), [summary]);
   const mismatch = useMemo(() => computeMismatch(summary), [summary]);
 
   return (
@@ -337,7 +337,7 @@ export function CasePanel({ className }: { className?: string }) {
 
           {/* Evidence Tab */}
           {activeTab === "evidence" && (
-            <div className="mt-3 space-y-2">
+            <div data-testid="evidence-panel" className="mt-3 space-y-2">
               {(summary.evidence ?? []).length === 0 ? (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-white">
                   No evidence yet.
