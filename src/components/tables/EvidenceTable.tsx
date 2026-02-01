@@ -112,6 +112,7 @@ export function EvidenceTable({
 
   return (
     <div
+      data-testid="evidence-table-container"
       className={cn(
         "w-full rounded-md border border-border bg-card overflow-hidden",
         className
