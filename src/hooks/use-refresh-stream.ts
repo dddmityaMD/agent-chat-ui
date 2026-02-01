@@ -1,0 +1,318 @@
+"use client";
+
+import { useState, useCallback, useEffect, useRef } from "react";
+
+// Types for refresh job data
+export type RefreshJobStatus = 
+  | "pending"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled";
+
+export interface RefreshJob {
+  job_id: string;
+  scope: string;
+  status: RefreshJobStatus;
+  connector_id?: string;
+  connector_type?: string;
+  attempts: number;
+  max_attempts: number;
+  entities_updated: number;
+  last_error?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_ms?: number;
+}
+
+export interface RefreshStatusSummary {
+  has_running: boolean;
+  running_count: number;
+  running_jobs: RefreshJob[];
+  recent_completed: RefreshJob[];
+  grouped: {
+    metabase: RefreshJob[];
+    dbt: RefreshJob[];
+    warehouse: RefreshJob[];
+    other: RefreshJob[];
+  };
+  timestamp: string;
+}
+
+export type ConnectionState = 
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
+
+export interface UseRefreshStreamOptions {
+  connectorId?: string;
+  connectorType?: string;
+  baseUrl?: string;
+  onMessage?: (data: RefreshJob | RefreshStatusSummary) => void;
+  onJobUpdate?: (job: RefreshJob) => void;
+  onStatusSummary?: (summary: RefreshStatusSummary) => void;
+  onError?: (error: Error) => void;
+  onConnectionChange?: (state: ConnectionState) => void;
+}
+
+export interface UseRefreshStreamReturn {
+  jobs: RefreshJob[];
+  summary: RefreshStatusSummary | null;
+  connectionState: ConnectionState;
+  error: Error | null;
+  reconnectAttempts: number;
+  reconnect: () => void;
+  disconnect: () => void;
+}
+
+// SSE event types
+interface JobUpdateEvent {
+  event: "job_update";
+  data: RefreshJob;
+}
+
+interface StatusSummaryEvent {
+  event: "status_summary";
+  data: RefreshStatusSummary;
+}
+
+interface ErrorEvent {
+  event: "error";
+  data: { error: string; details?: string };
+}
+
+type SSEEvent = JobUpdateEvent | StatusSummaryEvent | ErrorEvent;
+
+// Reconnection constants
+const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+const MAX_RECONNECT_DELAY = 30000; // 30 seconds
+const MAX_RECONNECT_ATTEMPTS = 10;
+
+export function useRefreshStream(
+  options: UseRefreshStreamOptions = {}
+): UseRefreshStreamReturn {
+  const {
+    connectorId,
+    connectorType,
+    baseUrl = typeof window !== "undefined"
+      ? window.location.origin.replace(/:\d+$/, ":8000") // Default to API port
+      : "http://localhost:8000",
+    onMessage,
+    onJobUpdate,
+    onStatusSummary,
+    onError,
+    onConnectionChange,
+  } = options;
+
+  // State
+  const [jobs, setJobs] = useState<RefreshJob[]>([]);
+  const [summary, setSummary] = useState<RefreshStatusSummary | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [error, setError] = useState<Error | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+
+  // Refs
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isManualDisconnect = useRef(false);
+
+  // Get SSE URL with optional filters
+  const getSseUrl = useCallback(() => {
+    const params = new URLSearchParams();
+    if (connectorId) params.append("connector_id", connectorId);
+    if (connectorType) params.append("connector_type", connectorType);
+    
+    const queryString = params.toString();
+    return `${baseUrl}/connectors/jobs/stream${queryString ? `?${queryString}` : ""}`;
+  }, [baseUrl, connectorId, connectorType]);
+
+  // Calculate reconnect delay with exponential backoff
+  const getReconnectDelay = useCallback(() => {
+    const delay = Math.min(
+      INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
+      MAX_RECONNECT_DELAY
+    );
+    return delay;
+  }, [reconnectAttempts]);
+
+  // Update connection state with callback
+  const updateConnectionState = useCallback(
+    (state: ConnectionState) => {
+      setConnectionState(state);
+      onConnectionChange?.(state);
+    },
+    [onConnectionChange]
+  );
+
+  // Disconnect and cleanup
+  const disconnect = useCallback(() => {
+    isManualDisconnect.current = true;
+    
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    updateConnectionState("disconnected");
+    setReconnectAttempts(0);
+  }, [updateConnectionState]);
+
+  // Connect to SSE endpoint
+  const connect = useCallback(() => {
+    // Don't reconnect if manually disconnected
+    if (isManualDisconnect.current) return;
+    
+    // Close existing connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    
+    updateConnectionState("connecting");
+    setError(null);
+    
+    const url = getSseUrl();
+    
+    try {
+      const eventSource = new EventSource(url);
+      eventSourceRef.current = eventSource;
+      
+      eventSource.onopen = () => {
+        updateConnectionState("connected");
+        setReconnectAttempts(0);
+      };
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as SSEEvent;
+          
+          switch (data.event) {
+            case "job_update": {
+              const jobUpdate = data as JobUpdateEvent;
+              setJobs((prev) => {
+                // Update or add job
+                const existingIndex = prev.findIndex(
+                  (j) => j.job_id === jobUpdate.data.job_id
+                );
+                if (existingIndex >= 0) {
+                  const updated = [...prev];
+                  updated[existingIndex] = jobUpdate.data;
+                  return updated;
+                }
+                return [jobUpdate.data, ...prev];
+              });
+              onJobUpdate?.(jobUpdate.data);
+              onMessage?.(jobUpdate.data);
+              break;
+            }
+            
+            case "status_summary": {
+              const summaryEvent = data as StatusSummaryEvent;
+              setSummary(summaryEvent.data);
+              onStatusSummary?.(summaryEvent.data);
+              onMessage?.(summaryEvent.data);
+              break;
+            }
+            
+            case "error": {
+              const errorEvent = data as ErrorEvent;
+              const err = new Error(
+                errorEvent.data.error || "Unknown SSE error"
+              );
+              setError(err);
+              onError?.(err);
+              break;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse SSE message:", e);
+        }
+      };
+      
+      eventSource.onerror = (event) => {
+        console.error("SSE connection error:", event);
+        
+        // Only attempt reconnect if not manually disconnected
+        if (!isManualDisconnect.current) {
+          eventSource.close();
+          eventSourceRef.current = null;
+          
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            updateConnectionState("disconnected");
+            const delay = getReconnectDelay();
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              setReconnectAttempts((prev) => prev + 1);
+              connect();
+            }, delay);
+          } else {
+            updateConnectionState("error");
+            const err = new Error(
+              `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
+            );
+            setError(err);
+            onError?.(err);
+          }
+        }
+      };
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      setError(err);
+      updateConnectionState("error");
+      onError?.(err);
+    }
+  }, [
+    getSseUrl,
+    reconnectAttempts,
+    getReconnectDelay,
+    updateConnectionState,
+    onMessage,
+    onJobUpdate,
+    onStatusSummary,
+    onError,
+  ]);
+
+  // Manual reconnect
+  const reconnect = useCallback(() => {
+    isManualDisconnect.current = false;
+    setReconnectAttempts(0);
+    setError(null);
+    disconnect();
+    connect();
+  }, [connect, disconnect]);
+
+  // Auto-connect on mount
+  useEffect(() => {
+    isManualDisconnect.current = false;
+    connect();
+    
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  // Reconnect when connector filter changes
+  useEffect(() => {
+    if (connectionState === "connected") {
+      reconnect();
+    }
+  }, [connectorId, connectorType]);
+
+  return {
+    jobs,
+    summary,
+    connectionState,
+    error,
+    reconnectAttempts,
+    reconnect,
+    disconnect,
+  };
+}
+
+export default useRefreshStream;
