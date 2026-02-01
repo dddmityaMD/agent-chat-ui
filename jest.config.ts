@@ -8,15 +8,11 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^.+\\.(css|scss|sass)$': 'identity-obj-proxy',
   },
+  transformIgnorePatterns: [
+    'node_modules/.pnpm/(?!(react-markdown|remark-|rehype-|vfile|unist|unified|mdast|micromark|hast|devlop|is-plain-obj|hast-util-|property-|space-|comma-|stringify-|character-|entities|to-|ccount|direction|longest-|markdown-|trim-|decode-|fault|gemoji|github-|zwitch|web-names|svg|trim|estree|acorn|escape|style)/)',
+  ],
   transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        tsconfig: {
-          jsx: 'react-jsx',
-        },
-      },
-    ],
+    '^.+\.[jt]sx?$': 'babel-jest',
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',
