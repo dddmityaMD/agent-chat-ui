@@ -5,9 +5,19 @@ import { useQueryState } from "nuqs";
 import { useCases, CaseSummary } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
 import { cn } from "@/lib/utils";
-import { EvidenceViewer, LinkedEvidence, EvidenceItem } from "@/components/evidence-viewer";
+import {
+  EvidenceViewer,
+  LinkedEvidence,
+  EvidenceItem,
+} from "@/components/evidence-viewer";
+import {
+  useCaseEvidenceState,
+  EVIDENCE_TYPE_MAP,
+  EVIDENCE_TYPE_LABELS,
+  type EvidenceType,
+} from "@/hooks/useCaseEvidenceState";
 
-type Check = { id: string; label: string; ok: boolean };
+type Check = { id: string; label: string; ok: boolean; requested: boolean };
 
 // Types for findings
 interface RootCause {
@@ -49,20 +59,33 @@ interface Findings {
   open_questions: OpenQuestion[];
 }
 
-function computeChecks(summary: CaseSummary | null): {
+function computeChecks(
+  summary: CaseSummary | null,
+  requestedTypes: Set<EvidenceType>,
+): {
   checks: Check[];
   missing: string[];
 } {
   const ev = (summary?.evidence ?? []) as Array<Record<string, unknown>>;
   const types = new Set(ev.map((e) => String(e.type ?? "")));
 
-  const checks: Check[] = [
-    { id: "sql", label: "SQL evidence", ok: types.has("SQL_QUERY_RESULT") },
-    { id: "git", label: "Git evidence", ok: types.has("GIT_DIFF") },
-    { id: "dbt", label: "dbt artifacts", ok: types.has("DBT_ARTIFACT") },
-    { id: "metabase", label: "Metabase API", ok: types.has("API_RESPONSE") },
+  // Define all check types
+  const checkTypes: { id: EvidenceType; label: string; evidenceType: string }[] = [
+    { id: "sql", label: EVIDENCE_TYPE_LABELS.sql, evidenceType: EVIDENCE_TYPE_MAP.sql },
+    { id: "git", label: EVIDENCE_TYPE_LABELS.git, evidenceType: EVIDENCE_TYPE_MAP.git },
+    { id: "dbt", label: EVIDENCE_TYPE_LABELS.dbt, evidenceType: EVIDENCE_TYPE_MAP.dbt },
+    { id: "metabase", label: EVIDENCE_TYPE_LABELS.metabase, evidenceType: EVIDENCE_TYPE_MAP.metabase },
   ];
-  const missing = checks.filter((c) => !c.ok).map((c) => c.id);
+
+  const checks: Check[] = checkTypes.map((c) => ({
+    id: c.id,
+    label: c.label,
+    ok: types.has(c.evidenceType),
+    requested: requestedTypes.has(c.id),
+  }));
+
+  // Only include as "missing" if both requested AND not found
+  const missing = checks.filter((c) => c.requested && !c.ok).map((c) => c.id);
   return { checks, missing };
 }
 
@@ -101,10 +124,22 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"findings" | "evidence">("findings");
+  const [activeTab, setActiveTab] = useState<"findings" | "evidence">(
+    "findings",
+  );
+
+  // Clean slate experience: Track which evidence types user has requested
+  const {
+    requestedTypes,
+    shouldShowMissingWarning,
+    getMissingMessage,
+    resetRequestedTypes,
+    inferTypesFromIntent,
+  } = useCaseEvidenceState();
 
   const refreshKey = useMemo(
-    () => `${caseId ?? ""}:${stream.messages.length}:${stream.isLoading ? 1 : 0}`,
+    () =>
+      `${caseId ?? ""}:${stream.messages.length}:${stream.isLoading ? 1 : 0}`,
     [caseId, stream.isLoading, stream.messages.length],
   );
 
@@ -114,20 +149,24 @@ export function CasePanel({ className }: { className?: string }) {
       setSummary(null);
       setFindings(null);
       setError(null);
+      resetRequestedTypes(); // Reset on case change - clean slate
       return;
     }
     setLoading(true);
-    
+
     // Fetch both summary and findings
-    Promise.all([
-      getCaseSummary(caseId),
-      getFindings(caseId).catch(() => null),
-    ])
+    Promise.all([getCaseSummary(caseId), getFindings(caseId).catch(() => null)])
       .then(([s, f]) => {
         if (cancelled) return;
         setSummary(s);
         setFindings(f?.latest as Findings | null);
         setError(null);
+
+        // Infer requested types from current intent if available
+        const currentIntent = s?.case?.current_intent;
+        if (currentIntent) {
+          inferTypesFromIntent(currentIntent);
+        }
       })
       .catch((e) => {
         if (cancelled) return;
@@ -142,9 +181,12 @@ export function CasePanel({ className }: { className?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [caseId, getCaseSummary, getFindings, refreshKey]);
+  }, [caseId, getCaseSummary, getFindings, refreshKey, resetRequestedTypes, inferTypesFromIntent]);
 
-  const { checks, missing: _missing } = useMemo(() => computeChecks(summary), [summary]);
+  const { checks, missing: _missing } = useMemo(
+    () => computeChecks(summary, requestedTypes),
+    [summary, requestedTypes],
+  );
   const mismatch = useMemo(() => computeMismatch(summary), [summary]);
 
   return (
@@ -152,11 +194,13 @@ export function CasePanel({ className }: { className?: string }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold">Case</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-muted-foreground text-xs">
             {caseId ? caseId.slice(0, 8) + "..." : "(none selected)"}
           </div>
         </div>
-        {loading && <div className="text-xs text-muted-foreground">Loading...</div>}
+        {loading && (
+          <div className="text-muted-foreground text-xs">Loading...</div>
+        )}
       </div>
 
       {error && (
@@ -167,20 +211,42 @@ export function CasePanel({ className }: { className?: string }) {
 
       {summary && (
         <>
-          {/* Readiness Section */}
+          {/* Readiness Section - Clean Slate (EVID-06) */}
           <div className="mt-4 grid gap-2">
             <div className="text-sm font-semibold">Readiness</div>
             <div className="rounded-md border bg-white p-3">
               <div className="mt-1 grid gap-1">
-                {checks.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between text-sm">
-                    <span>{c.label}</span>
-                    <span className={c.ok ? "text-green-700" : "text-amber-700"}>
-                      {c.ok ? "OK" : "Missing"}
-                    </span>
-                  </div>
-                ))}
+                {checks.map((c) => {
+                  // Clean slate: Only show "Missing" status if user explicitly requested this type
+                  const showMissing = shouldShowMissingWarning(c.id as EvidenceType, c.ok);
+                  const missingMessage = getMissingMessage(c.id as EvidenceType);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span>{c.label}</span>
+                      <span
+                        className={cn(
+                          c.ok && "text-green-700",
+                          showMissing && "text-amber-700",
+                          !c.ok && !showMissing && "text-gray-400",
+                        )}
+                        title={showMissing ? missingMessage || undefined : undefined}
+                      >
+                        {c.ok ? "OK" : showMissing ? "Not found" : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              {/* Show subtle message if no evidence types requested yet */}
+              {requestedTypes.size === 0 && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Ask a question to check for relevant evidence
+                </div>
+              )}
             </div>
           </div>
 
@@ -189,11 +255,18 @@ export function CasePanel({ className }: { className?: string }) {
             <div className="text-sm font-semibold">Mismatch</div>
             <div className="rounded-md border bg-white p-3">
               {Object.keys(mismatch).length === 0 ? (
-                <div className="text-sm text-muted-foreground">No comparison data yet</div>
+                <div className="text-muted-foreground text-sm">
+                  No comparison data yet
+                </div>
               ) : (
                 Object.entries(mismatch).map(([key, value]) => (
-                  <div key={key} className="text-sm">
-                    <span className="capitalize">{key.replace(/_/g, " ")}: </span>
+                  <div
+                    key={key}
+                    className="text-sm"
+                  >
+                    <span className="capitalize">
+                      {key.replace(/_/g, " ")}:{" "}
+                    </span>
                     <span className="font-mono">{value ?? "—"}</span>
                   </div>
                 ))
@@ -208,7 +281,7 @@ export function CasePanel({ className }: { className?: string }) {
                 "px-3 py-1 text-sm",
                 activeTab === "findings"
                   ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground",
               )}
               onClick={() => setActiveTab("findings")}
             >
@@ -220,7 +293,7 @@ export function CasePanel({ className }: { className?: string }) {
                 "px-3 py-1 text-sm",
                 activeTab === "evidence"
                   ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground",
               )}
               onClick={() => setActiveTab("evidence")}
             >
@@ -234,56 +307,81 @@ export function CasePanel({ className }: { className?: string }) {
               {/* Root Cause */}
               {findings?.root_cause ? (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3">
-                  <div className="text-sm font-semibold text-green-800">Root Cause</div>
-                  <div className="mt-1 text-sm">{findings.root_cause.statement}</div>
+                  <div className="text-sm font-semibold text-green-800">
+                    Root Cause
+                  </div>
+                  <div className="mt-1 text-sm">
+                    {findings.root_cause.statement}
+                  </div>
                   <div className="mt-1 text-xs text-green-700">
-                    Confidence: {Math.round(findings.root_cause.confidence * 100)}%
+                    Confidence:{" "}
+                    {Math.round(findings.root_cause.confidence * 100)}%
                   </div>
                   <LinkedEvidence
                     evidenceIds={findings.root_cause.evidence_ids}
-                    allEvidence={(summary.evidence ?? []) as unknown as EvidenceItem[]}
+                    allEvidence={
+                      (summary.evidence ?? []) as unknown as EvidenceItem[]
+                    }
                   />
                 </div>
               ) : (
                 <div className="rounded-md border bg-white p-3">
                   <div className="text-sm font-semibold">Root Cause</div>
-                  <div className="mt-1 text-sm text-muted-foreground">Not yet identified</div>
+                  <div className="text-muted-foreground mt-1 text-sm">
+                    Not yet identified
+                  </div>
                 </div>
               )}
 
               {/* Key Observations */}
-              {findings?.key_observations && findings.key_observations.length > 0 && (
-                <div className="rounded-md border bg-white p-3">
-                  <div className="text-sm font-semibold">Key Observations</div>
-                  <ul className="mt-2 space-y-3">
-                    {findings.key_observations.map((obs, i) => (
-                      <li key={i} className="text-sm">
-                        <div className="flex items-start gap-2">
-                          <span className="text-muted-foreground">•</span>
-                          <div className="flex-1">
-                            <span>{obs.statement}</span>
-                            <span className="ml-1 text-xs text-muted-foreground">
-                              ({Math.round(obs.confidence * 100)}%)
-                            </span>
-                            <LinkedEvidence
-                              evidenceIds={obs.evidence_ids}
-                              allEvidence={(summary.evidence ?? []) as unknown as EvidenceItem[]}
-                            />
+              {findings?.key_observations &&
+                findings.key_observations.length > 0 && (
+                  <div className="rounded-md border bg-white p-3">
+                    <div className="text-sm font-semibold">
+                      Key Observations
+                    </div>
+                    <ul className="mt-2 space-y-3">
+                      {findings.key_observations.map((obs, i) => (
+                        <li
+                          key={i}
+                          className="text-sm"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-muted-foreground">•</span>
+                            <div className="flex-1">
+                              <span>{obs.statement}</span>
+                              <span className="text-muted-foreground ml-1 text-xs">
+                                ({Math.round(obs.confidence * 100)}%)
+                              </span>
+                              <LinkedEvidence
+                                evidenceIds={obs.evidence_ids}
+                                allEvidence={
+                                  (summary.evidence ??
+                                    []) as unknown as EvidenceItem[]
+                                }
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
               {/* Recommended Fix */}
               {findings?.recommended_fix && (
                 <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-                  <div className="text-sm font-semibold text-blue-800">Recommended Fix</div>
+                  <div className="text-sm font-semibold text-blue-800">
+                    Recommended Fix
+                  </div>
                   <ol className="mt-2 list-inside list-decimal space-y-1">
                     {findings.recommended_fix.steps.map((step, i) => (
-                      <li key={i} className="text-sm">{step}</li>
+                      <li
+                        key={i}
+                        className="text-sm"
+                      >
+                        {step}
+                      </li>
                     ))}
                   </ol>
                   {findings.recommended_fix.risks.length > 0 && (
@@ -295,40 +393,55 @@ export function CasePanel({ className }: { className?: string }) {
               )}
 
               {/* Next Tests */}
-              {findings?.recommended_next_tests && findings.recommended_next_tests.length > 0 && (
-                <div className="rounded-md border bg-white p-3">
-                  <div className="text-sm font-semibold">Next Steps</div>
-                  <ul className="mt-2 space-y-2">
-                    {findings.recommended_next_tests.map((test, i) => (
-                      <li key={i} className="text-sm">
-                        <div className="font-medium">{test.test}</div>
-                        <div className="text-xs text-muted-foreground">{test.why}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {findings?.recommended_next_tests &&
+                findings.recommended_next_tests.length > 0 && (
+                  <div className="rounded-md border bg-white p-3">
+                    <div className="text-sm font-semibold">Next Steps</div>
+                    <ul className="mt-2 space-y-2">
+                      {findings.recommended_next_tests.map((test, i) => (
+                        <li
+                          key={i}
+                          className="text-sm"
+                        >
+                          <div className="font-medium">{test.test}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {test.why}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
               {/* Open Questions */}
-              {findings?.open_questions && findings.open_questions.length > 0 && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <div className="text-sm font-semibold text-amber-800">Open Questions</div>
-                  <ul className="mt-2 space-y-2">
-                    {findings.open_questions.map((q, i) => (
-                      <li key={i} className="text-sm">
-                        <div className="font-medium">{q.question}</div>
-                        <div className="text-xs text-amber-700">{q.why_missing}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {findings?.open_questions &&
+                findings.open_questions.length > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <div className="text-sm font-semibold text-amber-800">
+                      Open Questions
+                    </div>
+                    <ul className="mt-2 space-y-2">
+                      {findings.open_questions.map((q, i) => (
+                        <li
+                          key={i}
+                          className="text-sm"
+                        >
+                          <div className="font-medium">{q.question}</div>
+                          <div className="text-xs text-amber-700">
+                            {q.why_missing}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
               {/* No findings yet */}
               {!findings && (
                 <div className="rounded-md border bg-white p-3">
-                  <div className="text-sm text-muted-foreground">
-                    No findings yet. Start an investigation to generate findings.
+                  <div className="text-muted-foreground text-sm">
+                    No findings yet. Start an investigation to generate
+                    findings.
                   </div>
                 </div>
               )}
@@ -337,9 +450,12 @@ export function CasePanel({ className }: { className?: string }) {
 
           {/* Evidence Tab */}
           {activeTab === "evidence" && (
-            <div data-testid="evidence-panel" className="mt-3 space-y-2">
+            <div
+              data-testid="evidence-panel"
+              className="mt-3 space-y-2"
+            >
               {(summary.evidence ?? []).length === 0 ? (
-                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-white">
+                <div className="text-muted-foreground rounded-md border bg-white p-3 text-sm">
                   No evidence yet.
                 </div>
               ) : (
