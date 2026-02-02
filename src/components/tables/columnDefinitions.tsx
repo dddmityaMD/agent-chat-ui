@@ -2,76 +2,41 @@
 
 import React from "react";
 import type { ColDef, ICellRendererParams, GridApi } from "ag-grid-community";
-import { cn } from "@/lib/utils";
+import { ExternalLink } from "lucide-react";
+
+// Import extracted cell renderers
 import {
-  ExternalLink,
-  Database,
-  FileCode,
-  GitBranch,
-  LayoutDashboard,
-  BarChart3,
-  Table,
-  Columns,
-} from "lucide-react";
+  BadgeCell,
+  TimestampCell,
+  LinkCell,
+  EntityIconCell,
+  DashboardCardBadgeCell,
+  createDeepLinkCellRenderer,
+} from "./cell-renderers";
 
 // ============================================================================
-// Cell Renderers
+// Legacy Cell Renderers (re-exported for backward compatibility)
 // ============================================================================
 
-export const LinkCellRenderer = (params: ICellRendererParams) => {
-  if (!params.value) return null;
+/**
+ * @deprecated Use BadgeCell from cell-renderers instead
+ */
+export const BadgeCellRenderer = BadgeCell;
 
-  const { url, text, icon } =
-    typeof params.value === "object"
-      ? params.value
-      : { url: params.value, text: params.value, icon: false };
+/**
+ * @deprecated Use TimestampCell from cell-renderers instead
+ */
+export const TimestampCellRenderer = TimestampCell;
 
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-primary hover:underline"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {icon && <ExternalLink className="h-3 w-3" />}
-      <span className="truncate">{text}</span>
-    </a>
-  );
-};
+/**
+ * @deprecated Use LinkCell from cell-renderers instead
+ */
+export const LinkCellRenderer = LinkCell;
 
-export const BadgeCellRenderer = (params: ICellRendererParams) => {
-  if (!params.value) return null;
-
-  const status = String(params.value).toLowerCase();
-
-  const variantClasses: Record<string, string> = {
-    active: "bg-green-100 text-green-800 border-green-200",
-    deprecated: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    error: "bg-red-100 text-red-800 border-red-200",
-    draft: "bg-gray-100 text-gray-800 border-gray-200",
-    published: "bg-blue-100 text-blue-800 border-blue-200",
-    archived: "bg-slate-100 text-slate-800 border-slate-200",
-    success: "bg-green-100 text-green-800 border-green-200",
-    failed: "bg-red-100 text-red-800 border-red-200",
-    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  };
-
-  const classes =
-    variantClasses[status] ||
-    "bg-gray-100 text-gray-800 border-gray-200";
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border",
-        classes
-      )}
-    >
-      {params.value}
-    </span>
-  );
-};
+/**
+ * @deprecated Use EntityIconCell from cell-renderers instead
+ */
+export const EntityIconRenderer = EntityIconCell;
 
 export const MatchReasonCellRenderer = (params: ICellRendererParams) => {
   const matchReason = params.data?.match_reason;
@@ -80,57 +45,15 @@ export const MatchReasonCellRenderer = (params: ICellRendererParams) => {
   return (
     <span
       title={matchReason || "No match reason provided"}
-      className="truncate cursor-help border-b border-dotted border-muted-foreground"
+      className="border-muted-foreground cursor-help truncate border-b border-dotted"
     >
       {displayValue}
     </span>
   );
 };
 
-export const TimestampCellRenderer = (params: ICellRendererParams) => {
-  if (!params.value) return null;
-
-  const date = new Date(params.value);
-  if (isNaN(date.getTime())) return <span>{params.value}</span>;
-
-  const formatted = date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  return (
-    <span title={date.toISOString()} className="text-muted-foreground">
-      {formatted}
-    </span>
-  );
-};
-
-export const EntityIconRenderer = (params: ICellRendererParams) => {
-  const entityType = params.value;
-
-  const iconMap: Record<string, React.ReactNode> = {
-    table: <Table className="h-4 w-4 text-blue-600" />,
-    column: <Columns className="h-4 w-4 text-purple-600" />,
-    report: <BarChart3 className="h-4 w-4 text-green-600" />,
-    dashboard: <LayoutDashboard className="h-4 w-4 text-orange-600" />,
-    dbt_model: <FileCode className="h-4 w-4 text-indigo-600" />,
-    git_commit: <GitBranch className="h-4 w-4 text-red-600" />,
-    database: <Database className="h-4 w-4 text-blue-600" />,
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      {iconMap[entityType] || <Database className="h-4 w-4 text-gray-600" />}
-      <span className="capitalize">{entityType?.replace(/_/g, " ")}</span>
-    </div>
-  );
-};
-
 export const ActionsCellRenderer = (params: ICellRendererParams) => {
-  const { onView, onTrace } = params.data?.actions || {};
+  const { onView } = params.data?.actions || {};
 
   return (
     <div className="flex items-center gap-1">
@@ -140,7 +63,7 @@ export const ActionsCellRenderer = (params: ICellRendererParams) => {
             e.stopPropagation();
             onView(params.data);
           }}
-          className="p-1 hover:bg-muted rounded"
+          className="hover:bg-muted rounded p-1"
           title="View details"
         >
           <ExternalLink className="h-3 w-3" />
@@ -151,10 +74,32 @@ export const ActionsCellRenderer = (params: ICellRendererParams) => {
 };
 
 // ============================================================================
+// Deep Link Cell Renderers (using new system)
+// ============================================================================
+
+const MetabaseCardRenderer = createDeepLinkCellRenderer(
+  "metabase_card",
+  "View Card",
+);
+
+const MetabaseDashboardRenderer = createDeepLinkCellRenderer(
+  "metabase_dashboard",
+  "View Dashboard",
+);
+
+const DbtModelDocsRenderer = createDeepLinkCellRenderer("dbt_model", "Docs");
+
+const GitCommitRenderer = createDeepLinkCellRenderer("git_commit", "View");
+
+// ============================================================================
 // Common Column Types
 // ============================================================================
 
-export const TextColumn = (field: string, headerName: string, width = 150): ColDef => ({
+export const TextColumn = (
+  field: string,
+  headerName: string,
+  width = 150,
+): ColDef => ({
   field,
   headerName,
   width,
@@ -165,24 +110,24 @@ export const TextColumn = (field: string, headerName: string, width = 150): ColD
 export const LinkColumn = (
   field: string,
   headerName: string,
-  width = 200
+  width = 200,
 ): ColDef => ({
   field,
   headerName,
   width,
-  cellRenderer: LinkCellRenderer,
+  cellRenderer: LinkCell,
   filter: "agTextColumnFilter",
 });
 
 export const BadgeColumn = (
   field: string,
   headerName: string,
-  width = 120
+  width = 120,
 ): ColDef => ({
   field,
   headerName,
   width,
-  cellRenderer: BadgeCellRenderer,
+  cellRenderer: BadgeCell,
   filter: "agTextColumnFilter",
   cellClass: "flex items-center",
 });
@@ -190,12 +135,12 @@ export const BadgeColumn = (
 export const TimestampColumn = (
   field: string,
   headerName: string,
-  width = 180
+  width = 180,
 ): ColDef => ({
   field,
   headerName,
   width,
-  cellRenderer: TimestampCellRenderer,
+  cellRenderer: TimestampCell,
   filter: "agDateColumnFilter",
   sort: "desc",
 });
@@ -203,7 +148,7 @@ export const TimestampColumn = (
 export const MatchReasonColumn = (
   field: string,
   headerName: string,
-  width = 150
+  width = 150,
 ): ColDef => ({
   field,
   headerName,
@@ -231,7 +176,7 @@ export function createTableColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 120,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     TextColumn("schema_name", "Schema", 120),
@@ -251,7 +196,7 @@ export function createColumnColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 100,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     TextColumn("schema_name", "Schema", 120),
@@ -272,12 +217,20 @@ export function createReportColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 100,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     TextColumn("name", "Report Name", 250),
     TextColumn("description", "Description", 300),
     TextColumn("collection", "Collection", 150),
+    {
+      field: "parent_dashboards",
+      headerName: "Dashboards",
+      width: 200,
+      cellRenderer: DashboardCardBadgeCell,
+      sortable: false,
+      filter: false,
+    },
     BadgeColumn("status", "Status", 100),
     TimestampColumn("created_at", "Created", 160),
     TimestampColumn("updated_at", "Updated", 160),
@@ -286,22 +239,7 @@ export function createReportColumnDefs(): ColDef[] {
       field: "card_id",
       headerName: "Metabase Link",
       width: 150,
-      cellRenderer: (params: ICellRendererParams) => {
-        if (!params.value) return null;
-        const url = `/card/${params.value}`;
-        return (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <BarChart3 className="h-3 w-3" />
-            <span>View Card</span>
-          </a>
-        );
-      },
+      cellRenderer: MetabaseCardRenderer,
     },
     ActionsColumn(),
   ];
@@ -313,11 +251,19 @@ export function createDashboardColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 100,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     TextColumn("name", "Dashboard Name", 250),
     TextColumn("description", "Description", 300),
+    {
+      field: "dashboard_cards",
+      headerName: "Cards",
+      width: 250,
+      cellRenderer: DashboardCardBadgeCell,
+      sortable: false,
+      filter: false,
+    },
     BadgeColumn("status", "Status", 100),
     TimestampColumn("created_at", "Created", 160),
     TimestampColumn("updated_at", "Updated", 160),
@@ -326,22 +272,7 @@ export function createDashboardColumnDefs(): ColDef[] {
       field: "dashboard_id",
       headerName: "Metabase Link",
       width: 150,
-      cellRenderer: (params: ICellRendererParams) => {
-        if (!params.value) return null;
-        const url = `/dashboard/${params.value}`;
-        return (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <LayoutDashboard className="h-3 w-3" />
-            <span>View Dashboard</span>
-          </a>
-        );
-      },
+      cellRenderer: MetabaseDashboardRenderer,
     },
     ActionsColumn(),
   ];
@@ -353,7 +284,7 @@ export function createDbtModelColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 100,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     TextColumn("name", "Model Name", 250),
@@ -367,21 +298,7 @@ export function createDbtModelColumnDefs(): ColDef[] {
       field: "documentation_url",
       headerName: "Documentation",
       width: 150,
-      cellRenderer: (params: ICellRendererParams) => {
-        if (!params.value) return null;
-        return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <FileCode className="h-3 w-3" />
-            <span>Docs</span>
-          </a>
-        );
-      },
+      cellRenderer: DbtModelDocsRenderer,
     },
     ActionsColumn(),
   ];
@@ -393,7 +310,7 @@ export function createGitCommitColumnDefs(): ColDef[] {
       field: "entity_type",
       headerName: "Type",
       width: 100,
-      cellRenderer: EntityIconRenderer,
+      cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
     },
     {
@@ -404,7 +321,7 @@ export function createGitCommitColumnDefs(): ColDef[] {
         if (!params.value) return null;
         const shortHash = String(params.value).slice(0, 7);
         return (
-          <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">
+          <code className="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">
             {shortHash}
           </code>
         );
@@ -419,21 +336,7 @@ export function createGitCommitColumnDefs(): ColDef[] {
       field: "commit_url",
       headerName: "Git Link",
       width: 120,
-      cellRenderer: (params: ICellRendererParams) => {
-        if (!params.value) return null;
-        return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GitBranch className="h-3 w-3" />
-            <span>View</span>
-          </a>
-        );
-      },
+      cellRenderer: GitCommitRenderer,
     },
     ActionsColumn(),
   ];
@@ -443,7 +346,10 @@ export function createGitCommitColumnDefs(): ColDef[] {
 // Export Utilities
 // ============================================================================
 
-export function exportToCSV(gridApi: GridApi, filename = "evidence-export.csv") {
+export function exportToCSV(
+  gridApi: GridApi,
+  filename = "evidence-export.csv",
+) {
   const params = {
     fileName: filename,
     columnSeparator: ",",

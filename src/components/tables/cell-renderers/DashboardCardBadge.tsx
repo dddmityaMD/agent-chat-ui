@@ -144,7 +144,9 @@ export function DashboardCardBadgeCell(
   // Determine entity type from column field or data
   const field = colDef?.field;
   const isForDashboard = field === "dashboard_cards" || data?.entity_type === "dashboard";
-  const isForCard = field === "parent_dashboards" || data?.entity_type === "report" || data?.entity_type === "card";
+  // isForCard is used implicitly: if not isForDashboard, treat as card row
+  const _isForCard = field === "parent_dashboards" || data?.entity_type === "report" || data?.entity_type === "card";
+  void _isForCard; // Suppress unused variable warning - kept for documentation
 
   // Get relations from row data if available
   const rowRelations: DashboardCardRelation[] | undefined = isForDashboard
