@@ -371,16 +371,26 @@ describe("Column Definitions", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("MatchReasonCellRenderer shows tooltip", () => {
+  it("MatchReasonCellRenderer shows match value with tooltip trigger", () => {
     const params = {
-      value: "Match text",
-      data: { match_reason: "This is why it matched" },
+      value: "85%",
+      data: {
+        match_reason: {
+          matched_fields: ["name", "description"],
+          matched_terms: ["revenue"],
+          confidence: 0.85,
+          explanation: "Matched: revenue in name, description",
+        },
+      },
     } as any;
 
     render(<MatchReasonCellRenderer {...params} />);
-    const element = screen.getByTitle("This is why it matched");
+    // The new MatchReasonCell uses Radix Tooltip, not title attribute
+    // Check that the display value is shown
+    const element = screen.getByText("85%");
     expect(element).toBeInTheDocument();
-    expect(element).toHaveTextContent("Match text");
+    // Check it has the tooltip trigger data attribute
+    expect(element).toHaveAttribute("data-slot", "tooltip-trigger");
   });
 });
 
