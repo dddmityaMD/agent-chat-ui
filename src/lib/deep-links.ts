@@ -213,11 +213,12 @@ export function generateDeepLinkUrl(
       return generateDbtUrl("model", targetId);
     case "git_commit":
       return generateGitUrl("commit", targetId, fullConfig.gitRepoUrl);
-    case "git_file":
+    case "git_file": {
       // For git_file, targetId format is "ref:filepath"
       const [ref, ...pathParts] = targetId.split(":");
       const filePath = pathParts.join(":");
       return generateGitUrl("file", ref, fullConfig.gitRepoUrl, filePath);
+    }
     default:
       return "";
   }
