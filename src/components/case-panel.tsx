@@ -16,6 +16,7 @@ import {
   EVIDENCE_TYPE_LABELS,
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
+import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 
 type Check = { id: string; label: string; ok: boolean; requested: boolean };
 
@@ -211,9 +212,18 @@ export function CasePanel({ className }: { className?: string }) {
 
       {summary && (
         <>
-          {/* Readiness Section - Clean Slate (EVID-06) */}
+          {/* Readiness Section - Full ReadinessPanel with connector health (EVID-05) */}
+          <div className="mt-4">
+            <ReadinessPanel
+              showParallelExecution={true}
+              enabled={!!summary}
+              className="border-0 shadow-none"
+            />
+          </div>
+
+          {/* Evidence Type Checklist - Clean Slate (EVID-06) */}
           <div className="mt-4 grid gap-2">
-            <div className="text-sm font-semibold">Readiness</div>
+            <div className="text-sm font-semibold">Evidence Status</div>
             <div className="rounded-md border bg-white p-3">
               <div className="mt-1 grid gap-1">
                 {checks.map((c) => {
