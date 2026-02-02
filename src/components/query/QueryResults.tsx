@@ -3,8 +3,7 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarkdownText } from "@/components/thread/markdown-text";
-import { EvidenceTable } from "@/components/tables/EvidenceTable";
-import { LoadMoreButton } from "@/components/tables/LoadMoreButton";
+import { PaginatedEvidenceTable } from "@/components/tables/PaginatedEvidenceTable";
 import {
   createTableColumnDefs,
   createColumnColumnDefs,
@@ -37,13 +36,18 @@ export interface QueryResultsProps {
   evidence: EvidenceItem[];
   answer?: string;
   isLoading: boolean;
-  hasMore: boolean;
-  onLoadMore: () => void;
+  /** @deprecated Pagination is now handled internally by PaginatedEvidenceTable */
+  hasMore?: boolean;
+  /** @deprecated Use onPageChange for pagination events */
+  onLoadMore?: () => void;
   entityType: EntityType;
-  loadedCount: number;
+  /** @deprecated Use evidence.length */
+  loadedCount?: number;
   totalCount?: number;
   className?: string;
   error?: Error;
+  /** Callback when page changes in paginated table */
+  onPageChange?: (page: number) => void;
 }
 
 function getColumnDefsForEntityType(entityType: EntityType): ColDef[] {
@@ -98,16 +102,16 @@ function AnswerSection({
   if (!answer && !isLoading) return null;
 
   return (
-    <Card className="mb-4 border-l-4 border-l-primary">
+    <Card className="border-l-primary mb-4 border-l-4">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-primary" />
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <Lightbulb className="text-primary h-4 w-4" />
           Answer
         </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && !answer ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Synthesizing answer...</span>
           </div>
@@ -121,19 +125,15 @@ function AnswerSection({
   );
 }
 
-function EmptyState({
-  hasFilters = false,
-}: {
-  hasFilters?: boolean;
-}) {
+function EmptyState({ hasFilters = false }: { hasFilters?: boolean }) {
   return (
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center justify-center py-12">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <FileSearch className="h-8 w-8 text-muted-foreground" />
+        <div className="bg-muted mb-4 rounded-full p-4">
+          <FileSearch className="text-muted-foreground h-8 w-8" />
         </div>
-        <h3 className="text-lg font-medium mb-2">No results found</h3>
-        <p className="text-sm text-muted-foreground text-center max-w-sm">
+        <h3 className="mb-2 text-lg font-medium">No results found</h3>
+        <p className="text-muted-foreground max-w-sm text-center text-sm">
           {hasFilters
             ? "Try adjusting your filters or search criteria to find what you're looking for."
             : "Your query didn't return any results. Try rephrasing or checking your search terms."}
@@ -147,13 +147,13 @@ function ErrorState({ error }: { error?: Error }) {
   return (
     <Card className="border-destructive">
       <CardContent className="flex flex-col items-center justify-center py-8">
-        <div className="rounded-full bg-destructive/10 p-4 mb-4">
-          <AlertCircle className="h-8 w-8 text-destructive" />
+        <div className="bg-destructive/10 mb-4 rounded-full p-4">
+          <AlertCircle className="text-destructive h-8 w-8" />
         </div>
-        <h3 className="text-lg font-medium mb-2 text-destructive">
+        <h3 className="text-destructive mb-2 text-lg font-medium">
           Query Error
         </h3>
-        <p className="text-sm text-muted-foreground text-center max-w-sm">
+        <p className="text-muted-foreground max-w-sm text-center text-sm">
           {error?.message ||
             "An error occurred while processing your query. Please try again."}
         </p>
@@ -166,9 +166,9 @@ function LoadingState() {
   return (
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <h3 className="text-lg font-medium mb-2">Loading results...</h3>
-        <p className="text-sm text-muted-foreground">
+        <Loader2 className="text-primary mb-4 h-8 w-8 animate-spin" />
+        <h3 className="mb-2 text-lg font-medium">Loading results...</h3>
+        <p className="text-muted-foreground text-sm">
           Collecting evidence from connected sources
         </p>
       </CardContent>
@@ -180,18 +180,19 @@ export function QueryResults({
   evidence,
   answer,
   isLoading,
-  hasMore,
-  onLoadMore,
+  hasMore: _hasMore,
+  onLoadMore: _onLoadMore,
   entityType,
-  loadedCount,
+  loadedCount: _loadedCount,
   totalCount,
   className,
   error,
+  onPageChange,
 }: QueryResultsProps) {
   // Get appropriate column definitions
   const columnDefs = useMemo(
     () => getColumnDefsForEntityType(entityType),
-    [entityType]
+    [entityType],
   );
 
   // Transform evidence to row data
@@ -202,11 +203,17 @@ export function QueryResults({
     }));
   }, [evidence]);
 
+  // Use evidence length for count display
+  const actualTotalCount = totalCount ?? evidence.length;
+
   // Handle error state
   if (error) {
     return (
       <div className={cn("space-y-4", className)}>
-        <AnswerSection answer={answer} isLoading={isLoading} />
+        <AnswerSection
+          answer={answer}
+          isLoading={isLoading}
+        />
         <ErrorState error={error} />
       </div>
     );
@@ -233,42 +240,33 @@ export function QueryResults({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Answer Section */}
-      <AnswerSection answer={answer} isLoading={isLoading} />
+      <AnswerSection
+        answer={answer}
+        isLoading={isLoading}
+      />
 
       {/* Evidence Table */}
       {evidence.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Database className="text-muted-foreground h-4 w-4" />
               Evidence
-              {totalCount !== undefined && (
-                <span className="text-xs text-muted-foreground font-normal">
-                  ({loadedCount} of {totalCount})
-                </span>
-              )}
+              <span className="text-muted-foreground text-xs font-normal">
+                ({actualTotalCount} total)
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <EvidenceTable
+            <PaginatedEvidenceTable
               rowData={rowData}
               columnDefs={columnDefs}
               loading={isLoading && evidence.length > 0}
+              totalCount={actualTotalCount}
               height={400}
               emptyMessage="No evidence matches your filters"
+              onPageChange={onPageChange}
             />
-
-            {/* Load More Button */}
-            {(hasMore || isLoading) && (
-              <LoadMoreButton
-                hasMore={hasMore}
-                loading={isLoading}
-                loadedCount={loadedCount}
-                totalCount={totalCount}
-                onLoadMore={onLoadMore}
-                batchSize={10}
-              />
-            )}
           </CardContent>
         </Card>
       )}
