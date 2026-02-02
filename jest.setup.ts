@@ -40,31 +40,35 @@ Object.defineProperty(window, 'ResizeObserver', {
 });
 
 // Mock WebSocket
-global.WebSocket = class MockWebSocket {
+class MockWebSocket {
   static CONNECTING = 0;
   static OPEN = 1;
   static CLOSING = 2;
   static CLOSED = 3;
 
+  url: string;
   readyState = 0;
   onopen: ((event: Event) => void) | null = null;
   onclose: ((event: CloseEvent) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
 
-  constructor(public url: string | URL, public protocols?: string | string[]) {
+  constructor(url: string | URL) {
+    this.url = typeof url === 'string' ? url : url.toString();
     setTimeout(() => {
       this.readyState = 1;
       this.onopen?.(new Event('open'));
     }, 0);
   }
 
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+  send(_data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
     // Mock implementation
   }
 
-  close(code?: number, reason?: string): void {
+  close(_code?: number, _reason?: string): void {
     this.readyState = 3;
     this.onclose?.(new CloseEvent('close'));
   }
-} as unknown as typeof WebSocket;
+}
+
+global.WebSocket = MockWebSocket as unknown as typeof WebSocket;

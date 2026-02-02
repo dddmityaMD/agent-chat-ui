@@ -7,13 +7,29 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^.+\\.(css|scss|sass)$': 'identity-obj-proxy',
+    '^react-markdown$': '<rootDir>/tests/__mocks__/react-markdown.tsx',
+    '^remark-gfm$': '<rootDir>/tests/__mocks__/remark-gfm.ts',
+    '^rehype-katex$': '<rootDir>/tests/__mocks__/rehype-katex.ts',
+    '^remark-math$': '<rootDir>/tests/__mocks__/remark-math.ts',
+    '^react-syntax-highlighter$': '<rootDir>/tests/__mocks__/react-syntax-highlighter.tsx',
+    '^react-syntax-highlighter/(.*)$': '<rootDir>/tests/__mocks__/react-syntax-highlighter.tsx',
   },
   transformIgnorePatterns: [
     'node_modules/.pnpm/(?!(react-markdown|remark-|rehype-|vfile|unist|unified|mdast|micromark|hast|devlop|is-plain-obj|hast-util-|property-|space-|comma-|stringify-|character-|entities|to-|ccount|direction|longest-|markdown-|trim-|decode-|fault|gemoji|github-|zwitch|web-names|svg|trim|estree|acorn|escape|style)/)',
   ],
   transform: {
-    '^.+\.[jt]sx?$': 'babel-jest',
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          jsx: 'react-jsx',
+        },
+      },
+    ],
+    '^.+\\.(js|jsx)$': 'babel-jest',
   },
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx',
