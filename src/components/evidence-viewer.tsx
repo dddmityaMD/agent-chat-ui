@@ -5,6 +5,7 @@ import { MarkdownText } from "@/components/thread/markdown-text";
 import { ChevronDownIcon, ChevronRightIcon, DatabaseIcon, GitBranchIcon, FileCodeIcon, GlobeIcon, BarChart2, Layers, ExternalLink } from "lucide-react";
 import { generateDeepLinkUrl, DeepLinkType } from "@/lib/deep-links";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { DeduplicationIndicator, isDebugMode } from "@/components/evidence/DeduplicationIndicator";
 
 export interface EvidenceItem {
   evidence_id?: string;
@@ -262,6 +263,14 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
           <span className="font-medium text-sm flex-1 truncate">
             {evidence.title || evidence.type}
           </span>
+          {evidence.is_duplicate && (
+            <DeduplicationIndicator
+              isDuplicate={evidence.is_duplicate}
+              contentHash={evidence.content_hash}
+              showHash={isDebugMode()}
+              className="ml-1"
+            />
+          )}
         </button>
 
         {/* Deep link icon with tooltip */}
