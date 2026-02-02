@@ -14,6 +14,30 @@ import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
+import { QueryResults, EntityType } from "@/components/query";
+
+// Type for metadata_results from sais_ui payload
+interface MetadataResults {
+  entity_type: EntityType;
+  items: Array<Record<string, unknown>>;
+  total: number;
+}
+
+// Type guard for sais_ui payload
+function hasMetadataResults(
+  saisUi: unknown
+): saisUi is { metadata_results: MetadataResults } {
+  if (!saisUi || typeof saisUi !== "object") return false;
+  const obj = saisUi as Record<string, unknown>;
+  if (!obj.metadata_results || typeof obj.metadata_results !== "object")
+    return false;
+  const mr = obj.metadata_results as Record<string, unknown>;
+  return (
+    typeof mr.entity_type === "string" &&
+    Array.isArray(mr.items) &&
+    typeof mr.total === "number"
+  );
+}
 
 function CustomComponent({
   message,
@@ -123,6 +147,12 @@ export function AssistantMessage({
   const meta = message ? thread.getMessagesMetadata(message) : undefined;
   const threadInterrupt = thread.interrupt;
 
+  // Extract metadata_results from sais_ui for QueryResults rendering
+  const saisUi = thread.values?.sais_ui;
+  const metadataResults = hasMetadataResults(saisUi)
+    ? saisUi.metadata_results
+    : null;
+
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
     ? parseAnthropicStreamedToolCalls(content)
@@ -162,6 +192,22 @@ export function AssistantMessage({
             {contentString.length > 0 && (
               <div className="py-1">
                 <MarkdownText>{contentString}</MarkdownText>
+              </div>
+            )}
+
+            {/* Render QueryResults for metadata responses with structured data */}
+            {isLastMessage && metadataResults && metadataResults.items.length > 0 && (
+              <div className="mt-4">
+                <QueryResults
+                  evidence={metadataResults.items.map((item, idx) => ({
+                    id: String(item.id || item.canonical_key || `item-${idx}`),
+                    entity_type: metadataResults.entity_type,
+                    ...item,
+                  }))}
+                  entityType={metadataResults.entity_type}
+                  totalCount={metadataResults.total}
+                  isLoading={isLoading}
+                />
               </div>
             )}
 
