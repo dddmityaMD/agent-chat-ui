@@ -325,9 +325,12 @@ describe("Column Definitions", () => {
   it("createReportColumnDefs returns correct columns", () => {
     const columns = createReportColumnDefs();
 
-    expect(columns).toHaveLength(10);
+    // 11 columns: entity_type, name, description, collection, parent_dashboards,
+    // status, created_at, updated_at, relevance_score, card_id, actions
+    expect(columns).toHaveLength(11);
     expect(columns.some((col) => col.field === "card_id")).toBe(true);
     expect(columns.some((col) => col.field === "name")).toBe(true);
+    expect(columns.some((col) => col.field === "parent_dashboards")).toBe(true);
   });
 
   it("BadgeCellRenderer renders with correct variant", () => {

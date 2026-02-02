@@ -19,3 +19,9 @@ export type { DeepLinkCellProps } from "./DeepLinkCell";
 
 export { EntityIconCell } from "./EntityIconCell";
 export type { EntityIconCellProps } from "./EntityIconCell";
+
+export {
+  DashboardCardBadge,
+  DashboardCardBadgeCell,
+} from "./DashboardCardBadge";
+export type { DashboardCardBadgeProps } from "./DashboardCardBadge";
