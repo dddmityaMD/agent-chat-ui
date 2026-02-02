@@ -1,5 +1,6 @@
 export { EvidenceTable } from './EvidenceTable';
 export { LoadMoreButton } from './LoadMoreButton';
+export { PaginatedEvidenceTable } from './PaginatedEvidenceTable';
 export {
   createTableColumnDefs,
   createColumnColumnDefs,
@@ -17,3 +18,4 @@ export {
 
 export type { EvidenceRow, EvidenceTableProps } from './EvidenceTable';
 export type { LoadMoreButtonProps } from './LoadMoreButton';
+export type { PaginatedEvidenceTableProps } from './PaginatedEvidenceTable';
