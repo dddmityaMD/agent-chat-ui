@@ -113,7 +113,7 @@ function AnswerSection({
           </div>
         ) : (
           <div className="prose prose-sm max-w-none">
-            <MarkdownText>{answer}</MarkdownText>
+            <MarkdownText>{answer || ""}</MarkdownText>
           </div>
         )}
       </CardContent>

@@ -169,19 +169,19 @@ export function useQueryStreaming(
 
         switch (message.type) {
           case "status": {
-            const statusMsg = message as StatusMessage;
+            const statusMsg = message as unknown as StatusMessage;
             updateStatus(statusMsg.status);
             break;
           }
 
           case "progress": {
-            const progressMsg = message as ProgressMessage;
+            const progressMsg = message as unknown as ProgressMessage;
             setProgress(progressMsg.progress);
             break;
           }
 
           case "evidence": {
-            const evidenceMsg = message as EvidenceMessage;
+            const evidenceMsg = message as unknown as EvidenceMessage;
             const newItems = evidenceMsg.items || [];
 
             // Accumulate evidence
@@ -207,7 +207,7 @@ export function useQueryStreaming(
           }
 
           case "clarification": {
-            const clarificationMsg = message as ClarificationMessage;
+            const clarificationMsg = message as unknown as ClarificationMessage;
             setClarificationOptions(clarificationMsg.options);
             updateStatus("clarifying");
             onClarificationNeeded?.(clarificationMsg.options);
@@ -215,7 +215,7 @@ export function useQueryStreaming(
           }
 
           case "answer": {
-            const answerMsg = message as AnswerMessage;
+            const answerMsg = message as unknown as AnswerMessage;
             setAnswer(answerMsg.answer);
             updateStatus("complete");
             onComplete?.({
@@ -228,7 +228,7 @@ export function useQueryStreaming(
           }
 
           case "error": {
-            const errorMsg = message as ErrorMessage;
+            const errorMsg = message as unknown as ErrorMessage;
             const err = new Error(errorMsg.error);
             setError(err);
             updateStatus("error");
