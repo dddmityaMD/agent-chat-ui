@@ -12,6 +12,7 @@ import {
   EntityIconCell,
   DashboardCardBadgeCell,
   createDeepLinkCellRenderer,
+  MatchReasonCell,
 } from "./cell-renderers";
 
 // ============================================================================
@@ -38,19 +39,10 @@ export const LinkCellRenderer = LinkCell;
  */
 export const EntityIconRenderer = EntityIconCell;
 
-export const MatchReasonCellRenderer = (params: ICellRendererParams) => {
-  const matchReason = params.data?.match_reason;
-  const displayValue = params.value || "N/A";
-
-  return (
-    <span
-      title={matchReason || "No match reason provided"}
-      className="border-muted-foreground cursor-help truncate border-b border-dotted"
-    >
-      {displayValue}
-    </span>
-  );
-};
+/**
+ * @deprecated Use MatchReasonCell from cell-renderers instead
+ */
+export const MatchReasonCellRenderer = MatchReasonCell;
 
 export const ActionsCellRenderer = (params: ICellRendererParams) => {
   const { onView } = params.data?.actions || {};
@@ -145,16 +137,30 @@ export const TimestampColumn = (
   sort: "desc",
 });
 
+/**
+ * Column definition for match reason/relevance score display.
+ * Uses MatchReasonCell component with tooltip support.
+ *
+ * Expected row data fields:
+ * - [field]: The primary display value (e.g., relevance score)
+ * - match_reason: MatchReason object with matchedFields, matchedTerms, confidence
+ * - is_duplicate: boolean for deduplication indicator
+ * - content_hash: string for debug mode hash display
+ */
 export const MatchReasonColumn = (
   field: string,
   headerName: string,
   width = 150,
+  expandable = false,
 ): ColDef => ({
   field,
   headerName,
   width,
-  cellRenderer: MatchReasonCellRenderer,
-  tooltipField: "match_reason",
+  cellRenderer: MatchReasonCell,
+  cellRendererParams: {
+    expandable,
+  },
+  tooltipField: "match_reason_detailed",
 });
 
 export const ActionsColumn = (width = 80): ColDef => ({
