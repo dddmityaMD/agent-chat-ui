@@ -31,7 +31,6 @@ import type {
   NodeTypes,
   EdgeTypes,
   Node,
-  Edge,
   NodeMouseHandler,
   Viewport,
 } from "@xyflow/react";
