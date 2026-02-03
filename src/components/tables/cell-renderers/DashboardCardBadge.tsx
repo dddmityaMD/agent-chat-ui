@@ -89,7 +89,7 @@ export function DashboardCardBadge({
   const IconComponent = entityType === "dashboard" ? BarChart3 : LayoutDashboard;
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-1", className)}>
+    <div className={cn("flex flex-wrap items-center gap-1", className)} data-testid="relationship-badges">
       {visibleBadges.map((relation) => {
         const truncatedName = truncateName(relation.name);
         const showTooltip = relation.name.length > MAX_NAME_LENGTH;
@@ -104,6 +104,7 @@ export function DashboardCardBadge({
               "text-xs font-medium cursor-pointer transition-colors",
               badgeClasses,
             )}
+            data-testid={`relationship-badge-${relation.type}`}
           >
             <IconComponent className="h-3 w-3" />
             <span className="truncate max-w-[120px]">{truncatedName}</span>
@@ -119,6 +120,7 @@ export function DashboardCardBadge({
             "bg-gray-100 text-gray-600 border-gray-200",
           )}
           title={`${overflowCount} more ${entityType === "dashboard" ? "cards" : "dashboards"}`}
+          data-testid="overflow-badge"
         >
           +{overflowCount} more
         </span>

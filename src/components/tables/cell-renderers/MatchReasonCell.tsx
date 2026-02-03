@@ -84,7 +84,7 @@ function SimpleMatchReasonCell({
   const showDebug = isDebugMode();
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-1.5" data-testid="match-reason-cell">
       {/* Main display value (usually relevance score) */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -151,11 +151,12 @@ function ExpandableMatchReasonCell({
   const showDebug = isDebugMode();
 
   return (
-    <div className="py-1">
+    <div className="py-1" data-testid="match-reason-cell">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex w-full items-center justify-between text-left"
         type="button"
+        data-testid="expand-match-details"
       >
         <span className="flex items-center gap-1.5">
           <span className="border-muted-foreground cursor-pointer border-b border-dotted">

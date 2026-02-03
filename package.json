@@ -22,7 +22,6 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^2.0.3",
     "@langchain/core": "^1.0.2",
     "@langchain/langgraph": "^1.0.1",
     "@langchain/langgraph-sdk": "^1.0.0",
@@ -38,6 +37,7 @@
     "ag-grid-react": "^35.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
     "diff": "^8.0.3",
     "esbuild": "^0.25.0",

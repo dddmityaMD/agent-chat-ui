@@ -63,16 +63,25 @@ function getDeepLinkInfo(evidence: EvidenceItem): { type: DeepLinkType; id: stri
     return url ? { type: "metabase_card", id: payload.card_id, url } : null;
   }
 
-  // GIT_DIFF with commit -> Git commit
-  if (evidence.type === "GIT_DIFF" && payload?.commit) {
-    const url = generateDeepLinkUrl("git_commit", payload.commit);
-    return url ? { type: "git_commit", id: payload.commit, url } : null;
+  // GIT_DIFF -> Git commit (parse SHA from oneline log)
+  if (evidence.type === "GIT_DIFF") {
+    const commit = payload?.commit
+      || (typeof payload?.log === "string" ? payload.log.match(/^([a-f0-9]{7,40})\s/m)?.[1] : null);
+    if (commit) {
+      const url = generateDeepLinkUrl("git_commit", commit);
+      return url ? { type: "git_commit", id: commit, url } : null;
+    }
   }
 
-  // DBT_ARTIFACT with model_name -> dbt model docs
-  if (evidence.type === "DBT_ARTIFACT" && payload?.model_name) {
-    const url = generateDeepLinkUrl("dbt_model", payload.model_name);
-    return url ? { type: "dbt_model", id: payload.model_name, url } : null;
+  // DBT_ARTIFACT -> dbt model docs (extract from manifest_summary or run_summary)
+  if (evidence.type === "DBT_ARTIFACT") {
+    const modelName = payload?.model_name
+      || payload?.manifest_summary?.models?.[0]?.name
+      || payload?.run_summary?.results?.[0]?.unique_id?.replace(/^model\..*?\./, "");
+    if (modelName) {
+      const url = generateDeepLinkUrl("dbt_model", modelName);
+      return url ? { type: "dbt_model", id: modelName, url } : null;
+    }
   }
 
   return null;

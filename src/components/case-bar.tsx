@@ -14,6 +14,8 @@ import {
 import { useCases } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
 import { toast } from "sonner";
+import { getStatusColor } from "@/components/tables/cell-renderers/BadgeCell";
+import { cn } from "@/lib/utils";
 
 type ResumeAttempt = {
   caseId: string;
@@ -156,10 +158,21 @@ export function CaseBar() {
             <option value="">(none)</option>
             {cases.map((c) => (
               <option key={c.case_id} value={c.case_id}>
-                {c.title ? c.title : c.case_id.slice(0, 8)} [{c.status}]
+                {c.title ? c.title : c.case_id.slice(0, 8)}
               </option>
             ))}
           </select>
+          {selected && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                getStatusColor(selected.status),
+              )}
+              data-testid="case-status-badge"
+            >
+              {selected.status}
+            </span>
+          )}
         </div>
 
         <Button variant="secondary" size="sm" onClick={() => refresh()}>

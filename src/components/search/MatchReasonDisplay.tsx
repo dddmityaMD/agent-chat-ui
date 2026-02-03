@@ -57,7 +57,7 @@ function ConfidenceBar({ confidence }: { confidence: number }) {
   const percentage = Math.round(confidence * 100);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" data-testid="confidence-bar">
       <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">
         <div
           className={cn(
@@ -69,6 +69,7 @@ function ConfidenceBar({ confidence }: { confidence: number }) {
                 : "bg-gray-400",
           )}
           style={{ width: `${percentage}%` }}
+          data-confidence={percentage}
         />
       </div>
       <span className={cn("text-xs font-medium", getConfidenceColor(confidence))}>
@@ -124,6 +125,7 @@ function SimpleMatchReason({
         "text-muted-foreground inline-flex items-center gap-1.5 text-sm",
         className,
       )}
+      data-testid="match-reason-simple"
     >
       <span>{displayText}</span>
       {isDuplicate && (
@@ -150,12 +152,13 @@ function DetailedMatchReason({
     matchReason;
 
   return (
-    <div className={cn("rounded-lg border bg-white", className)}>
+    <div className={cn("rounded-lg border bg-white", className)} data-testid="match-reason-detailed">
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex w-full items-center justify-between p-3 text-left hover:bg-gray-50"
         type="button"
+        data-testid="expand-details"
       >
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">

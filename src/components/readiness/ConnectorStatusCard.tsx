@@ -280,7 +280,6 @@ export function ConnectorStatusCard({
   className,
 }: ConnectorStatusCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(false);
-  const [showFullUrl, setShowFullUrl] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Use controlled or uncontrolled expanded state
@@ -335,6 +334,8 @@ export function ConnectorStatusCard({
         <div
           className={cn("h-2.5 w-2.5 shrink-0 rounded-full", statusColor)}
           title={`Status: ${connector.status}`}
+          data-testid="connector-status"
+          data-status={connector.status}
         />
 
         {/* Connector type icon */}
@@ -369,28 +370,29 @@ export function ConnectorStatusCard({
             <div className="mb-2">
               <div className="text-xs font-medium text-gray-500">Server</div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowFullUrl((prev) => !prev)}
+                <a
+                  href={connector.server_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="truncate text-sm text-blue-600 hover:underline"
+                  data-testid="connector-url"
                 >
-                  {showFullUrl ? connector.server_url : connector.hostname}
-                </button>
-                {showFullUrl && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={handleCopyUrl}
-                        className="shrink-0 p-1 text-gray-400 hover:text-gray-600"
-                        aria-label="Copy URL"
-                      >
-                        <CopyIcon />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {copied ? "Copied!" : "Copy URL"}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                  {connector.hostname || connector.server_url}
+                </a>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleCopyUrl}
+                      className="shrink-0 p-1 text-gray-400 hover:text-gray-600"
+                      aria-label="Copy URL"
+                    >
+                      <CopyIcon />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {copied ? "Copied!" : "Copy URL"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -403,7 +405,7 @@ export function ConnectorStatusCard({
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="text-sm">
+                  <div className="text-sm" data-testid="last-check">
                     {formatLastFetch(connector.last_check_at)}
                   </div>
                 </TooltipTrigger>

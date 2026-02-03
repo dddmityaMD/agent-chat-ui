@@ -182,10 +182,10 @@ export function PaginatedEvidenceTable({
   const showPagination = totalItems > 0 && totalPages > 1;
 
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
+    <div className={cn("flex flex-col gap-4", className)} data-testid="paginated-table">
       {/* Results count */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground" data-testid="results-count">
           {totalItems > 0 ? (
             <>
               Showing{" "}
@@ -238,6 +238,7 @@ export function PaginatedEvidenceTable({
               onClick={goToFirst}
               disabled={!hasPrev}
               aria-label="Go to first page"
+              data-testid="btn-first-page"
             >
               <ChevronsLeft className="h-4 w-4" />
             </Button>
@@ -250,6 +251,7 @@ export function PaginatedEvidenceTable({
               onClick={goToPrev}
               disabled={!hasPrev}
               aria-label="Go to previous page"
+              data-testid="btn-prev-page"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -288,6 +290,7 @@ export function PaginatedEvidenceTable({
               onClick={goToNext}
               disabled={!hasNext}
               aria-label="Go to next page"
+              data-testid="btn-next-page"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -300,6 +303,7 @@ export function PaginatedEvidenceTable({
               onClick={goToLast}
               disabled={!hasNext}
               aria-label="Go to last page"
+              data-testid="btn-last-page"
             >
               <ChevronsRight className="h-4 w-4" />
             </Button>

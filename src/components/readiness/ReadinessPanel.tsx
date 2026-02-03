@@ -291,6 +291,7 @@ export function ReadinessPanel({
               disabled={isLoading}
               className="h-7 w-7 p-0"
               title="Refresh status"
+              data-testid="refresh-readiness"
             >
               <RefreshCwIcon />
             </Button>
@@ -315,10 +316,11 @@ export function ReadinessPanel({
         </div>
 
         {/* Overall status indicator */}
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex items-center gap-3" data-testid="overall-status">
           <div
             className={cn("h-4 w-4 shrink-0 rounded-full", overallStatusColor)}
             title={`Overall: ${overallStatus}`}
+            data-status={overallStatus}
           />
           <div>
             <div className="text-sm font-medium">{statusSummary}</div>

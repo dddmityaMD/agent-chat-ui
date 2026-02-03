@@ -17,6 +17,7 @@ const statusColorMap: Record<string, string> = {
   // Success states (Green)
   success: "bg-green-100 text-green-800 border-green-200",
   active: "bg-green-100 text-green-800 border-green-200",
+  open: "bg-green-100 text-green-800 border-green-200",
   published: "bg-green-100 text-green-800 border-green-200",
   completed: "bg-green-100 text-green-800 border-green-200",
   enabled: "bg-green-100 text-green-800 border-green-200",
@@ -49,6 +50,10 @@ const statusColorMap: Record<string, string> = {
   warning: "bg-yellow-100 text-yellow-800 border-yellow-200",
   stale: "bg-yellow-100 text-yellow-800 border-yellow-200",
   outdated: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  paused: "bg-yellow-100 text-yellow-800 border-yellow-200",
+
+  // Closed/inactive states (Gray with blue tint)
+  closed: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 /**
@@ -97,6 +102,8 @@ export function BadgeCell(
         colorClasses,
         className,
       )}
+      data-testid="status-badge"
+      data-status={statusText.toLowerCase().replace(/-/g, "_")}
     >
       {statusText}
     </span>

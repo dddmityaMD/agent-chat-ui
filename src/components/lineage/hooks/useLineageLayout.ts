@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useNodesInitialized, useReactFlow } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
-import dagre from "@dagrejs/dagre";
+import dagre from "dagre";
 
 // Default node dimensions for dagre when measured sizes are unavailable
 const DEFAULT_WIDTH = 180;

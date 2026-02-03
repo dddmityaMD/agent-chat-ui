@@ -130,12 +130,13 @@ export function DeepLinkCell(
           rel="noopener noreferrer"
           className="text-primary inline-flex items-center gap-1 hover:underline"
           onClick={(e) => e.stopPropagation()}
+          data-testid={`deep-link-${type}`}
         >
           <Icon className="h-3 w-3" />
           <span>{displayLabel}</span>
         </a>
       </TooltipTrigger>
-      <TooltipContent>
+      <TooltipContent data-testid="deep-link-tooltip">
         <span className="font-mono text-xs break-all max-w-xs">{url}</span>
       </TooltipContent>
     </Tooltip>

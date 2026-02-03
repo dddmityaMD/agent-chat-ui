@@ -101,8 +101,7 @@ export function generateDbtUrl(
   const base = config.dbtDocsBaseUrl || "";
 
   if (!base) {
-    // Return a relative path if no base URL configured
-    return `#!/${type}/${name}`;
+    return "";
   }
 
   const normalizedBase = base.replace(/\/+$/, "");
@@ -141,8 +140,7 @@ export function generateGitUrl(
   const base = repoUrl || config.gitRepoUrl || "";
 
   if (!base) {
-    // Return a placeholder if no base URL configured
-    return type === "commit" ? `commit/${ref}` : `file/${ref}/${filePath || ""}`;
+    return "";
   }
 
   const normalizedBase = base.replace(/\/+$/, "");

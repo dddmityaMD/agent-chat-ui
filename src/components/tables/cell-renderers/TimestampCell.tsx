@@ -115,11 +115,12 @@ export function TimestampCell(
           className={
             className || "text-muted-foreground cursor-help"
           }
+          data-testid="timestamp-cell"
         >
           {formattedDate}
         </span>
       </TooltipTrigger>
-      <TooltipContent>
+      <TooltipContent data-testid="timestamp-tooltip">
         <span className="font-mono text-xs">{isoTimestamp}</span>
       </TooltipContent>
     </Tooltip>
