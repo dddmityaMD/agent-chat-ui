@@ -2,7 +2,7 @@
  * GroupNode - Custom React Flow group node for architecture layer zones.
  *
  * Renders a colored background rectangle with a label.
- * Stub implementation -- Task 2 fills in the full UI.
+ * Defined outside component render to prevent React Flow re-renders.
  */
 import React, { memo } from "react";
 import type { NodeProps } from "@xyflow/react";

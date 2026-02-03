@@ -1,7 +1,8 @@
 /**
  * LayerToggle - Toggle button for architecture layer zone backgrounds.
  *
- * Stub implementation -- Task 2 fills in the full UI.
+ * When toggled ON: Adds group nodes representing architecture layers.
+ * When toggled OFF (default): Clean view without layer backgrounds.
  */
 "use client";
 

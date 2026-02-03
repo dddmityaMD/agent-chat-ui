@@ -1,7 +1,8 @@
 /**
  * DirectionToggle - Three-state toggle for upstream/downstream/both filtering.
  *
- * Stub implementation -- Task 2 fills in the full UI.
+ * Selecting a direction filters the graph to show only upstream, downstream,
+ * or both from the selected node (or affects the next API fetch).
  */
 "use client";
 
