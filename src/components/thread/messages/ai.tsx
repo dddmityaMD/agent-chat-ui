@@ -9,12 +9,17 @@ import { cn } from "@/lib/utils";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
+import { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
 import { QueryResults, EntityType } from "@/components/query";
+import { FlowBadge } from "@/components/flow-indicator/FlowBadge";
+import { ArrowRightLeft, X } from "lucide-react";
+import { useCallback } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 // Type for metadata_results from sais_ui payload
 interface MetadataResults {
@@ -22,6 +27,21 @@ interface MetadataResults {
   items: Array<Record<string, unknown>>;
   total: number;
 }
+
+// Type for handoff proposal from sais_ui payload
+interface HandoffProposal {
+  target_flow: string;
+  reason: string;
+  confirmed: boolean;
+}
+
+// Flow display names for handoff UI
+const FLOW_DISPLAY_NAMES: Record<string, string> = {
+  catalog: "Catalog",
+  investigation: "Investigation",
+  remediation: "Remediation",
+  ops: "Operations",
+};
 
 // Type guard for sais_ui payload
 function hasMetadataResults(
@@ -37,6 +57,29 @@ function hasMetadataResults(
     Array.isArray(mr.items) &&
     typeof mr.total === "number"
   );
+}
+
+// Extract active_flow from sais_ui
+function getActiveFlow(saisUi: unknown): string | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const flow = obj.active_flow;
+  return typeof flow === "string" && flow.length > 0 ? flow : null;
+}
+
+// Extract handoff proposal from sais_ui
+function getHandoffProposal(saisUi: unknown): HandoffProposal | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const handoff = obj.handoff;
+  if (!handoff || typeof handoff !== "object") return null;
+  const h = handoff as Record<string, unknown>;
+  if (typeof h.target_flow !== "string") return null;
+  return {
+    target_flow: h.target_flow,
+    reason: typeof h.reason === "string" ? h.reason : "",
+    confirmed: h.confirmed === true,
+  };
 }
 
 function CustomComponent({
@@ -122,6 +165,71 @@ function Interrupt({
   );
 }
 
+/**
+ * HandoffConfirmationCard - shows when a flow proposes a handoff to another flow.
+ * User must explicitly confirm or decline the transition.
+ */
+function HandoffConfirmationCard({
+  handoff,
+  currentFlow,
+  onConfirm,
+  onDismiss,
+  dismissed,
+}: {
+  handoff: HandoffProposal;
+  currentFlow: string | null;
+  onConfirm: () => void;
+  onDismiss: () => void;
+  dismissed: boolean;
+}) {
+  if (dismissed || handoff.confirmed) return null;
+
+  const targetName =
+    FLOW_DISPLAY_NAMES[handoff.target_flow] || handoff.target_flow;
+  const currentName = currentFlow
+    ? FLOW_DISPLAY_NAMES[currentFlow] || currentFlow
+    : "current flow";
+
+  return (
+    <div
+      className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950"
+      data-testid="handoff-confirmation"
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <ArrowRightLeft className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+          Flow transition suggested
+        </span>
+      </div>
+      <p className="mb-3 text-sm text-amber-700 dark:text-amber-300">
+        {currentName} suggests switching to{" "}
+        <strong>{targetName}</strong>
+        {handoff.reason ? `: ${handoff.reason}` : "."}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+          data-testid="handoff-confirm"
+        >
+          <ArrowRightLeft className="h-3 w-3" />
+          Switch to {targetName}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-900 dark:text-amber-300 dark:hover:bg-amber-800"
+          data-testid="handoff-dismiss"
+        >
+          <X className="h-3 w-3" />
+          Stay in {currentName}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AssistantMessage({
   message,
   isLoading,
@@ -137,6 +245,7 @@ export function AssistantMessage({
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
 
   const thread = useStreamContext();
   const isLastMessage =
@@ -147,11 +256,21 @@ export function AssistantMessage({
   const meta = message ? thread.getMessagesMetadata(message) : undefined;
   const threadInterrupt = thread.interrupt;
 
-  // Extract metadata_results from sais_ui for QueryResults rendering
-  const saisUi = thread.values?.sais_ui;
-  const metadataResults = hasMetadataResults(saisUi)
-    ? saisUi.metadata_results
+  // Extract metadata_results: prefer per-message data, fall back to thread state for last message
+  const msgResponseMeta = message && "response_metadata" in message
+    ? (message as AIMessage).response_metadata
+    : undefined;
+  const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
+    ? (msgResponseMeta as Record<string, unknown>).metadata_results
     : null;
+  const saisUi = thread.values?.sais_ui;
+  const metadataResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
+    ? (msgMetadataResults as MetadataResults)
+    : (isLastMessage && hasMetadataResults(saisUi) ? saisUi.metadata_results : null);
+
+  // Extract flow information from sais_ui (only for last message to avoid stale badges)
+  const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
+  const handoffProposal = isLastMessage ? getHandoffProposal(saisUi) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -171,6 +290,33 @@ export function AssistantMessage({
   const hasAnthropicToolCalls = !!anthropicStreamedToolCalls?.length;
   const isToolResult = message?.type === "tool";
 
+  // Handle handoff confirmation: send a new message with handoff metadata
+  const handleHandoffConfirm = useCallback(() => {
+    if (!handoffProposal) return;
+    const confirmMsg: Message = {
+      id: uuidv4(),
+      type: "human",
+      content: [
+        {
+          type: "text",
+          text: `Switch to ${FLOW_DISPLAY_NAMES[handoffProposal.target_flow] || handoffProposal.target_flow} flow`,
+        },
+      ] as Message["content"],
+    };
+    thread.submit(
+      {
+        messages: [...thread.messages, confirmMsg],
+        handoff_confirmed: true,
+        handoff_target: handoffProposal.target_flow,
+      } as Record<string, unknown> as any,
+      {
+        streamMode: ["values"],
+        streamSubgraphs: true,
+        streamResumable: true,
+      },
+    );
+  }, [handoffProposal, thread]);
+
   if (isToolResult && hideToolCalls) {
     return null;
   }
@@ -189,14 +335,21 @@ export function AssistantMessage({
           </>
         ) : (
           <>
-            {contentString.length > 0 && !(isLastMessage && metadataResults && metadataResults.items.length > 0) && (
+            {/* Flow badge above message content */}
+            {activeFlow && (
+              <div className="mb-1">
+                <FlowBadge flowType={activeFlow} />
+              </div>
+            )}
+
+            {contentString.length > 0 && !(metadataResults && metadataResults.items.length > 0) && (
               <div className="py-1">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
 
             {/* Render QueryResults for metadata responses with structured data (replaces text list) */}
-            {isLastMessage && metadataResults && metadataResults.items.length > 0 && (
+            {metadataResults && metadataResults.items.length > 0 && (
               <div className="mt-4">
                 <QueryResults
                   evidence={metadataResults.items.map((item, idx) => ({
@@ -209,6 +362,17 @@ export function AssistantMessage({
                   isLoading={isLoading}
                 />
               </div>
+            )}
+
+            {/* Handoff confirmation card */}
+            {handoffProposal && !handoffProposal.confirmed && (
+              <HandoffConfirmationCard
+                handoff={handoffProposal}
+                currentFlow={activeFlow}
+                onConfirm={handleHandoffConfirm}
+                onDismiss={() => setHandoffDismissed(true)}
+                dismissed={handoffDismissed}
+              />
             )}
 
             {!hideToolCalls && (
