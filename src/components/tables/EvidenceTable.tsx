@@ -3,17 +3,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
-  ClientSideRowModelModule,
-  ColumnApiModule,
-  ColumnAutoSizeModule,
-  RowApiModule,
-  RowSelectionModule,
-  PaginationModule,
-  TooltipModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  ValidationModule,
+  AllCommunityModule,
   type ColDef,
   type RowClickedEvent,
   type SortChangedEvent,
@@ -24,20 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
-// Register AG Grid modules (v35 requires explicit registration)
-const modules = [
-  ClientSideRowModelModule,
-  ColumnApiModule,
-  ColumnAutoSizeModule,
-  RowApiModule,
-  RowSelectionModule,
-  PaginationModule,
-  TooltipModule,
-  TextFilterModule,
-  NumberFilterModule,
-  DateFilterModule,
-  ValidationModule,
-];
+// Register all AG Grid Community modules (v35 requires explicit registration)
+const modules = [AllCommunityModule];
 
 export interface EvidenceRow {
   id: string;

@@ -189,13 +189,13 @@ export function AssistantMessage({
           </>
         ) : (
           <>
-            {contentString.length > 0 && (
+            {contentString.length > 0 && !(isLastMessage && metadataResults && metadataResults.items.length > 0) && (
               <div className="py-1">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
 
-            {/* Render QueryResults for metadata responses with structured data */}
+            {/* Render QueryResults for metadata responses with structured data (replaces text list) */}
             {isLastMessage && metadataResults && metadataResults.items.length > 0 && (
               <div className="mt-4">
                 <QueryResults
