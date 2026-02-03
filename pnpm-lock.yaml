@@ -59,6 +59,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      diff:
+        specifier: ^8.0.3
+        version: 8.0.3
       esbuild:
         specifier: ^0.25.0
         version: 0.25.4
@@ -159,6 +162,9 @@ importers:
       '@types/dagre':
         specifier: ^0.7.53
         version: 0.7.53
+      '@types/diff':
+        specifier: ^8.0.0
+        version: 8.0.0
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -238,7 +244,7 @@ importers:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@22.15.18)(typescript@5.7.3)
       typescript:
-        specifier: ~5.7.2
+        specifier: ~5.7.3
         version: 5.7.3
       typescript-eslint:
         specifier: ^8.22.0
@@ -2085,6 +2091,10 @@ packages:
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
 
+  '@types/diff@8.0.0':
+    resolution: {integrity: sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw==}
+    deprecated: This is a stub types definition. diff provides its own type definitions, so you do not need this installed.
+
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
 
@@ -2982,6 +2992,10 @@ packages:
 
   diff@4.0.4:
     resolution: {integrity: sha512-X07nttJQkwkfKfvTPG/KSnE2OMdcUCao6+eXF3wmnIQRn2aPAHH3VxDbDOdegkd6JbPsXqShpvEOHfAT+nCNwQ==}
+    engines: {node: '>=0.3.1'}
+
+  diff@8.0.3:
+    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
     engines: {node: '>=0.3.1'}
 
   doctrine@2.1.0:
@@ -7601,6 +7615,10 @@ snapshots:
     dependencies:
       '@types/ms': 2.1.0
 
+  '@types/diff@8.0.0':
+    dependencies:
+      diff: 8.0.3
+
   '@types/estree-jsx@1.0.5':
     dependencies:
       '@types/estree': 1.0.7
@@ -8482,6 +8500,8 @@ snapshots:
       dequal: 2.0.3
 
   diff@4.0.4: {}
+
+  diff@8.0.3: {}
 
   doctrine@2.1.0:
     dependencies:
