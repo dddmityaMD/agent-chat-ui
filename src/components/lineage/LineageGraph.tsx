@@ -17,7 +17,7 @@
  */
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -47,10 +47,13 @@ import { AnimatedEdge } from "./edges/AnimatedEdge";
 import { useLineageData } from "./hooks/useLineageData";
 import { useLineageLayout } from "./hooks/useLineageLayout";
 import { NodeDetailPanel } from "./panels/NodeDetailPanel";
+import { ImpactPanel } from "./panels/ImpactPanel";
 import { LayerToggle } from "./controls/LayerToggle";
 import { DirectionToggle } from "./controls/DirectionToggle";
-import type { LineageNodeData } from "@/lib/lineage-api";
+import type { LineageNodeData, ImpactResult } from "@/lib/lineage-api";
+import { fetchImpactAnalysis } from "@/lib/lineage-api";
 import type { LineageNodePayload } from "./utils/graph-transform";
+import { applyImpactStyling } from "./utils/graph-transform";
 import type { Direction } from "./controls/DirectionToggle";
 import {
   classifyLayer,
@@ -94,6 +97,8 @@ interface LineageGraphProps {
   rootNodeId?: string;
   /** CSS class for the container div. */
   className?: string;
+  /** Optional: auto-trigger impact analysis for this node (e.g. from chat). */
+  impactNodeId?: string;
 }
 
 // -------------------------------------------------------------------
@@ -233,15 +238,80 @@ function buildLayerGroupNodes(
 // Inner component (needs ReactFlowProvider context)
 // -------------------------------------------------------------------
 
+// -- Context menu component ---------------------------------------------------
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  nodeId: string;
+  nodeLabel: string;
+}
+
+function NodeContextMenu({
+  menu,
+  onAnalyzeImpact,
+  onClose,
+}: {
+  menu: ContextMenuState;
+  onAnalyzeImpact: (nodeId: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute z-[60] min-w-[180px] rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+      style={{ left: menu.x, top: menu.y }}
+      data-testid="node-context-menu"
+    >
+      <div className="px-3 py-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        {menu.nodeLabel}
+      </div>
+      <hr className="border-zinc-200 dark:border-zinc-700" />
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        onClick={() => {
+          onAnalyzeImpact(menu.nodeId);
+          onClose();
+        }}
+        data-testid="context-menu-analyze-impact"
+      >
+        <span className="text-red-500">&#9889;</span>
+        Analyze Impact
+      </button>
+    </div>
+  );
+}
+
 function LineageGraphInner({
   rootNodeId,
   className,
+  impactNodeId,
 }: LineageGraphProps) {
   // State: direction, selected node, minimap, layers
   const [direction, setDirection] = useState<Direction>("both");
   const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(null);
   const [showMinimap, setShowMinimap] = useState(false);
   const [layersEnabled, setLayersEnabled] = useState(false);
+
+  // Impact analysis state
+  const [impactResult, setImpactResult] = useState<ImpactResult | null>(null);
+  const [impactLoading, setImpactLoading] = useState(false);
+  const [dimUnaffected, setDimUnaffected] = useState(true);
+  const [hideUnaffected, setHideUnaffected] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const {
     nodes: rawNodes,
@@ -334,6 +404,103 @@ function LineageGraphInner({
     }
   }, []);
 
+  // -- Impact analysis handlers -----------------------------------------------
+
+  /** Trigger impact analysis for a node. */
+  const triggerImpactAnalysis = useCallback(
+    async (nodeId: string) => {
+      setImpactLoading(true);
+      try {
+        const result = await fetchImpactAnalysis(nodeId);
+        setImpactResult(result);
+        setDimUnaffected(true);
+        setHideUnaffected(false);
+      } catch (err) {
+        console.error("Impact analysis failed:", err);
+      } finally {
+        setImpactLoading(false);
+      }
+    },
+    [],
+  );
+
+  /** Clear impact analysis state. */
+  const clearImpact = useCallback(() => {
+    setImpactResult(null);
+    setContextMenu(null);
+  }, []);
+
+  /** Right-click handler for context menu. */
+  const onNodeContextMenu: NodeMouseHandler = useCallback(
+    (event, rfNode) => {
+      event.preventDefault();
+      const payload = rfNode.data as unknown as LineageNodePayload;
+      // Use the event coordinates relative to the container
+      const container = (event.target as HTMLElement).closest(
+        ".react-flow",
+      );
+      const rect = container?.getBoundingClientRect() ?? {
+        left: 0,
+        top: 0,
+      };
+      setContextMenu({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        nodeId: rfNode.id,
+        nodeLabel: payload.label,
+      });
+    },
+    [],
+  );
+
+  /** Close context menu on pane click. */
+  const onPaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  // -- Apply impact styling to nodes ------------------------------------------
+
+  React.useEffect(() => {
+    if (!impactResult) {
+      // Clear styles when no impact result
+      setNodes((current) =>
+        current.map((n) => ({
+          ...n,
+          hidden: false,
+          style: {
+            ...n.style,
+            opacity: 1,
+            borderColor: undefined,
+            borderWidth: undefined,
+          },
+        })),
+      );
+      return;
+    }
+
+    setNodes((current) => {
+      const nonGroupNodes = current.filter((n) => n.type !== "groupNode");
+      const groupNodes = current.filter((n) => n.type === "groupNode");
+      const styled = applyImpactStyling(
+        nonGroupNodes as Node<LineageNodePayload>[],
+        impactResult,
+        dimUnaffected,
+        hideUnaffected,
+      );
+      return [...groupNodes, ...styled];
+    });
+  }, [impactResult, dimUnaffected, hideUnaffected, setNodes]);
+
+  // -- Auto-trigger impact analysis from prop ---------------------------------
+
+  React.useEffect(() => {
+    if (impactNodeId && !impactLoading && nodes.length > 0) {
+      triggerImpactAnalysis(impactNodeId);
+    }
+    // Only trigger when impactNodeId changes, not on every re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [impactNodeId]);
+
   // -- Loading / error / empty states ---------------------------------------
 
   if (loading) {
@@ -379,6 +546,8 @@ function LineageGraphInner({
         edgeTypes={edgeTypes}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneClick={onPaneClick}
         onViewportChange={onViewportChange}
         fitView
         minZoom={0.1}
@@ -398,8 +567,43 @@ function LineageGraphInner({
         )}
       </ReactFlow>
 
-      {/* Node detail panel (slide-in from right) */}
-      <NodeDetailPanel selectedNode={selectedNode} onClose={onClosePanel} />
+      {/* Context menu */}
+      {contextMenu && (
+        <NodeContextMenu
+          menu={contextMenu}
+          onAnalyzeImpact={triggerImpactAnalysis}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Impact loading indicator */}
+      {impactLoading && (
+        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-md bg-zinc-800 px-3 py-1.5 text-xs text-white shadow-lg">
+          Analyzing impact...
+        </div>
+      )}
+
+      {/* Impact panel (slide-in from right) */}
+      <ImpactPanel
+        impactResult={impactResult}
+        onClose={clearImpact}
+        onNodeClick={(nodeId) => {
+          // Highlight node in graph by selecting it
+          const rfNode = nodes.find((n) => n.id === nodeId);
+          if (rfNode) {
+            setSelectedNode(toLineageNodeData(rfNode));
+          }
+        }}
+        dimUnaffected={dimUnaffected}
+        onToggleDim={() => setDimUnaffected((v) => !v)}
+        hideUnaffected={hideUnaffected}
+        onToggleHide={() => setHideUnaffected((v) => !v)}
+      />
+
+      {/* Node detail panel (slide-in from right, behind impact panel) */}
+      {!impactResult && (
+        <NodeDetailPanel selectedNode={selectedNode} onClose={onClosePanel} />
+      )}
     </div>
   );
 }

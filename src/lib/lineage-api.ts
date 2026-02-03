@@ -42,6 +42,30 @@ export interface LineageNodeListResponse {
   total: number;
 }
 
+// -- Impact analysis types ---------------------------------------------------
+
+export type RiskLevel = "critical" | "high" | "medium" | "low";
+
+export interface ImpactedNode {
+  node_id: string;
+  type: string;
+  label: string;
+  canonical_key: string | null;
+  depth: number;
+  risk_level: RiskLevel;
+  risk_reason: string;
+  path: string[];
+}
+
+export interface ImpactResult {
+  root_node_id: string;
+  root_label: string;
+  impacted_nodes: ImpactedNode[];
+  total_affected: number;
+  by_risk: Record<string, number>;
+  max_depth: number;
+}
+
 // -- Helpers --------------------------------------------------------------
 
 function getBaseUrl(): string {
@@ -102,4 +126,27 @@ export async function fetchLineageNodes(
     throw new Error(`Lineage nodes API error: ${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<LineageNodeListResponse>;
+}
+
+/**
+ * Run impact analysis for a node — trace downstream dependencies with risk scoring.
+ *
+ * @param nodeId   - UUID of the root node to analyze.
+ * @param maxDepth - Maximum traversal depth (default 10).
+ */
+export async function fetchImpactAnalysis(
+  nodeId: string,
+  maxDepth?: number,
+): Promise<ImpactResult> {
+  const baseUrl = getBaseUrl();
+  const params = new URLSearchParams();
+  if (maxDepth != null) params.set("max_depth", String(maxDepth));
+  const qs = params.toString();
+
+  const url = `${baseUrl}/api/lineage/impact/${nodeId}${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) {
+    throw new Error(`Impact analysis API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<ImpactResult>;
 }
