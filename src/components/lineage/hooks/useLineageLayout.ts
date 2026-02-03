@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useNodesInitialized, useReactFlow } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
-import { graphlib, layout } from "@dagrejs/dagre";
+import dagre from "@dagrejs/dagre";
 
 // Default node dimensions for dagre when measured sizes are unavailable
 const DEFAULT_WIDTH = 180;
@@ -40,7 +40,7 @@ export function getLayoutedNodes(
 
   const { rankdir = "LR", nodesep = 40, ranksep = 80 } = options;
 
-  const g = new graphlib.Graph();
+  const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir, nodesep, ranksep });
   g.setDefaultEdgeLabel(() => ({}));
 
@@ -57,7 +57,7 @@ export function getLayoutedNodes(
   }
 
   // Run dagre layout
-  layout(g);
+  dagre.layout(g);
 
   // Map computed positions back to React Flow nodes.
   // dagre returns center positions; React Flow uses top-left origin.
