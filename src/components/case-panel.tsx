@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useQueryState } from "nuqs";
 import { useCases, CaseSummary } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
@@ -10,6 +10,7 @@ import {
   LinkedEvidence,
   EvidenceItem,
 } from "@/components/evidence-viewer";
+import { getStatusColor } from "@/components/tables/cell-renderers/BadgeCell";
 import {
   useCaseEvidenceState,
   EVIDENCE_TYPE_MAP,
@@ -17,6 +18,10 @@ import {
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
+import { Network } from "lucide-react";
+
+// Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
+const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
 
 type Check = { id: string; label: string; ok: boolean; requested: boolean };
 
@@ -125,9 +130,9 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"findings" | "evidence">(
-    "findings",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "findings" | "evidence" | "lineage"
+  >("findings");
 
   // Clean slate experience: Track which evidence types user has requested
   const {
@@ -194,7 +199,20 @@ export function CasePanel({ className }: { className?: string }) {
     <div className={cn("h-full overflow-y-auto p-4", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold">Case</div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Case</span>
+            {summary && (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                  getStatusColor(summary.case.status),
+                )}
+                data-testid="case-status-badge"
+              >
+                {summary.case.status}
+              </span>
+            )}
+          </div>
           <div className="text-muted-foreground text-xs">
             {caseId ? caseId.slice(0, 8) + "..." : "(none selected)"}
           </div>
@@ -308,6 +326,19 @@ export function CasePanel({ className }: { className?: string }) {
               onClick={() => setActiveTab("evidence")}
             >
               Evidence ({(summary.evidence ?? []).length})
+            </button>
+            <button
+              data-testid="lineage-tab"
+              className={cn(
+                "flex items-center gap-1 px-3 py-1 text-sm",
+                activeTab === "lineage"
+                  ? "border-b-2 border-blue-600 font-semibold text-blue-600"
+                  : "text-muted-foreground",
+              )}
+              onClick={() => setActiveTab("lineage")}
+            >
+              <Network className="h-3.5 w-3.5" />
+              Lineage
             </button>
           </div>
 
@@ -477,6 +508,35 @@ export function CasePanel({ className }: { className?: string }) {
                   />
                 ))
               )}
+            </div>
+          )}
+
+          {/* Lineage Tab */}
+          {activeTab === "lineage" && (
+            <div
+              data-testid="lineage-panel"
+              className="mt-3 flex flex-1 flex-col"
+              style={{ minHeight: "400px" }}
+            >
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    Loading lineage graph...
+                  </div>
+                }
+              >
+                <LineageGraph
+                  rootNodeId={
+                    (summary.nodes ?? []).length > 0
+                      ? String(
+                          (summary.nodes as Array<Record<string, unknown>>)[0]
+                            ?.node_id ?? "",
+                        ) || undefined
+                      : undefined
+                  }
+                  className="h-full min-h-[400px] rounded-md border bg-white"
+                />
+              </Suspense>
             </div>
           )}
         </>
