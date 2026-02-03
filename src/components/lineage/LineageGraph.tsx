@@ -518,7 +518,7 @@ function LineageGraphInner({
     );
   }
 
-  if (nodes.length === 0) {
+  if (rawNodes.length === 0) {
     return (
       <div className={`flex h-full items-center justify-center ${className ?? ""}`}>
         <div className="text-sm text-muted-foreground">

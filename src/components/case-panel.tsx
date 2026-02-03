@@ -526,14 +526,6 @@ export function CasePanel({ className }: { className?: string }) {
                 }
               >
                 <LineageGraph
-                  rootNodeId={
-                    (summary.nodes ?? []).length > 0
-                      ? String(
-                          (summary.nodes as Array<Record<string, unknown>>)[0]
-                            ?.node_id ?? "",
-                        ) || undefined
-                      : undefined
-                  }
                   className="h-full min-h-[400px] rounded-md border bg-white"
                 />
               </Suspense>
