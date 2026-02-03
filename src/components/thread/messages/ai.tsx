@@ -17,6 +17,8 @@ import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
 import { QueryResults, EntityType } from "@/components/query";
 import { FlowBadge } from "@/components/flow-indicator/FlowBadge";
+import { BatchReview } from "@/components/remediation/BatchReview";
+import type { RemediationProposalData } from "@/components/remediation/DiffCard";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -80,6 +82,23 @@ function getHandoffProposal(saisUi: unknown): HandoffProposal | null {
     reason: typeof h.reason === "string" ? h.reason : "",
     confirmed: h.confirmed === true,
   };
+}
+
+// Extract remediation proposals from sais_ui
+function getRemediationProposals(saisUi: unknown): RemediationProposalData[] | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const proposals = obj.remediation_proposals;
+  if (!Array.isArray(proposals) || proposals.length === 0) return null;
+  // Validate that each proposal has required fields
+  const valid = proposals.every(
+    (p: unknown) =>
+      p &&
+      typeof p === "object" &&
+      typeof (p as Record<string, unknown>).fix_id === "string" &&
+      typeof (p as Record<string, unknown>).title === "string"
+  );
+  return valid ? (proposals as RemediationProposalData[]) : null;
 }
 
 function CustomComponent({
@@ -271,6 +290,7 @@ export function AssistantMessage({
   // Extract flow information from sais_ui (only for last message to avoid stale badges)
   const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
   const handoffProposal = isLastMessage ? getHandoffProposal(saisUi) : null;
+  const remediationProposals = isLastMessage ? getRemediationProposals(saisUi) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -373,6 +393,17 @@ export function AssistantMessage({
                 onDismiss={() => setHandoffDismissed(true)}
                 dismissed={handoffDismissed}
               />
+            )}
+
+            {/* Remediation proposals as DiffCards */}
+            {remediationProposals && remediationProposals.length > 0 && (
+              <div className="mt-3" data-testid="remediation-proposals">
+                <BatchReview
+                  batchId={`msg-${message?.id ?? "unknown"}`}
+                  caseId=""
+                  proposals={remediationProposals}
+                />
+              </div>
             )}
 
             {!hideToolCalls && (
