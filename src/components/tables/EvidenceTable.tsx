@@ -4,6 +4,12 @@ import React, { useCallback, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
   ClientSideRowModelModule,
+  ColumnApiModule,
+  ColumnAutoSizeModule,
+  RowApiModule,
+  RowSelectionModule,
+  PaginationModule,
+  TooltipModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
@@ -18,9 +24,15 @@ import {
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
-// Register AG Grid modules
+// Register AG Grid modules (v35 requires explicit registration)
 const modules = [
   ClientSideRowModelModule,
+  ColumnApiModule,
+  ColumnAutoSizeModule,
+  RowApiModule,
+  RowSelectionModule,
+  PaginationModule,
+  TooltipModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
