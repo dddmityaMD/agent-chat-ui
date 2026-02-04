@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
@@ -265,10 +265,6 @@ export function AssistantMessage({
     parseAsBoolean.withDefault(false),
   );
   const [handoffDismissed, setHandoffDismissed] = useState(false);
-  const [pendingHandoff, setPendingHandoff] = useState<{
-    target: string;
-    displayName: string;
-  } | null>(null);
 
   const thread = useStreamContext();
   const isLastMessage =
@@ -314,31 +310,20 @@ export function AssistantMessage({
   const hasAnthropicToolCalls = !!anthropicStreamedToolCalls?.length;
   const isToolResult = message?.type === "tool";
 
-  // Handle handoff confirmation: set pending state and let useEffect submit
-  // when stream is idle. This avoids React error #185 (Cannot update component
-  // while rendering different component) and ensures the SDK isLoading guard
-  // does not silently drop the submit call.
+  // Handle handoff confirmation: SDK v1.3.0+ auto-queues submit() calls
+  // when isLoading=true, so we can call submit directly without workarounds.
   const handleHandoffConfirm = useCallback(() => {
     if (!handoffProposal) return;
-    setPendingHandoff({
-      target: handoffProposal.target_flow,
-      displayName:
-        FLOW_DISPLAY_NAMES[handoffProposal.target_flow] ||
-        handoffProposal.target_flow,
-    });
-  }, [handoffProposal]);
-
-  // Submit handoff when stream becomes idle (isLoading === false)
-  useEffect(() => {
-    if (!pendingHandoff || isLoading) return;
-    // Stream is idle - safe to submit
+    const targetName =
+      FLOW_DISPLAY_NAMES[handoffProposal.target_flow] ||
+      handoffProposal.target_flow;
     const confirmMsg: Message = {
       id: uuidv4(),
       type: "human",
       content: [
         {
           type: "text",
-          text: `Switch to ${pendingHandoff.displayName} flow`,
+          text: `Switch to ${targetName}`,
         },
       ] as Message["content"],
     };
@@ -346,7 +331,7 @@ export function AssistantMessage({
       {
         messages: [...thread.messages, confirmMsg],
         handoff_confirmed: true,
-        handoff_target: pendingHandoff.target,
+        handoff_target: handoffProposal.target_flow,
       } as Record<string, unknown> as any,
       {
         streamMode: ["values"],
@@ -354,8 +339,8 @@ export function AssistantMessage({
         streamResumable: true,
       },
     );
-    setPendingHandoff(null);
-  }, [pendingHandoff, isLoading, thread.submit]);
+    setHandoffDismissed(true);
+  }, [handoffProposal, thread]);
 
   if (isToolResult && hideToolCalls) {
     return null;
