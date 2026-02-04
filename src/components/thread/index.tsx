@@ -222,8 +222,15 @@ export function Thread() {
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
+    // Include full message history so checkpointer persists all messages.
+    // The backend's add_messages reducer deduplicates by ID.
+    // toolMessages are synthetic responses for incomplete tool calls.
     stream.submit(
-      { case_id: caseId ?? undefined, messages: [...toolMessages, newHumanMessage], context },
+      {
+        case_id: caseId ?? undefined,
+        messages: [...stream.messages, ...toolMessages, newHumanMessage],
+        context,
+      },
       {
         streamMode: ["values"],
         streamSubgraphs: true,
