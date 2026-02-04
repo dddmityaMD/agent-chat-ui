@@ -7,7 +7,8 @@
  * Features:
  * - Click a node to open a detail panel (right-side slide-in)
  * - Double-click a node to navigate to its source system
- * - Minimap auto-shows for large graphs or when zoomed out
+ * - Minimap always visible for navigation orientation
+ * - Fullscreen toggle for detailed exploration
  * - Layer toggle for architecture zone backgrounds
  * - Direction toggle for upstream/downstream filtering
  *
@@ -17,7 +18,7 @@
  */
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -26,13 +27,13 @@ import {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
+  useReactFlow,
 } from "@xyflow/react";
 import type {
   NodeTypes,
   EdgeTypes,
   Node,
   NodeMouseHandler,
-  Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -50,15 +51,17 @@ import { ImpactPanel } from "./panels/ImpactPanel";
 import { LayerToggle } from "./controls/LayerToggle";
 import { DirectionToggle } from "./controls/DirectionToggle";
 import type { LineageNodeData, ImpactResult } from "@/lib/lineage-api";
-import { fetchImpactAnalysis } from "@/lib/lineage-api";
+import { fetchImpactAnalysis, fetchLineageGraph } from "@/lib/lineage-api";
 import type { LineageNodePayload } from "./utils/graph-transform";
 import { applyImpactStyling } from "./utils/graph-transform";
 import type { Direction } from "./controls/DirectionToggle";
 import {
-  classifyLayer,
   LAYER_COLORS,
+  LAYER_ORDER,
+  computeLayerMap,
   type ArchitectureLayer,
 } from "./utils/layer-classifier";
+import { Maximize2, Minimize2, Network } from "lucide-react";
 
 // -------------------------------------------------------------------
 // Node and edge type registries (MUST be defined outside component)
@@ -81,11 +84,8 @@ const edgeTypes: EdgeTypes = {
 // Constants
 // -------------------------------------------------------------------
 
-/** Node count threshold for auto-showing the minimap. */
-const MINIMAP_NODE_THRESHOLD = 15;
-
-/** Zoom level below which the minimap auto-shows. */
-const MINIMAP_ZOOM_THRESHOLD = 0.5;
+/** Default zoom level — keeps nodes readable. */
+const DEFAULT_ZOOM = 1;
 
 // -------------------------------------------------------------------
 // Props
@@ -98,6 +98,10 @@ interface LineageGraphProps {
   className?: string;
   /** Optional: auto-trigger impact analysis for this node (e.g. from chat). */
   impactNodeId?: string;
+  /** Whether the graph is in fullscreen mode (controlled by parent). */
+  isFullscreen?: boolean;
+  /** Callback to toggle fullscreen. */
+  onToggleFullscreen?: () => void;
 }
 
 // -------------------------------------------------------------------
@@ -108,14 +112,38 @@ interface LineageGraphProps {
  * Build a source system URL for double-click navigation.
  * Returns null if no external system is available for this node type.
  */
+/** Slugify a name for Metabase URL (e.g. "E-Commerce Insights" → "e-commerce-insights"). */
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/** Extract the numeric Metabase ID from a canonical key like "metabase:card:5". */
+function extractMetabaseId(canonicalKey: string | null | undefined): string | null {
+  if (!canonicalKey) return null;
+  const parts = canonicalKey.split(":");
+  // Expected format: "metabase:{card|dashboard}:{id}"
+  if (parts.length >= 3 && parts[0] === "metabase") return parts[2];
+  return null;
+}
+
 function buildSourceUrl(node: LineageNodeData): string | null {
+  const metabaseBase =
+    process.env.NEXT_PUBLIC_METABASE_URL || "http://localhost:3001";
+
   switch (node.type) {
     case "metabase.card": {
-      const base =
-        process.env.NEXT_PUBLIC_METABASE_URL || "http://localhost:3001";
-      const match = node.id.match(/(\d+)$/);
-      const cardId = match ? match[1] : node.id;
-      return `${base}/question/${cardId}`;
+      const numId = extractMetabaseId(node.canonical_key);
+      if (!numId) return null;
+      const name = node.props?.name as string | undefined;
+      const slug = name ? `${numId}-${slugify(name)}` : numId;
+      return `${metabaseBase}/question/${slug}`;
+    }
+    case "metabase.dashboard": {
+      const numId = extractMetabaseId(node.canonical_key);
+      if (!numId) return null;
+      const name = node.props?.name as string | undefined;
+      const slug = name ? `${numId}-${slugify(name)}` : numId;
+      return `${metabaseBase}/dashboard/${slug}`;
     }
     case "dbt.model":
     case "dbt.source": {
@@ -124,7 +152,6 @@ function buildSourceUrl(node: LineageNodeData): string | null {
       const uniqueId = (node.props?.unique_id as string) ?? node.id;
       return `${dbtBase}/#!/model/${uniqueId}`;
     }
-    // warehouse.table, warehouse.column, metric.kpi have no external system
     default:
       return null;
   }
@@ -132,6 +159,7 @@ function buildSourceUrl(node: LineageNodeData): string | null {
 
 /**
  * Convert a React Flow node to LineageNodeData for the detail panel.
+ * Passes embedded columns through via a _columns prop key.
  */
 function toLineageNodeData(rfNode: Node): LineageNodeData {
   const payload = rfNode.data as unknown as LineageNodePayload;
@@ -139,98 +167,149 @@ function toLineageNodeData(rfNode: Node): LineageNodeData {
     id: rfNode.id,
     type: payload.backendType,
     label: payload.label,
-    props: payload.props,
+    props: {
+      ...payload.props,
+      ...(payload.columns ? { _columns: payload.columns } : {}),
+    },
     canonical_key: payload.canonicalKey,
   };
 }
 
 /**
- * Build group nodes for architecture layers when layers are enabled.
- * Computes bounding boxes around nodes in each layer.
+ * Build overlay group nodes for architecture layers.
+ *
+ * Group nodes are purely decorative backgrounds — they do NOT parent child
+ * nodes.  This avoids React Flow reparenting side-effects (position drift,
+ * extent constraints).  Each group is placed behind regular nodes via
+ * zIndex: -1 and pointer-events: none.
  */
-function buildLayerGroupNodes(
+/**
+ * Build non-overlapping vertical stripe overlays for architecture layers.
+ *
+ * Computes full-height vertical stripes based on actual node bounds (min/max x)
+ * so that every node sits comfortably inside its layer stripe with padding.
+ * Boundaries between adjacent stripes are placed at the midpoint of the gap
+ * between the two layers' node extents.
+ */
+function buildLayerOverlayNodes(
   nodes: Node[],
-): { groupNodes: Node[]; updatedNodes: Node[] } {
-  // Classify each node into a layer
-  const layerMap = new Map<ArchitectureLayer, Node[]>();
+  nodeLayerMap: Map<string, ArchitectureLayer>,
+): Node[] {
+  // Group nodes by layer
+  const layerNodesMap = new Map<ArchitectureLayer, Node[]>();
+  let globalMinY = Infinity;
+  let globalMaxY = -Infinity;
 
   for (const node of nodes) {
-    // Skip existing group nodes
     if (node.type === "groupNode") continue;
+    const layer = nodeLayerMap.get(node.id);
+    if (!layer) continue;
 
-    const payload = node.data as unknown as LineageNodePayload;
-    const fakeNodeData: LineageNodeData = {
-      id: node.id,
-      type: payload.backendType,
-      label: payload.label,
-      props: payload.props,
-      canonical_key: payload.canonicalKey,
-    };
+    const h = node.measured?.height ?? 60;
+    globalMinY = Math.min(globalMinY, node.position.y);
+    globalMaxY = Math.max(globalMaxY, node.position.y + h);
 
-    const layer = classifyLayer(fakeNodeData);
-    const existing = layerMap.get(layer) ?? [];
-    existing.push(node);
-    layerMap.set(layer, existing);
+    const arr = layerNodesMap.get(layer) ?? [];
+    arr.push(node);
+    layerNodesMap.set(layer, arr);
   }
 
-  const groupNodes: Node[] = [];
-  const updatedNodes: Node[] = [];
+  if (globalMinY === Infinity) return [];
+
   const padding = 40;
 
-  for (const [layer, layerNodes] of layerMap.entries()) {
-    if (layerNodes.length === 0) continue;
+  // Compute actual x-bounds for each occupied layer
+  interface LayerInfo {
+    layer: ArchitectureLayer;
+    minX: number; // leftmost node position
+    maxX: number; // rightmost node edge (pos + width)
+    medianX: number;
+  }
 
-    const groupId = `group-${layer}`;
-    const colors = LAYER_COLORS[layer];
+  const layerInfos: LayerInfo[] = [];
+  for (const layer of LAYER_ORDER) {
+    const lNodes = layerNodesMap.get(layer);
+    if (!lNodes || lNodes.length === 0) continue;
 
-    // Compute bounding box of all nodes in this layer
     let minX = Infinity;
-    let minY = Infinity;
     let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const n of layerNodes) {
+    const centers: number[] = [];
+    for (const n of lNodes) {
       const w = n.measured?.width ?? 180;
-      const h = n.measured?.height ?? 60;
       minX = Math.min(minX, n.position.x);
-      minY = Math.min(minY, n.position.y);
       maxX = Math.max(maxX, n.position.x + w);
-      maxY = Math.max(maxY, n.position.y + h);
+      centers.push(n.position.x + w / 2);
+    }
+    centers.sort((a, b) => a - b);
+    layerInfos.push({
+      layer,
+      minX,
+      maxX,
+      medianX: centers[Math.floor(centers.length / 2)],
+    });
+  }
+
+  // Sort by median x (should match LAYER_ORDER for a well-laid-out graph)
+  layerInfos.sort((a, b) => a.medianX - b.medianX);
+
+  // Compute non-overlapping stripe boundaries.
+  // Boundaries sit at the midpoint of the gap between adjacent layers'
+  // actual node extents, so every node has padding within its stripe.
+  const overlayNodes: Node[] = [];
+  const gap = 10; // visual gap between stripes
+
+  for (let i = 0; i < layerInfos.length; i++) {
+    const info = layerInfos[i];
+    const colors = LAYER_COLORS[info.layer];
+
+    let left: number;
+    let right: number;
+
+    if (i === 0) {
+      left = info.minX - padding;
+    } else {
+      // Midpoint of the gap between previous layer's rightmost node
+      // and this layer's leftmost node
+      const prevMax = layerInfos[i - 1].maxX;
+      const currMin = info.minX;
+      left = (prevMax + currMin) / 2 + gap / 2;
     }
 
-    const groupNode: Node = {
-      id: groupId,
+    if (i === layerInfos.length - 1) {
+      right = info.maxX + padding;
+    } else {
+      // Midpoint of the gap between this layer's rightmost node
+      // and next layer's leftmost node
+      const currMax = info.maxX;
+      const nextMin = layerInfos[i + 1].minX;
+      right = (currMax + nextMin) / 2 - gap / 2;
+    }
+
+    // Safety: ensure stripe always covers all nodes with minimum padding
+    left = Math.min(left, info.minX - 20);
+    right = Math.max(right, info.maxX + 20);
+
+    overlayNodes.push({
+      id: `group-${info.layer}`,
       type: "groupNode",
-      position: { x: minX - padding, y: minY - padding - 24 },
+      position: { x: left, y: globalMinY - padding - 24 },
+      zIndex: -1,
+      selectable: false,
+      draggable: false,
       data: {
         label: colors.label,
-        layer,
+        layer: info.layer,
         bg: colors.bg,
         border: colors.border,
       },
       style: {
-        width: maxX - minX + padding * 2,
-        height: maxY - minY + padding * 2 + 24,
+        width: Math.max(right - left, 120),
+        height: globalMaxY - globalMinY + padding * 2 + 24,
       },
-    };
-
-    groupNodes.push(groupNode);
-
-    // Update child nodes to be relative to the group
-    for (const n of layerNodes) {
-      updatedNodes.push({
-        ...n,
-        parentId: groupId,
-        extent: "parent" as const,
-        position: {
-          x: n.position.x - (minX - padding),
-          y: n.position.y - (minY - padding - 24),
-        },
-      });
-    }
+    });
   }
 
-  return { groupNodes, updatedNodes };
+  return overlayNodes;
 }
 
 // -------------------------------------------------------------------
@@ -298,11 +377,12 @@ function LineageGraphInner({
   rootNodeId,
   className,
   impactNodeId,
+  isFullscreen,
+  onToggleFullscreen,
 }: LineageGraphProps) {
-  // State: direction, selected node, minimap, layers
+  // State: direction, selected node, layers
   const [direction, setDirection] = useState<Direction>("both");
   const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(null);
-  const [showMinimap, setShowMinimap] = useState(false);
   const [layersEnabled, setLayersEnabled] = useState(false);
 
   // Impact analysis state
@@ -311,6 +391,8 @@ function LineageGraphInner({
   const [dimUnaffected, setDimUnaffected] = useState(true);
   const [hideUnaffected, setHideUnaffected] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const { setViewport } = useReactFlow();
 
   const {
     nodes: rawNodes,
@@ -331,45 +413,82 @@ function LineageGraphInner({
   // Apply dagre layout after nodes are measured
   useLineageLayout(nodes, edges);
 
-  // Auto-show minimap for large graphs
-  React.useEffect(() => {
-    if (nodes.length > MINIMAP_NODE_THRESHOLD) {
-      setShowMinimap(true);
-    }
-  }, [nodes.length]);
-
-  // Build layer groups when enabled
+  // Build layer overlay groups when enabled.
+  // Uses requestAnimationFrame to ensure dagre positions are settled.
   React.useEffect(() => {
     if (!layersEnabled) {
-      // Remove group nodes and reset parentId
+      setNodes((current) => current.filter((n) => n.type !== "groupNode"));
+      return;
+    }
+
+    // Wait one frame for dagre positions to be applied
+    const raf = window.requestAnimationFrame(() => {
+      setNodes((current) => {
+        const nonGroupNodes = current.filter((n) => n.type !== "groupNode");
+        if (nonGroupNodes.length === 0) return current;
+
+        const nodeLayerMap = computeLayerMap(nonGroupNodes, edges);
+        const overlayNodes = buildLayerOverlayNodes(nonGroupNodes, nodeLayerMap);
+        return [...overlayNodes, ...nonGroupNodes];
+      });
+    });
+
+    return () => window.cancelAnimationFrame(raf);
+  }, [layersEnabled, setNodes, edges]);
+
+  // -- Client-side direction filtering: hide nodes not matching direction ----
+  // Uses the full edge set (rawEdges from useLineageData) for BFS traversal,
+  // preserving dagre-computed positions by toggling hidden instead of re-layout.
+  React.useEffect(() => {
+    if (direction === "both" || !selectedNode) {
+      // Show all nodes (restore from any previous filtering)
       setNodes((current) =>
-        current
-          .filter((n) => n.type !== "groupNode")
-          .map((n) => {
-            if (n.parentId?.startsWith("group-")) {
-              const { parentId, extent, ...rest } = n;
-              // Suppress unused variable lint -- parentId and extent are
-              // intentionally destructured to exclude them from the rest.
-              void parentId;
-              void extent;
-              return rest as Node;
-            }
-            return n;
-          }),
+        current.map((n) => (n.type === "groupNode" ? n : { ...n, hidden: false })),
+      );
+      setEdges((current) =>
+        current.map((e) => ({ ...e, hidden: false })),
       );
       return;
     }
 
-    // When layers are enabled, compute group nodes
-    setNodes((current) => {
-      const nonGroupNodes = current.filter((n) => n.type !== "groupNode");
-      if (nonGroupNodes.length === 0) return current;
+    // BFS from selected node in the specified direction
+    const selectedId = selectedNode.id;
+    const reachable = new Set<string>([selectedId]);
+    const queue = [selectedId];
 
-      const { groupNodes, updatedNodes } = buildLayerGroupNodes(nonGroupNodes);
-      // Group nodes must come first (React Flow renders groups before children)
-      return [...groupNodes, ...updatedNodes];
-    });
-  }, [layersEnabled, setNodes]);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const edge of rawEdges) {
+        if (
+          direction === "upstream" &&
+          edge.target === current &&
+          !reachable.has(edge.source)
+        ) {
+          reachable.add(edge.source);
+          queue.push(edge.source);
+        } else if (
+          direction === "downstream" &&
+          edge.source === current &&
+          !reachable.has(edge.target)
+        ) {
+          reachable.add(edge.target);
+          queue.push(edge.target);
+        }
+      }
+    }
+
+    setNodes((current) =>
+      current.map((n) =>
+        n.type === "groupNode" ? n : { ...n, hidden: !reachable.has(n.id) },
+      ),
+    );
+    setEdges((current) =>
+      current.map((e) => ({
+        ...e,
+        hidden: !reachable.has(e.source) || !reachable.has(e.target),
+      })),
+    );
+  }, [direction, selectedNode, rawEdges, setNodes, setEdges]);
 
   // -- Event handlers -------------------------------------------------------
 
@@ -394,13 +513,6 @@ function LineageGraphInner({
 
   const onClosePanel = useCallback(() => {
     setSelectedNode(null);
-  }, []);
-
-  /** Auto-show minimap when zoomed out below threshold. */
-  const onViewportChange = useCallback((viewport: Viewport) => {
-    if (viewport.zoom < MINIMAP_ZOOM_THRESHOLD) {
-      setShowMinimap(true);
-    }
   }, []);
 
   // -- Impact analysis handlers -----------------------------------------------
@@ -534,6 +646,26 @@ function LineageGraphInner({
       <div className="absolute right-2 top-2 z-40 flex flex-col gap-1">
         <DirectionToggle direction={direction} onChange={setDirection} />
         <LayerToggle enabled={layersEnabled} onToggle={setLayersEnabled} />
+        {onToggleFullscreen && (
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            className="flex items-center justify-center rounded-md border border-zinc-200 bg-white p-1.5 text-zinc-600 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            data-testid="fullscreen-toggle"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Node count indicator */}
+      <div className="absolute left-2 top-2 z-40 rounded-md bg-white/80 px-2 py-1 text-xs text-zinc-500 shadow-sm backdrop-blur-sm">
+        {rawNodes.length} nodes
       </div>
 
       <ReactFlow
@@ -547,23 +679,19 @@ function LineageGraphInner({
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
         onPaneClick={onPaneClick}
-        onViewportChange={onViewportChange}
-        fitView
-        minZoom={0.1}
+        minZoom={0.05}
         maxZoom={2}
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        defaultViewport={{ x: 0, y: 0, zoom: DEFAULT_ZOOM }}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} size={1} />
-        <Controls />
-        {showMinimap && (
-          <MiniMap
-            nodeStrokeWidth={2}
-            zoomable
-            pannable
-            className="!bottom-2 !right-2"
-          />
-        )}
+        <Controls showFitView />
+        <MiniMap
+          nodeStrokeWidth={2}
+          zoomable
+          pannable
+          className="!bottom-2 !right-2"
+        />
       </ReactFlow>
 
       {/* Context menu */}
@@ -608,13 +736,140 @@ function LineageGraphInner({
 }
 
 // -------------------------------------------------------------------
-// Exported component (wraps with ReactFlowProvider)
+// Collapsed summary card (shown inline instead of the full graph)
 // -------------------------------------------------------------------
 
-export default function LineageGraph(props: LineageGraphProps) {
+function LineageSummaryCard({
+  nodeCount,
+  edgeCount,
+  loading,
+  error,
+  onExpand,
+}: {
+  nodeCount: number;
+  edgeCount: number;
+  loading: boolean;
+  error: string | null;
+  onExpand: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <Network className="h-5 w-5 animate-pulse text-zinc-400" />
+        <span className="text-sm text-zinc-500">Loading lineage...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950">
+        <Network className="h-5 w-5 text-red-400" />
+        <span className="text-sm text-red-600 dark:text-red-400">
+          Failed to load lineage
+        </span>
+      </div>
+    );
+  }
+
+  if (nodeCount === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <Network className="h-5 w-5 text-zinc-400" />
+        <span className="text-sm text-zinc-500">No lineage data available</span>
+      </div>
+    );
+  }
+
   return (
-    <ReactFlowProvider>
-      <LineageGraphInner {...props} />
-    </ReactFlowProvider>
+    <button
+      type="button"
+      onClick={onExpand}
+      className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-blue-700 dark:hover:bg-blue-950"
+      data-testid="lineage-expand-button"
+    >
+      <Network className="h-5 w-5 text-blue-500" />
+      <div className="flex-1">
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+          Lineage Graph
+        </span>
+        <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
+          {nodeCount} nodes &middot; {edgeCount} edges
+        </span>
+      </div>
+      <Maximize2 className="h-4 w-4 text-zinc-400" />
+    </button>
+  );
+}
+
+// -------------------------------------------------------------------
+// Exported component (wraps with ReactFlowProvider + fullscreen)
+// -------------------------------------------------------------------
+
+export default function LineageGraph(props: Omit<LineageGraphProps, "isFullscreen" | "onToggleFullscreen">) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [stats, setStats] = useState({ nodes: 0, edges: 0, loading: true, error: null as string | null });
+
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((v) => !v);
+  }, []);
+
+  // Fetch graph stats for the summary card
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStats() {
+      try {
+        const data = await fetchLineageGraph(props.rootNodeId);
+        if (cancelled) return;
+        // Subtract column nodes from count to match the filtered graph
+        const visibleNodes = data.nodes.filter((n) => n.type !== "warehouse.column").length;
+        const columnIds = new Set(data.nodes.filter((n) => n.type === "warehouse.column").map((n) => n.id));
+        const visibleEdges = data.edges.filter((e) => !columnIds.has(e.source) && !columnIds.has(e.target)).length;
+        setStats({ nodes: visibleNodes, edges: visibleEdges, loading: false, error: null });
+      } catch (err) {
+        if (cancelled) return;
+        setStats({ nodes: 0, edges: 0, loading: false, error: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
+    loadStats();
+    return () => { cancelled = true; };
+  }, [props.rootNodeId]);
+
+  // Close fullscreen on Escape
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  if (isFullscreen) {
+    return (
+      <div
+        className="fixed inset-0 z-50 bg-white dark:bg-zinc-950"
+        data-testid="lineage-fullscreen"
+      >
+        <ReactFlowProvider>
+          <LineageGraphInner
+            {...props}
+            className="h-full w-full"
+            isFullscreen
+            onToggleFullscreen={toggleFullscreen}
+          />
+        </ReactFlowProvider>
+      </div>
+    );
+  }
+
+  return (
+    <LineageSummaryCard
+      nodeCount={stats.nodes}
+      edgeCount={stats.edges}
+      loading={stats.loading}
+      error={stats.error}
+      onExpand={toggleFullscreen}
+    />
   );
 }

@@ -49,7 +49,8 @@ export function useLineageData(
       setError(null);
 
       try {
-        const data = await fetchLineageGraph(nodeId, direction);
+        // Always fetch full graph -- direction filtering is done client-side
+        const data = await fetchLineageGraph(nodeId);
         if (cancelled) return;
 
         const { nodes: rfNodes, edges: rfEdges } = transformToReactFlow(data);
@@ -73,7 +74,7 @@ export function useLineageData(
     return () => {
       cancelled = true;
     };
-  }, [nodeId, direction, fetchKey]);
+  }, [nodeId, fetchKey]); // direction removed -- filtering is client-side in LineageGraph
 
   return { nodes, edges, loading, error, refetch };
 }
