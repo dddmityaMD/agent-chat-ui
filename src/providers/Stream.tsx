@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
+import type { UseStream } from "@langchain/langgraph-sdk/react";
 import { type Message } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
@@ -33,20 +34,19 @@ export type StateType = {
   case_id?: string;
 };
 
-const useTypedStream = useStream<
-  StateType,
-  {
-    UpdateType: {
-      messages?: Message[] | Message | string;
-      ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
-      context?: Record<string, unknown>;
-      case_id?: string;
-    };
-    CustomEventType: UIMessage | RemoveUIMessage;
-  }
->;
+type BagType = {
+  UpdateType: {
+    messages?: Message[] | Message | string;
+    ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
+    context?: Record<string, unknown>;
+    case_id?: string;
+  };
+  CustomEventType: UIMessage | RemoveUIMessage;
+};
 
-type StreamContextType = ReturnType<typeof useTypedStream>;
+// Explicitly type as UseStream (full API with branching, metadata, etc.)
+// not UseStreamCustom (limited API for custom transports)
+type StreamContextType = UseStream<StateType, BagType>;
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
 
 async function sleep(ms = 4000) {
@@ -86,12 +86,15 @@ const StreamSession = ({
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads } = useThreads();
-  const streamValue = useTypedStream({
+  const streamValue = useStream<StateType, BagType>({
     apiUrl,
     apiKey: apiKey ?? undefined,
     assistantId,
     threadId: threadId ?? null,
     fetchStateHistory: true,
+    // Throttle state updates to prevent Maximum update depth exceeded (React #185)
+    // true = macrotask batching (SDK v1.1.0+)
+    throttle: true,
     onCustomEvent: (event, options) => {
       if (isUIMessage(event) || isRemoveUIMessage(event)) {
         options.mutate((prev) => {
