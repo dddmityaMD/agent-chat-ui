@@ -383,6 +383,7 @@ function LineageGraphInner({
   // State: direction, selected node, layers
   const [direction, setDirection] = useState<Direction>("both");
   const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [layersEnabled, setLayersEnabled] = useState(false);
 
   // Impact analysis state
@@ -440,8 +441,8 @@ function LineageGraphInner({
   // Uses the full edge set (rawEdges from useLineageData) for BFS traversal,
   // preserving dagre-computed positions by toggling hidden instead of re-layout.
   React.useEffect(() => {
-    if (direction === "both" || !selectedNode) {
-      // Show all nodes (restore from any previous filtering)
+    if (!selectedNode) {
+      // No selection — show all nodes (restore from any previous filtering)
       setNodes((current) =>
         current.map((n) => (n.type === "groupNode" ? n : { ...n, hidden: false })),
       );
@@ -451,7 +452,43 @@ function LineageGraphInner({
       return;
     }
 
-    // BFS from selected node in the specified direction
+    // "both" direction: BFS in both directions from selected node
+    if (direction === "both") {
+      const reachable = new Set<string>();
+      const queue: string[] = [selectedNode.id];
+      reachable.add(selectedNode.id);
+
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const e of rawEdges) {
+          // Downstream
+          if (e.source === current && !reachable.has(e.target)) {
+            reachable.add(e.target);
+            queue.push(e.target);
+          }
+          // Upstream
+          if (e.target === current && !reachable.has(e.source)) {
+            reachable.add(e.source);
+            queue.push(e.source);
+          }
+        }
+      }
+
+      setNodes((current) =>
+        current.map((n) =>
+          n.type === "groupNode" ? n : { ...n, hidden: !reachable.has(n.id) },
+        ),
+      );
+      setEdges((current) =>
+        current.map((e) => ({
+          ...e,
+          hidden: !reachable.has(e.source) || !reachable.has(e.target),
+        })),
+      );
+      return;
+    }
+
+    // BFS from selected node in the specified direction (upstream or downstream)
     const selectedId = selectedNode.id;
     const reachable = new Set<string>([selectedId]);
     const queue = [selectedId];
@@ -496,6 +533,7 @@ function LineageGraphInner({
     (_event, rfNode) => {
       const nodeData = toLineageNodeData(rfNode);
       setSelectedNode(nodeData);
+      setPanelOpen(true);
     },
     [],
   );
@@ -512,7 +550,7 @@ function LineageGraphInner({
   );
 
   const onClosePanel = useCallback(() => {
-    setSelectedNode(null);
+    setPanelOpen(false);
   }, []);
 
   // -- Impact analysis handlers -----------------------------------------------
@@ -729,7 +767,10 @@ function LineageGraphInner({
 
       {/* Node detail panel (slide-in from right, behind impact panel) */}
       {!impactResult && (
-        <NodeDetailPanel selectedNode={selectedNode} onClose={onClosePanel} />
+        <NodeDetailPanel
+          selectedNode={panelOpen ? selectedNode : null}
+          onClose={onClosePanel}
+        />
       )}
     </div>
   );
