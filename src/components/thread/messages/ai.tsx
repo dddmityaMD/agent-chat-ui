@@ -313,28 +313,32 @@ export function AssistantMessage({
   // Handle handoff confirmation: send a new message with handoff metadata
   const handleHandoffConfirm = useCallback(() => {
     if (!handoffProposal) return;
-    const confirmMsg: Message = {
-      id: uuidv4(),
-      type: "human",
-      content: [
+    // Defer submit to next tick to avoid React error #185
+    // (Cannot update component while rendering different component)
+    setTimeout(() => {
+      const confirmMsg: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: [
+          {
+            type: "text",
+            text: `Switch to ${FLOW_DISPLAY_NAMES[handoffProposal.target_flow] || handoffProposal.target_flow} flow`,
+          },
+        ] as Message["content"],
+      };
+      thread.submit(
         {
-          type: "text",
-          text: `Switch to ${FLOW_DISPLAY_NAMES[handoffProposal.target_flow] || handoffProposal.target_flow} flow`,
+          messages: [...thread.messages, confirmMsg],
+          handoff_confirmed: true,
+          handoff_target: handoffProposal.target_flow,
+        } as Record<string, unknown> as any,
+        {
+          streamMode: ["values"],
+          streamSubgraphs: true,
+          streamResumable: true,
         },
-      ] as Message["content"],
-    };
-    thread.submit(
-      {
-        messages: [...thread.messages, confirmMsg],
-        handoff_confirmed: true,
-        handoff_target: handoffProposal.target_flow,
-      } as Record<string, unknown> as any,
-      {
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
-      },
-    );
+      );
+    }, 0);
   }, [handoffProposal, thread]);
 
   if (isToolResult && hideToolCalls) {
