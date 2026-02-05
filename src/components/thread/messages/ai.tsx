@@ -19,6 +19,8 @@ import { QueryResults, EntityType } from "@/components/query";
 import { FlowBadge } from "@/components/flow-indicator/FlowBadge";
 import { BatchReview } from "@/components/remediation/BatchReview";
 import type { RemediationProposalData } from "@/components/remediation/DiffCard";
+import { BlockerMessage } from "../blocker-message";
+import type { Blocker } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -99,6 +101,24 @@ function getRemediationProposals(saisUi: unknown): RemediationProposalData[] | n
       typeof (p as Record<string, unknown>).title === "string"
   );
   return valid ? (proposals as RemediationProposalData[]) : null;
+}
+
+// Extract blockers from sais_ui
+function getBlockers(saisUi: unknown): Blocker[] | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const blockers = obj.blockers;
+  if (!Array.isArray(blockers) || blockers.length === 0) return null;
+  // Validate each blocker has required fields
+  const valid = blockers.every(
+    (b: unknown) =>
+      b &&
+      typeof b === "object" &&
+      typeof (b as Record<string, unknown>).type === "string" &&
+      typeof (b as Record<string, unknown>).severity === "string" &&
+      typeof (b as Record<string, unknown>).message === "string"
+  );
+  return valid ? (blockers as Blocker[]) : null;
 }
 
 function CustomComponent({
@@ -291,6 +311,7 @@ export function AssistantMessage({
   const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
   const handoffProposal = isLastMessage ? getHandoffProposal(saisUi) : null;
   const remediationProposals = isLastMessage ? getRemediationProposals(saisUi) : null;
+  const blockers = isLastMessage ? getBlockers(saisUi) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -347,7 +368,7 @@ export function AssistantMessage({
   }
 
   return (
-    <div className="group mr-auto flex w-full items-start gap-2">
+    <div className="group mr-auto flex w-full items-start gap-2" data-testid="ai-message">
       <div className="flex w-full flex-col gap-2">
         {isToolResult ? (
           <>
@@ -368,7 +389,7 @@ export function AssistantMessage({
             )}
 
             {contentString.length > 0 && !(metadataResults && metadataResults.items.length > 0) && (
-              <div className="py-1">
+              <div className="py-1" data-testid="ai-message-content">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
@@ -419,6 +440,41 @@ export function AssistantMessage({
                     "http://localhost:8000"
                   }
                 />
+              </div>
+            )}
+
+            {/* Blocker messages */}
+            {blockers && blockers.length > 0 && (
+              <div className="mt-3" data-testid="blocker-messages">
+                {blockers.map((blocker, idx) => (
+                  <BlockerMessage
+                    key={`blocker-${idx}`}
+                    blocker={blocker}
+                    onAction={() => {
+                      // For blockers with next_action, submit as human message
+                      // next_action contains user-facing instruction like "Try searching for 'sales' instead"
+                      if (blocker.next_action) {
+                        const actionMsg: Message = {
+                          id: uuidv4(),
+                          type: "human",
+                          content: [
+                            { type: "text", text: blocker.next_action },
+                          ] as Message["content"],
+                        };
+                        thread.submit(
+                          {
+                            messages: [...thread.messages, actionMsg],
+                          } as Record<string, unknown> as any,
+                          {
+                            streamMode: ["values"],
+                            streamSubgraphs: true,
+                            streamResumable: true,
+                          }
+                        );
+                      }
+                    }}
+                  />
+                ))}
               </div>
             )}
 
