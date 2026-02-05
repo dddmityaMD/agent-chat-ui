@@ -80,3 +80,36 @@ export interface DisambiguationSelection {
   /** Free text clarification */
   freeText?: string;
 }
+
+// --- Multi-intent types (from backend multi_intent module) ---
+
+export interface DecomposedIntent {
+  /** The intent-specific text extracted from compound query */
+  intent_text: string;
+  /** Suggested skill name if obvious */
+  skill_hint?: string | null;
+  /** Indices of intents this depends on */
+  depends_on: number[];
+  /** True if this intent might modify data */
+  is_write_capable: boolean;
+}
+
+export interface IntentResult {
+  /** Index of the intent in decomposition */
+  index: number;
+  /** Whether execution succeeded */
+  success: boolean;
+  /** Error message if failed (from blocker) */
+  error?: string | null;
+}
+
+export interface MultiIntentPayload {
+  /** List of decomposed intents */
+  intents: DecomposedIntent[];
+  /** Execution results per intent */
+  results: IntentResult[];
+  /** True if intents were executed in parallel, false if sequential */
+  was_parallel: boolean;
+  /** Merged output from all intent executions */
+  merged_output: Record<string, unknown>;
+}
