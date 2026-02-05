@@ -20,7 +20,8 @@ import { FlowBadge } from "@/components/flow-indicator/FlowBadge";
 import { BatchReview } from "@/components/remediation/BatchReview";
 import type { RemediationProposalData } from "@/components/remediation/DiffCard";
 import { BlockerMessage } from "../blocker-message";
-import type { Blocker } from "@/lib/types";
+import { MultiIntentResult } from "../multi-intent-result";
+import type { Blocker, MultiIntentPayload } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -119,6 +120,25 @@ function getBlockers(saisUi: unknown): Blocker[] | null {
       typeof (b as Record<string, unknown>).message === "string"
   );
   return valid ? (blockers as Blocker[]) : null;
+}
+
+// Extract multi-intent payload from sais_ui
+function getMultiIntentPayload(saisUi: unknown): MultiIntentPayload | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const mi = obj.multi_intent;
+  if (!mi || typeof mi !== "object") return null;
+  const payload = mi as Record<string, unknown>;
+  // Validate required fields
+  if (!Array.isArray(payload.intents) || !Array.isArray(payload.results)) return null;
+  // Only show if multiple intents (single intent = no decomposition UI)
+  if (payload.intents.length < 2) return null;
+  return {
+    intents: payload.intents as MultiIntentPayload["intents"],
+    results: payload.results as MultiIntentPayload["results"],
+    was_parallel: payload.was_parallel === true,
+    merged_output: (payload.merged_output as Record<string, unknown>) || {},
+  };
 }
 
 function CustomComponent({
@@ -312,6 +332,7 @@ export function AssistantMessage({
   const handoffProposal = isLastMessage ? getHandoffProposal(saisUi) : null;
   const remediationProposals = isLastMessage ? getRemediationProposals(saisUi) : null;
   const blockers = isLastMessage ? getBlockers(saisUi) : null;
+  const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUi) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -386,6 +407,11 @@ export function AssistantMessage({
               <div className="mb-1">
                 <FlowBadge flowType={activeFlow} />
               </div>
+            )}
+
+            {/* Multi-intent decomposition */}
+            {multiIntentPayload && (
+              <MultiIntentResult payload={multiIntentPayload} />
             )}
 
             {contentString.length > 0 && !(metadataResults && metadataResults.items.length > 0) && (
