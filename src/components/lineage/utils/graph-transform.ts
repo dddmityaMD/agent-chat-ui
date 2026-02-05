@@ -11,6 +11,7 @@ import type { LineageGraphResponse, ImpactResult, RiskLevel } from "@/lib/lineag
 
 const NODE_TYPE_MAP: Record<string, string> = {
   "metabase.card": "cardNode",
+  "metabase.dashboard": "cardNode",
   "warehouse.table": "tableNode",
   "warehouse.column": "columnNode",
   "dbt.model": "dbtModelNode",
@@ -24,16 +25,28 @@ function resolveNodeType(backendType: string): string {
 
 // -- Transform ------------------------------------------------------------
 
+export interface ColumnInfo {
+  name: string;
+  dataType: string | null;
+  nullable: boolean | null;
+}
+
 export interface LineageNodePayload {
   label: string;
   backendType: string;
   canonicalKey: string | null;
   props: Record<string, unknown>;
+  /** Columns embedded from child warehouse.column nodes (tables only). */
+  columns?: ColumnInfo[];
   [key: string]: unknown;
 }
 
 /**
  * Convert backend lineage graph response to React Flow nodes and edges.
+ *
+ * Column nodes (warehouse.column) are filtered out of the graph and instead
+ * embedded as a `columns` array in their parent table node's data payload.
+ * This keeps the graph clean while preserving column info for the detail panel.
  *
  * Nodes are created without positions -- the dagre layout hook positions
  * them after initial render and measurement.
@@ -42,28 +55,76 @@ export function transformToReactFlow(data: LineageGraphResponse): {
   nodes: Node<LineageNodePayload>[];
   edges: Edge[];
 } {
-  const nodes: Node<LineageNodePayload>[] = data.nodes.map((n) => ({
-    id: n.id,
-    type: resolveNodeType(n.type),
-    position: { x: 0, y: 0 }, // dagre layout fills these in
-    data: {
-      label: n.label,
-      backendType: n.type,
-      canonicalKey: n.canonical_key,
-      props: n.props,
-    },
-  }));
+  // Build a map of column node IDs -> column info
+  const columnNodeIds = new Set<string>();
+  const columnById = new Map<string, ColumnInfo>();
+  for (const n of data.nodes) {
+    if (n.type === "warehouse.column") {
+      columnNodeIds.add(n.id);
+      columnById.set(n.id, {
+        name: n.label,
+        dataType: (n.props?.data_type as string) ?? null,
+        nullable: (n.props?.nullable as boolean) ?? null,
+      });
+    }
+  }
 
-  const edges: Edge[] = data.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    type: "animatedEdge",
-    data: {
-      edgeType: e.type,
-      props: e.props,
-    },
-  }));
+  // Build table_id -> columns[] from table_has_column edges
+  const tableColumns = new Map<string, ColumnInfo[]>();
+  for (const e of data.edges) {
+    if (e.type === "table_has_column" && columnById.has(e.target)) {
+      const cols = tableColumns.get(e.source) ?? [];
+      cols.push(columnById.get(e.target)!);
+      tableColumns.set(e.source, cols);
+    }
+  }
+
+  // Create React Flow nodes, skipping column nodes
+  const nodes: Node<LineageNodePayload>[] = [];
+  for (const n of data.nodes) {
+    if (n.type === "warehouse.column") continue;
+
+    const columns = tableColumns.get(n.id);
+    nodes.push({
+      id: n.id,
+      type: resolveNodeType(n.type),
+      position: { x: 0, y: 0 },
+      data: {
+        label: n.label,
+        backendType: n.type,
+        canonicalKey: n.canonical_key,
+        props: n.props,
+        ...(columns ? { columns } : {}),
+      },
+    });
+  }
+
+  // Edge types where the backend direction is opposite to the data-flow direction.
+  // Backend stores semantic "A reads B" (A→B), but visually data flows B→A.
+  const REVERSE_EDGE_TYPES = new Set([
+    "card_reads_table",          // card→table  → visual: table→card
+    "card_reads_column",         // card→column → visual: column→card
+    "dbt_model_depends_on_model",  // model→dep → visual: dep→model
+    "dbt_model_depends_on_source", // model→src → visual: src→model
+  ]);
+
+  // Filter out edges involving column nodes, and reverse edges for data-flow direction
+  const edges: Edge[] = [];
+  for (const e of data.edges) {
+    if (columnNodeIds.has(e.source) || columnNodeIds.has(e.target)) continue;
+
+    const reverse = REVERSE_EDGE_TYPES.has(e.type);
+    edges.push({
+      id: e.id,
+      source: reverse ? e.target : e.source,
+      target: reverse ? e.source : e.target,
+      type: "animatedEdge",
+      data: {
+        edgeType: e.type,
+        props: e.props,
+      },
+    });
+  }
 
   return { nodes, edges };
 }

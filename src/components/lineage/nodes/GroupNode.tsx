@@ -25,6 +25,7 @@ function GroupNodeComponent({ data }: NodeProps) {
         backgroundColor: payload.bg,
         border: `2px dashed ${payload.border}`,
         minHeight: 100,
+        pointerEvents: "none",
       }}
     >
       <span
