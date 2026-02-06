@@ -13,7 +13,8 @@ export type BlockerType =
   | 'INTENT_UNCLEAR'
   | 'RESOLUTION_FAILED'
   | 'SKILL_UNAVAILABLE'
-  | 'SKILL_EXECUTION_FAILED';
+  | 'SKILL_EXECUTION_FAILED'
+  | 'LLM_ERROR';
 
 export interface Blocker {
   type: BlockerType;
@@ -22,6 +23,8 @@ export interface Blocker {
   hint: string;
   what_i_tried?: string[];
   next_action?: string;
+  /** Recovery action identifiers: "retry", "switch_model" */
+  recovery_actions?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -112,4 +115,20 @@ export interface MultiIntentPayload {
   was_parallel: boolean;
   /** Merged output from all intent executions */
   merged_output: Record<string, unknown>;
+}
+
+// --- LLM Health types (from backend llm wrapper / health endpoint) ---
+
+export interface LLMHealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  last_error?: string | null;
+  consecutive_failures: number;
+}
+
+export interface AvailableModel {
+  provider: string;
+  model: string;
+  operation_type: string;
+  is_primary: boolean;
+  is_fallback: boolean;
 }
