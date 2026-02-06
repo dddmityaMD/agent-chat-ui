@@ -6,6 +6,7 @@ import { ThreadProvider } from "@/providers/Thread";
 import { ArtifactProvider } from "@/components/thread/artifact";
 import { Toaster } from "@/components/ui/sonner";
 import { CasesProvider } from "@/providers/Cases";
+import { LLMHealthProvider } from "@/providers/LLMHealth";
 import React from "react";
 
 export default function DemoPage(): React.ReactNode {
@@ -15,9 +16,11 @@ export default function DemoPage(): React.ReactNode {
       <CasesProvider>
         <ThreadProvider>
           <StreamProvider>
-            <ArtifactProvider>
-              <Thread />
-            </ArtifactProvider>
+            <LLMHealthProvider>
+              <ArtifactProvider>
+                <Thread />
+              </ArtifactProvider>
+            </LLMHealthProvider>
           </StreamProvider>
         </ThreadProvider>
       </CasesProvider>

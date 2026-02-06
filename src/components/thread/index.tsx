@@ -47,6 +47,7 @@ import {
   ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
+import { HealthDot } from "./health-dot";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -388,6 +389,7 @@ export function Thread() {
                     Agent Chat
                   </span>
                 </motion.button>
+                <HealthDot />
               </div>
 
               <div className="flex items-center gap-4">

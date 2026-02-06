@@ -476,15 +476,17 @@ export function AssistantMessage({
                   <BlockerMessage
                     key={`blocker-${idx}`}
                     blocker={blocker}
-                    onAction={() => {
-                      // For blockers with next_action, submit as human message
-                      // next_action contains user-facing instruction like "Try searching for 'sales' instead"
-                      if (blocker.next_action) {
+                    onAction={(action?: string) => {
+                      // Determine the text to submit as human message:
+                      // - LLM_ERROR recovery actions pass explicit action string ("retry", "switch to provider:model")
+                      // - Non-LLM_ERROR blockers use next_action (backward compatible)
+                      const text = action || blocker.next_action;
+                      if (text) {
                         const actionMsg: Message = {
                           id: uuidv4(),
                           type: "human",
                           content: [
-                            { type: "text", text: blocker.next_action },
+                            { type: "text", text },
                           ] as Message["content"],
                         };
                         thread.submit(
