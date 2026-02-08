@@ -65,6 +65,7 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
   const Icon = config.icon;
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const isLLMError = blocker.type === 'LLM_ERROR';
   const isPermissionRequired = blocker.type === 'PERMISSION_REQUIRED';
@@ -79,10 +80,10 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
   }, [blocker.metadata]);
 
   useEffect(() => {
-    if (isPermissionRequired && !permissionGranted) {
+    if (isPermissionRequired && !permissionGranted && !permissionDenied) {
       setPermissionModalOpen(true);
     }
-  }, [isPermissionRequired, permissionGranted]);
+  }, [isPermissionRequired, permissionGranted, permissionDenied]);
 
   const handleRetry = () => {
     onAction?.('retry');
@@ -113,6 +114,7 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
       ? ` pending_action_id=${permissionMetadata.pending_action_id}`
       : '';
     onAction?.(`deny write${pendingActionText}`);
+    setPermissionDenied(true);
     setPermissionModalOpen(false);
   };
 
