@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useQueryState } from "nuqs";
 import { useCases, CaseSummary } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
+import { usePermissionState } from "@/providers/Thread";
 import { cn } from "@/lib/utils";
 import {
   EvidenceViewer,
@@ -19,6 +20,7 @@ import {
 } from "@/hooks/useCaseEvidenceState";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 import { Network } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -125,7 +127,9 @@ function computeMismatch(summary: CaseSummary | null): Record<string, string> {
 export function CasePanel({ className }: { className?: string }) {
   const { getCaseSummary, getFindings } = useCases();
   const stream = useStreamContext();
+  const { permissionState, revokePermissionGrant } = usePermissionState();
   const [caseId] = useQueryState("caseId");
+  const [casePanelSection, setCasePanelSection] = useQueryState("casePanelSection");
   const [summary, setSummary] = useState<CaseSummary | null>(null);
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +192,13 @@ export function CasePanel({ className }: { className?: string }) {
       cancelled = true;
     };
   }, [caseId, getCaseSummary, getFindings, refreshKey, resetRequestedTypes, inferTypesFromIntent]);
+
+  useEffect(() => {
+    if (casePanelSection !== "permissions") return;
+    const section = document.getElementById("permissions-section");
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setCasePanelSection(null);
+  }, [casePanelSection, setCasePanelSection]);
 
   const { checks, missing: _missing } = useMemo(
     () => computeChecks(summary, requestedTypes),
@@ -273,6 +284,74 @@ export function CasePanel({ className }: { className?: string }) {
               {requestedTypes.size === 0 && (
                 <div className="mt-2 text-xs text-gray-400">
                   Ask a question to check for relevant evidence
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            id="permissions-section"
+            className="mt-4 grid gap-2"
+            data-testid="permissions-section"
+          >
+            <div className="text-sm font-semibold">Permissions</div>
+            <div className="rounded-md border bg-white p-3">
+              {permissionState.grants.length === 0 ? (
+                <div className="text-muted-foreground text-sm">No active grants</div>
+              ) : (
+                <div className="space-y-2">
+                  {permissionState.grants.map((grant) => (
+                    <div
+                      key={`${grant.pending_action_id ?? "grant"}-${grant.granted_at}`}
+                      className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-medium text-amber-900">
+                            {grant.capability.toUpperCase()} ({grant.scope})
+                          </div>
+                          <div className="text-xs text-amber-800">
+                            Granted: {new Date(grant.granted_at).toLocaleString()}
+                          </div>
+                          {grant.expires_at && (
+                            <div className="text-xs text-amber-800">
+                              Expires: {new Date(grant.expires_at).toLocaleString()}
+                            </div>
+                          )}
+                          {grant.reason && (
+                            <div className="mt-1 text-xs text-amber-800">Reason: {grant.reason}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          onClick={() => {
+                            revokePermissionGrant(grant.pending_action_id);
+                            const text = `deny write${grant.pending_action_id ? ` pending_action_id=${grant.pending_action_id}` : ""}`;
+                            stream.submit(
+                              {
+                                messages: [
+                                  ...stream.messages,
+                                  {
+                                    id: uuidv4(),
+                                    type: "human",
+                                    content: [{ type: "text", text }],
+                                  },
+                                ],
+                              } as Record<string, unknown> as any,
+                              {
+                                streamMode: ["values"],
+                                streamSubgraphs: true,
+                                streamResumable: true,
+                              },
+                            );
+                          }}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

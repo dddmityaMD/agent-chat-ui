@@ -14,7 +14,26 @@ export type BlockerType =
   | 'RESOLUTION_FAILED'
   | 'SKILL_UNAVAILABLE'
   | 'SKILL_EXECUTION_FAILED'
-  | 'LLM_ERROR';
+  | 'LLM_ERROR'
+  | 'PERMISSION_REQUIRED'
+  | 'POLICY_VIOLATION';
+
+export const blockerSeverityConfig: Record<BlockerSeverity, { className: string }> = {
+  INFO: {
+    className: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200',
+  },
+  WARNING: {
+    className: 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200',
+  },
+  ERROR: {
+    className: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200',
+  },
+};
+
+export const blockerTypeSeverityOverrides: Partial<Record<BlockerType, BlockerSeverity>> = {
+  PERMISSION_REQUIRED: 'WARNING',
+  POLICY_VIOLATION: 'ERROR',
+};
 
 export interface Blocker {
   type: BlockerType;
@@ -26,6 +45,32 @@ export interface Blocker {
   /** Recovery action identifiers: "retry", "switch_model" */
   recovery_actions?: string[];
   metadata?: Record<string, unknown>;
+}
+
+export interface PermissionGrant {
+  capability: string;
+  scope: string;
+  granted_at: string;
+  expires_at: string | null;
+  reason: string | null;
+  pending_action_id: string | null;
+}
+
+export interface PermissionState {
+  grants: PermissionGrant[];
+}
+
+export interface PermissionBlockerMetadata {
+  summary?: string;
+  requested_capability?: string;
+  tool_name?: string;
+  action_name?: string;
+  pending_action_id?: string;
+  pending_action?: string;
+  agent_reason?: string;
+  rule_violated?: string;
+  suggestion?: string;
+  target?: string;
 }
 
 // --- Resolution steps (for debugging UI) ---

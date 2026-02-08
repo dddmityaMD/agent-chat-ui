@@ -2,6 +2,7 @@ import { validate } from "uuid";
 import { getApiKey } from "@/lib/api-key";
 import { Thread } from "@langchain/langgraph-sdk";
 import { useQueryState } from "nuqs";
+import type { PermissionGrant, PermissionState } from "@/lib/types";
 import {
   createContext,
   useContext,
@@ -38,6 +39,10 @@ interface ThreadContextType {
   setThreads: Dispatch<SetStateAction<Thread[]>>;
   threadsLoading: boolean;
   setThreadsLoading: Dispatch<SetStateAction<boolean>>;
+  permissionState: PermissionState;
+  addPermissionGrant: (grant: PermissionGrant) => void;
+  revokePermissionGrant: (pendingActionId: string | null) => void;
+  clearPermissionGrants: () => void;
 }
 
 const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
@@ -57,6 +62,7 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   const [assistantId] = useQueryState("assistantId");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
+  const [permissionState, setPermissionState] = useState<PermissionState>({ grants: [] });
 
   const getThreads = useCallback(async (): Promise<Thread[]> => {
     if (!apiUrl || !assistantId) return [];
@@ -72,12 +78,42 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     return threads;
   }, [apiUrl, assistantId]);
 
+  const addPermissionGrant = useCallback((grant: PermissionGrant) => {
+    setPermissionState((prev) => {
+      const existingIdx = prev.grants.findIndex(
+        (item) =>
+          item.pending_action_id === grant.pending_action_id &&
+          item.capability === grant.capability,
+      );
+      if (existingIdx === -1) {
+        return { grants: [grant, ...prev.grants] };
+      }
+      const next = [...prev.grants];
+      next[existingIdx] = grant;
+      return { grants: next };
+    });
+  }, []);
+
+  const revokePermissionGrant = useCallback((pendingActionId: string | null) => {
+    setPermissionState((prev) => ({
+      grants: prev.grants.filter((grant) => grant.pending_action_id !== pendingActionId),
+    }));
+  }, []);
+
+  const clearPermissionGrants = useCallback(() => {
+    setPermissionState({ grants: [] });
+  }, []);
+
   const value = {
     getThreads,
     threads,
     setThreads,
     threadsLoading,
     setThreadsLoading,
+    permissionState,
+    addPermissionGrant,
+    revokePermissionGrant,
+    clearPermissionGrants,
   };
 
   return (
@@ -92,6 +128,20 @@ export function useThreads() {
     throw new Error("useThreads must be used within a ThreadProvider");
   }
   return context;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function usePermissionState() {
+  const context = useContext(ThreadContext);
+  if (context === undefined) {
+    throw new Error("usePermissionState must be used within a ThreadProvider");
+  }
+  return {
+    permissionState: context.permissionState,
+    addPermissionGrant: context.addPermissionGrant,
+    revokePermissionGrant: context.revokePermissionGrant,
+    clearPermissionGrants: context.clearPermissionGrants,
+  };
 }
 
 /**

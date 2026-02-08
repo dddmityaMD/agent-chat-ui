@@ -48,6 +48,8 @@ import {
   useArtifactContext,
 } from "./artifact";
 import { HealthDot } from "./health-dot";
+import { PermissionPill } from "@/components/permission-pill";
+import { usePermissionState } from "@/providers/Thread";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -119,6 +121,7 @@ export function Thread() {
   const [artifactOpen, closeArtifact] = useArtifactOpen();
 
   const [threadId, _setThreadId] = useQueryState("threadId");
+  const [, setCasePanelSection] = useQueryState("casePanelSection");
   const [caseId] = useQueryState("caseId");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
@@ -139,6 +142,7 @@ export function Thread() {
     dragOver,
     handlePaste,
   } = useFileUpload();
+  const { permissionState, clearPermissionGrants } = usePermissionState();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -155,6 +159,7 @@ export function Thread() {
 
   const setThreadId = (id: string | null) => {
     _setThreadId(id);
+    clearPermissionGrants();
 
     // close artifact and reset artifact context
     closeArtifact();
@@ -390,6 +395,13 @@ export function Thread() {
                   </span>
                 </motion.button>
                 <HealthDot />
+                <PermissionPill
+                  grants={permissionState.grants}
+                  onClick={() => {
+                    setCasePanelOpen(true);
+                    setCasePanelSection("permissions");
+                  }}
+                />
               </div>
 
               <div className="flex items-center gap-4">

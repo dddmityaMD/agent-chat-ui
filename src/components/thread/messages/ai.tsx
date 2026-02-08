@@ -25,6 +25,8 @@ import type { Blocker, MultiIntentPayload } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { usePermissionState } from "@/providers/Thread";
+import type { PermissionGrant } from "@/lib/types";
 
 // Type for metadata_results from sais_ui payload
 interface MetadataResults {
@@ -307,6 +309,7 @@ export function AssistantMessage({
   const [handoffDismissed, setHandoffDismissed] = useState(false);
 
   const thread = useStreamContext();
+  const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
   const isLastMessage =
     thread.messages[thread.messages.length - 1].id === message?.id;
   const hasNoAIOrToolMessages = !thread.messages.find(
@@ -482,6 +485,29 @@ export function AssistantMessage({
                       // - Non-LLM_ERROR blockers use next_action (backward compatible)
                       const text = action || blocker.next_action;
                       if (text) {
+                        if (text.startsWith("grant write")) {
+                          const scopeMatch = text.match(/scope=([^\s]+)/);
+                          const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                          const reasonMatch = text.match(/reason="([\s\S]*)"$/);
+                          const grant: PermissionGrant = {
+                            capability: "WRITE",
+                            scope: scopeMatch?.[1] ?? "once",
+                            granted_at: new Date().toISOString(),
+                            expires_at:
+                              scopeMatch?.[1] === "1h"
+                                ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                                : null,
+                            reason: reasonMatch?.[1] ?? null,
+                            pending_action_id: pendingMatch?.[1] ?? null,
+                          };
+                          addPermissionGrant(grant);
+                        }
+
+                        if (text.startsWith("deny write")) {
+                          const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                          revokePermissionGrant(pendingMatch?.[1] ?? null);
+                        }
+
                         const actionMsg: Message = {
                           id: uuidv4(),
                           type: "human",
