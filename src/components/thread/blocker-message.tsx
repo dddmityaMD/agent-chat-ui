@@ -85,6 +85,15 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
     }
   }, [isPermissionRequired, permissionGranted, permissionDenied]);
 
+  // Reset permissionGranted when blocker is no longer PERMISSION_REQUIRED
+  // (e.g., after successful replay, blockers are cleared or type changes)
+  useEffect(() => {
+    if (!isPermissionRequired) {
+      setPermissionGranted(false);
+      setPermissionModalOpen(false);
+    }
+  }, [isPermissionRequired]);
+
   const handleRetry = () => {
     onAction?.('retry');
   };
