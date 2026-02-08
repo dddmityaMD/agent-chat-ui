@@ -156,21 +156,25 @@ export function Thread() {
   const isLoading = stream.isLoading;
 
   // Sync permission grants from backend sais_ui state to local React state.
-  // The backend is authoritative -- after replay/auto-revoke, sais_ui.permissions.grants
-  // reflects consumed grants. Without this sync the local permissionState retains
-  // stale grants that the user already consumed. (9C-30 fix)
-  const backendGrants = (stream.values as Record<string, unknown>)?.sais_ui
-    ? ((stream.values as Record<string, unknown>).sais_ui as Record<string, unknown>)?.permissions
-      ? (((stream.values as Record<string, unknown>).sais_ui as Record<string, unknown>).permissions as Record<string, unknown>)?.grants
-      : undefined
-    : undefined;
-
-  const prevBackendGrantsRef = useRef<string | undefined>(undefined);
+  // When a stream completes (isLoading transitions false), reconcile local
+  // permissionState with the authoritative backend sais_ui.permissions.grants.
+  // This removes consumed once-scope grants after replay/auto-revoke. (9C-30 fix)
+  const wasLoadingRef = useRef(false);
   useEffect(() => {
-    if (isLoading) return; // wait for stream to settle
-    const serialized = JSON.stringify(backendGrants ?? []);
-    if (serialized === prevBackendGrantsRef.current) return; // no change
-    prevBackendGrantsRef.current = serialized;
+    if (isLoading) {
+      wasLoadingRef.current = true;
+      return;
+    }
+    if (!wasLoadingRef.current) return; // only sync on loading→idle transition
+    wasLoadingRef.current = false;
+
+    const saisUi = (stream.values as Record<string, unknown>)?.sais_ui as
+      | Record<string, unknown>
+      | undefined;
+    const permissions = saisUi?.permissions as
+      | Record<string, unknown>
+      | undefined;
+    const backendGrants = permissions?.grants;
 
     // Reconcile: clear local state and re-add only what backend reports
     clearPermissionGrants();
@@ -181,7 +185,7 @@ export function Thread() {
         }
       }
     }
-  }, [isLoading, backendGrants, clearPermissionGrants, addPermissionGrant]);
+  }, [isLoading, stream.values, clearPermissionGrants, addPermissionGrant]);
 
   const lastError = useRef<string | undefined>(undefined);
 
