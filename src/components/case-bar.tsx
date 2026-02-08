@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +63,31 @@ export function CaseBar() {
       setResumeAttempt({ ...resumeAttempt, stage: "done" });
     }, 50);
   }, [resumeAttempt, setThreadId, stream, threadId]);
+
+  // Auto-refresh cases list when stream finishes to pick up status changes
+  const wasLoading = useRef(false);
+  useEffect(() => {
+    if (stream.isLoading) {
+      wasLoading.current = true;
+    } else if (wasLoading.current) {
+      wasLoading.current = false;
+      refresh();
+    }
+  }, [stream.isLoading, refresh]);
+
+  // Secondary refresh: watch backend sais_ui.case_status for real-time updates.
+  // The wasLoading pattern above may not trigger for short replay paths (e.g. permission
+  // replay that completes quickly). This catches case status changes from stream values.
+  const caseStatus = (stream.values as Record<string, unknown>)?.sais_ui
+    ? ((stream.values as Record<string, unknown>).sais_ui as Record<string, unknown>)?.case_status
+    : undefined;
+  const prevCaseStatus = useRef<unknown>(undefined);
+  useEffect(() => {
+    if (stream.isLoading) return;
+    if (caseStatus === undefined || caseStatus === prevCaseStatus.current) return;
+    prevCaseStatus.current = caseStatus;
+    refresh();
+  }, [caseStatus, stream.isLoading, refresh]);
 
   const onNewCase = async () => {
     const title = window.prompt("Case title (optional):", "");
@@ -168,7 +193,7 @@ export function CaseBar() {
                 "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                 getStatusColor(selected.status),
               )}
-              data-testid="case-status-badge"
+              data-testid="case-bar-status-badge"
             >
               {selected.status}
             </span>

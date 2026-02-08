@@ -142,7 +142,7 @@ export function Thread() {
     dragOver,
     handlePaste,
   } = useFileUpload();
-  const { permissionState, clearPermissionGrants } = usePermissionState();
+  const { permissionState, addPermissionGrant, clearPermissionGrants } = usePermissionState();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -154,6 +154,34 @@ export function Thread() {
   const stream = useStreamContext();
   const messages = stream.messages;
   const isLoading = stream.isLoading;
+
+  // Sync permission grants from backend sais_ui state to local React state.
+  // The backend is authoritative -- after replay/auto-revoke, sais_ui.permissions.grants
+  // reflects consumed grants. Without this sync the local permissionState retains
+  // stale grants that the user already consumed. (9C-30 fix)
+  const backendGrants = (stream.values as Record<string, unknown>)?.sais_ui
+    ? ((stream.values as Record<string, unknown>).sais_ui as Record<string, unknown>)?.permissions
+      ? (((stream.values as Record<string, unknown>).sais_ui as Record<string, unknown>).permissions as Record<string, unknown>)?.grants
+      : undefined
+    : undefined;
+
+  const prevBackendGrantsRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (isLoading) return; // wait for stream to settle
+    const serialized = JSON.stringify(backendGrants ?? []);
+    if (serialized === prevBackendGrantsRef.current) return; // no change
+    prevBackendGrantsRef.current = serialized;
+
+    // Reconcile: clear local state and re-add only what backend reports
+    clearPermissionGrants();
+    if (Array.isArray(backendGrants)) {
+      for (const g of backendGrants) {
+        if (g && typeof g === "object" && "capability" in g) {
+          addPermissionGrant(g as import("@/lib/types").PermissionGrant);
+        }
+      }
+    }
+  }, [isLoading, backendGrants, clearPermissionGrants, addPermissionGrant]);
 
   const lastError = useRef<string | undefined>(undefined);
 
