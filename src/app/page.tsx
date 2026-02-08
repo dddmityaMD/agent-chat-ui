@@ -19,8 +19,8 @@ export default function DemoPage(): React.ReactNode {
           <StreamProvider>
             <LLMHealthProvider>
               <ArtifactProvider>
-                <Thread />
                 <LLMRoutingEditor />
+                <Thread />
               </ArtifactProvider>
             </LLMHealthProvider>
           </StreamProvider>

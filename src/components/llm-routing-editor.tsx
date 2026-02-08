@@ -25,7 +25,29 @@ export function LLMRoutingEditor() {
       const res = await fetch(`${CASES_API}/api/llm/config`);
       if (!res.ok) return;
       const data = await res.json();
-      setConfigs(Array.isArray(data) ? data : data.configs || []);
+      // Parse API response: data.routing is a dict keyed by operation type
+      // Each value has { primary: { provider, model, temperature }, fallback: ... }
+      if (data.routing && typeof data.routing === "object") {
+        const parsed: RoutingConfig[] = Object.entries(data.routing).map(
+          ([opType, route]: [string, unknown]) => {
+            const r = route as Record<string, unknown> | null;
+            const primary = (r?.primary as Record<string, unknown>) || {};
+            return {
+              operation_type: opType,
+              provider: (primary.provider as string) || (data.provider as string) || "",
+              model: (primary.model as string) || "",
+              temperature: (primary.temperature as number) ?? 0,
+              is_default: !r?.error,
+            };
+          }
+        );
+        setConfigs(parsed);
+      } else if (Array.isArray(data)) {
+        // Backward compatibility if API ever returns flat array
+        setConfigs(data);
+      } else {
+        setConfigs([]);
+      }
     } catch {
       // non-fatal
     }
