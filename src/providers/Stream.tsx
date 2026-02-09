@@ -85,7 +85,7 @@ const StreamSession = ({
   assistantId: string;
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
-  const { getThreads, setThreads } = useThreads();
+  const { getThreads, setThreads, registerThread } = useThreads();
   const streamValue = useStream<StateType, BagType>({
     apiUrl,
     apiKey: apiKey ?? undefined,
@@ -105,6 +105,8 @@ const StreamSession = ({
     },
     onThreadId: (id) => {
       setThreadId(id);
+      // Register the thread in backend metadata (idempotent).
+      registerThread(id).catch(console.error);
       // Refetch threads list when thread ID changes.
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
       sleep().then(() => getThreads().then(setThreads).catch(console.error));

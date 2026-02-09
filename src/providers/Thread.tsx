@@ -1,8 +1,6 @@
-import { validate } from "uuid";
-import { getApiKey } from "@/lib/api-key";
-import { Thread } from "@langchain/langgraph-sdk";
+import { getApiBaseUrl } from "@/lib/api-url";
+import type { PermissionGrant, PermissionState, ThreadWithMeta } from "@/lib/types";
 import { useQueryState } from "nuqs";
-import type { PermissionGrant, PermissionState } from "@/lib/types";
 import {
   createContext,
   useContext,
@@ -13,7 +11,6 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
-import { createClient } from "./client";
 
 // ---------------------------------------------------------------------------
 // Flow-related types extracted from sais_ui state
@@ -35,11 +32,14 @@ export interface FlowInfo {
 }
 
 interface ThreadContextType {
-  getThreads: () => Promise<Thread[]>;
-  threads: Thread[];
-  setThreads: Dispatch<SetStateAction<Thread[]>>;
+  getThreads: (includeArchived?: boolean) => Promise<ThreadWithMeta[]>;
+  threads: ThreadWithMeta[];
+  setThreads: Dispatch<SetStateAction<ThreadWithMeta[]>>;
   threadsLoading: boolean;
   setThreadsLoading: Dispatch<SetStateAction<boolean>>;
+  registerThread: (threadId: string, title?: string, preview?: string) => Promise<ThreadWithMeta | null>;
+  updateThread: (threadId: string, updates: { title?: string; is_pinned?: boolean }) => Promise<void>;
+  archiveThread: (threadId: string) => Promise<void>;
   permissionState: PermissionState;
   addPermissionGrant: (grant: PermissionGrant) => void;
   revokePermissionGrant: (pendingActionId: string | null) => void;
@@ -48,36 +48,76 @@ interface ThreadContextType {
 
 const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
 
-function getThreadSearchMetadata(
-  assistantId: string,
-): { graph_id: string } | { assistant_id: string } {
-  if (validate(assistantId)) {
-    return { assistant_id: assistantId };
-  } else {
-    return { graph_id: assistantId };
-  }
-}
-
 export function ThreadProvider({ children }: { children: ReactNode }) {
-  const [apiUrl] = useQueryState("apiUrl");
-  const [assistantId] = useQueryState("assistantId");
-  const [threads, setThreads] = useState<Thread[]>([]);
+  // apiUrl and assistantId are kept for other consumers (StreamProvider, etc.)
+  // but thread listing now goes through backend /api/threads.
+  const [threads, setThreads] = useState<ThreadWithMeta[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [permissionState, setPermissionState] = useState<PermissionState>({ grants: [] });
 
-  const getThreads = useCallback(async (): Promise<Thread[]> => {
-    if (!apiUrl || !assistantId) return [];
-    const client = createClient(apiUrl, getApiKey() ?? undefined);
+  const getThreads = useCallback(async (includeArchived = false): Promise<ThreadWithMeta[]> => {
+    const baseUrl = getApiBaseUrl();
+    const params = new URLSearchParams();
+    if (includeArchived) params.set("include_archived", "true");
+    try {
+      const res = await fetch(`${baseUrl}/api/threads?${params}`);
+      if (!res.ok) return [];
+      return (await res.json()) as ThreadWithMeta[];
+    } catch (err) {
+      console.error("Failed to fetch threads:", err);
+      return [];
+    }
+  }, []);
 
-    const threads = await client.threads.search({
-      metadata: {
-        ...getThreadSearchMetadata(assistantId),
-      },
-      limit: 100,
-    });
+  const registerThread = useCallback(async (
+    threadId: string,
+    title?: string,
+    preview?: string,
+  ): Promise<ThreadWithMeta | null> => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      const body: Record<string, string> = {};
+      if (title) body.title = title;
+      if (preview) body.last_message_preview = preview;
+      const res = await fetch(`${baseUrl}/api/threads/${threadId}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as ThreadWithMeta;
+    } catch (err) {
+      console.error("Failed to register thread:", err);
+      return null;
+    }
+  }, []);
 
-    return threads;
-  }, [apiUrl, assistantId]);
+  const updateThread = useCallback(async (
+    threadId: string,
+    updates: { title?: string; is_pinned?: boolean },
+  ): Promise<void> => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      await fetch(`${baseUrl}/api/threads/${threadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+    } catch (err) {
+      console.error("Failed to update thread:", err);
+    }
+  }, []);
+
+  const archiveThread = useCallback(async (threadId: string): Promise<void> => {
+    const baseUrl = getApiBaseUrl();
+    try {
+      await fetch(`${baseUrl}/api/threads/${threadId}/archive`, {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Failed to archive thread:", err);
+    }
+  }, []);
 
   const addPermissionGrant = useCallback((grant: PermissionGrant) => {
     setPermissionState((prev) => {
@@ -112,6 +152,9 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       setThreads,
       threadsLoading,
       setThreadsLoading,
+      registerThread,
+      updateThread,
+      archiveThread,
       permissionState,
       addPermissionGrant,
       revokePermissionGrant,
@@ -121,6 +164,9 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       getThreads,
       threads,
       threadsLoading,
+      registerThread,
+      updateThread,
+      archiveThread,
       permissionState,
       addPermissionGrant,
       revokePermissionGrant,

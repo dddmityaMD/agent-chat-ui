@@ -106,6 +106,19 @@ export interface MultiIntentPayload {
   merged_output: Record<string, unknown>;
 }
 
+// --- Thread types (from backend /api/threads) ---
+
+export interface ThreadWithMeta {
+  thread_id: string;
+  workspace_id: string | null;
+  title: string | null;
+  is_pinned: boolean;
+  is_archived: boolean;
+  created_at: string;
+  last_activity_at: string;
+  last_message_preview: string | null;
+}
+
 // --- LLM Health types (from backend llm wrapper / health endpoint) ---
 
 export interface LLMHealthStatus {
