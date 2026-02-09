@@ -39,16 +39,22 @@ describe("DeepLinkCell", () => {
     });
 
     it("renders link with correct URL for dbt model", () => {
-      renderWithTooltip(
-        <DeepLinkCell type="dbt_model" targetId="stg_customers" />
-      );
-      const link = screen.getByRole("link");
-      expect(link).toHaveAttribute("href", expect.stringContaining("model/stg_customers"));
+      const prev = process.env.NEXT_PUBLIC_DBT_DOCS_URL;
+      process.env.NEXT_PUBLIC_DBT_DOCS_URL = "http://localhost:8080";
+      try {
+        renderWithTooltip(
+          <DeepLinkCell type="dbt_model" targetId="stg_customers" />
+        );
+        const link = screen.getByRole("link");
+        expect(link).toHaveAttribute("href", expect.stringContaining("model/stg_customers"));
+      } finally {
+        process.env.NEXT_PUBLIC_DBT_DOCS_URL = prev;
+      }
     });
 
     it("renders link with correct URL for git commit", () => {
       renderWithTooltip(
-        <DeepLinkCell type="git_commit" targetId="abc123" />
+        <DeepLinkCell type="git_commit" targetId="abc123" config={{ gitRepoUrl: "https://github.com/org/repo" }} />
       );
       const link = screen.getByRole("link");
       expect(link).toHaveAttribute("href", expect.stringContaining("commit/abc123"));

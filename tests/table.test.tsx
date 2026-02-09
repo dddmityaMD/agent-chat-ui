@@ -316,7 +316,7 @@ describe("Column Definitions", () => {
   it("createTableColumnDefs returns correct columns", () => {
     const columns = createTableColumnDefs();
 
-    expect(columns).toHaveLength(9);
+    expect(columns).toHaveLength(8);
     expect(columns[0].field).toBe("entity_type");
     expect(columns[1].field).toBe("schema_name");
     expect(columns[2].field).toBe("table_name");
@@ -325,9 +325,9 @@ describe("Column Definitions", () => {
   it("createReportColumnDefs returns correct columns", () => {
     const columns = createReportColumnDefs();
 
-    // 11 columns: entity_type, name, description, collection, parent_dashboards,
-    // status, created_at, updated_at, relevance_score, card_id, actions
-    expect(columns).toHaveLength(11);
+    // 10 columns: entity_type, name, description, collection, status,
+    // parent_dashboards, created_at, updated_at, relevance_score, card_id
+    expect(columns).toHaveLength(10);
     expect(columns.some((col) => col.field === "card_id")).toBe(true);
     expect(columns.some((col) => col.field === "name")).toBe(true);
     expect(columns.some((col) => col.field === "parent_dashboards")).toBe(true);
