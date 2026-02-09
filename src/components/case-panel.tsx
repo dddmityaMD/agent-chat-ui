@@ -21,6 +21,7 @@ import {
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 import { Network } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { ContextPanelSection } from "@/components/context-panel";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -129,6 +130,7 @@ export function CasePanel({ className }: { className?: string }) {
   const stream = useStreamContext();
   const { permissionState, revokePermissionGrant } = usePermissionState();
   const [caseId] = useQueryState("caseId");
+  const [threadId] = useQueryState("threadId");
   const [casePanelSection, setCasePanelSection] = useQueryState("casePanelSection");
   const [summary, setSummary] = useState<CaseSummary | null>(null);
   const [findings, setFindings] = useState<Findings | null>(null);
@@ -404,6 +406,9 @@ export function CasePanel({ className }: { className?: string }) {
               )}
             </div>
           </div>
+
+          {/* Agent Context Section (collapsible) */}
+          <ContextPanelSection threadId={threadId} />
 
           {/* Tab Selector */}
           <div className="mt-4 flex gap-2 border-b" role="tablist" aria-label="Case details">

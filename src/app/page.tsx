@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { CasesProvider } from "@/providers/Cases";
 import { LLMHealthProvider } from "@/providers/LLMHealth";
 import { LLMRoutingEditor } from "@/components/llm-routing-editor";
-import { ContextPanelBridge } from "@/components/context-panel/bridge";
 import React from "react";
 
 export default function DemoPage(): React.ReactNode {
@@ -22,7 +21,6 @@ export default function DemoPage(): React.ReactNode {
               <ArtifactProvider>
                 <LLMRoutingEditor />
                 <Thread />
-                <ContextPanelBridge />
               </ArtifactProvider>
             </LLMHealthProvider>
           </StreamProvider>

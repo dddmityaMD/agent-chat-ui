@@ -3,33 +3,19 @@
 /**
  * Context Panel - Thread-level agent context inspector.
  *
- * Side panel (Sheet) that shows what the agent "sees":
+ * Collapsible section for embedding in the case panel sidebar.
+ * Shows what the agent "sees":
  * - Resolved entities with candidate scores
  * - Focus entities and entity history
  * - Context summary
  * - Token budget usage
  * - Current intent and active flow
  *
- * Collapsed by default, toggled via button.
- * Lazy-loads data from GET /threads/{id}/context when opened.
+ * Collapsed by default. Lazy-loads data from GET /threads/{id}/context when expanded.
  */
 
 import React, { useState, useCallback, useEffect } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Bug, RefreshCw, Loader2 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { ChevronDown, ChevronRight, RefreshCw, Loader2 } from "lucide-react";
 import { EntityCandidates } from "./entity-candidates";
 import { ContextBudget } from "./context-budget";
 import { GraphTiming } from "./graph-timing";
@@ -61,11 +47,11 @@ interface ThreadContextData {
   confidence: Record<string, unknown> | null;
 }
 
-interface ContextPanelProps {
+interface ContextPanelSectionProps {
   threadId: string | null;
 }
 
-export function ContextPanel({ threadId }: ContextPanelProps) {
+export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [contextData, setContextData] = useState<ThreadContextData | null>(
     null,
@@ -93,7 +79,7 @@ export function ContextPanel({ threadId }: ContextPanelProps) {
     }
   }, [threadId]);
 
-  // Lazy-load: fetch context only when panel is opened
+  // Lazy-load: fetch context only when section is expanded
   useEffect(() => {
     if (isOpen && threadId) {
       fetchContext();
@@ -107,38 +93,35 @@ export function ContextPanel({ threadId }: ContextPanelProps) {
   }, [threadId]);
 
   return (
-    <>
-      {/* Fixed toggle button -- always accessible at bottom-right */}
-      <div className="fixed right-4 bottom-4 z-40">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-9 rounded-full border-gray-300 bg-white shadow-md hover:bg-gray-50"
-                onClick={() => setIsOpen(true)}
-                data-testid="context-panel-toggle"
-              >
-                <Bug className="size-4" />
-                <span className="sr-only">Agent Context</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Agent Context</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Agent Context</SheetTitle>
-            <SheetDescription>
-              Thread-level agent state inspector
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex flex-col gap-4 p-4 pt-0">
+    <div className="mt-4 grid gap-2">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-sm font-semibold"
+        onClick={() => setIsOpen(!isOpen)}
+        data-testid="context-panel-toggle"
+      >
+        <span>Agent Context</span>
+        <div className="flex items-center gap-1">
+          {loading && (
+            <Loader2 className="size-3 animate-spin text-muted-foreground" />
+          )}
+          <RefreshCw
+            className="size-3 text-muted-foreground hover:text-foreground cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              fetchContext();
+            }}
+          />
+          {isOpen ? (
+            <ChevronDown className="size-4" />
+          ) : (
+            <ChevronRight className="size-4" />
+          )}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="rounded-md border bg-card p-3">
+          <div className="flex flex-col gap-4">
             {!threadId && (
               <p className="text-muted-foreground text-sm">
                 No thread selected. Start a conversation to see agent context.
@@ -150,15 +133,14 @@ export function ContextPanel({ threadId }: ContextPanelProps) {
             {threadId && error && (
               <div className="flex flex-col gap-2 rounded-md border border-red-200 bg-red-50 p-3">
                 <p className="text-sm text-red-700">{error}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  type="button"
+                  className="w-fit rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
                   onClick={fetchContext}
-                  className="w-fit"
                 >
-                  <RefreshCw className="mr-1 size-3" />
+                  <RefreshCw className="mr-1 inline size-3" />
                   Retry
-                </Button>
+                </button>
               </div>
             )}
 
@@ -213,11 +195,14 @@ export function ContextPanel({ threadId }: ContextPanelProps) {
               </>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
+
+/** @deprecated Use ContextPanelSection instead */
+export const ContextPanel = ContextPanelSection;
 
 /* ----- Sub-sections ----- */
 
