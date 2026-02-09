@@ -107,23 +107,26 @@ export function ContextPanel({ threadId }: ContextPanelProps) {
 
   return (
     <>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6 p-1"
-              onClick={() => setIsOpen(true)}
-              data-testid="context-panel-toggle"
-            >
-              <Bug className="size-5" />
-              <span className="sr-only">Agent Context</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Agent Context</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {/* Fixed toggle button -- always accessible at bottom-right */}
+      <div className="fixed right-4 bottom-4 z-40">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 rounded-full border-gray-300 bg-white shadow-md hover:bg-gray-50"
+                onClick={() => setIsOpen(true)}
+                data-testid="context-panel-toggle"
+              >
+                <Bug className="size-4" />
+                <span className="sr-only">Agent Context</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Agent Context</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
