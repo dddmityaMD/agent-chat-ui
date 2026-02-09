@@ -56,15 +56,17 @@ export function EvidenceTable({
       sortable: true,
       filter: true,
       resizable: true,
-      flex: 1,
-      minWidth: 100,
+      minWidth: 80,
+      tooltipValueGetter: (params: { value?: unknown }) =>
+        typeof params.value === "string" && params.value.length > 40
+          ? params.value
+          : undefined,
     }),
     []
   );
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     setGridApi(params.api);
-    params.api.sizeColumnsToFit();
   }, []);
 
   const handleRowClicked = useCallback(
@@ -156,6 +158,11 @@ export function EvidenceTable({
             onRowClicked={handleRowClicked}
             onSortChanged={handleSortChanged}
             onFilterChanged={handleFilterChanged}
+            autoSizeStrategy={{
+              type: "fitGridWidth",
+              defaultMinWidth: 80,
+            }}
+            tooltipShowDelay={300}
             pagination={false}
             rowSelection={{
               mode: "singleRow",
