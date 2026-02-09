@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Columns3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,40 @@ export function PaginatedEvidenceTable({
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
 
+  // Column visibility toggle
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+
+  // Track which columns the user has explicitly toggled (field -> visible)
+  const [columnOverrides, setColumnOverrides] = useState<Record<string, boolean>>({});
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!columnMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target as Node)) {
+        setColumnMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [columnMenuOpen]);
+
+  // All toggleable columns (have a field and headerName)
+  const toggleableColumns = useMemo(() => {
+    return columnDefs
+      .filter((col) => col.field && col.headerName)
+      .map((col) => ({
+        field: col.field as string,
+        headerName: col.headerName as string,
+        defaultHidden: col.hide === true,
+      }));
+  }, [columnDefs]);
+
+  const toggleColumn = useCallback((field: string, currentlyVisible: boolean) => {
+    setColumnOverrides((prev) => ({ ...prev, [field]: !currentlyVisible }));
+  }, []);
+
   // Apply sorting and pagination to data (client-side)
   const displayData = useMemo(() => {
     const sorted = [...rowData];
@@ -119,14 +154,21 @@ export function PaginatedEvidenceTable({
     [onSortChanged]
   );
 
-  // Transform columnDefs to include sort state
+  // Transform columnDefs to include sort state and visibility overrides
   const sortedColumnDefs = useMemo(() => {
-    return columnDefs.map((col: ColDef) => ({
-      ...col,
-      sort:
-        sortColumn === col.field ? sortDirection || undefined : undefined,
-    }));
-  }, [columnDefs, sortColumn, sortDirection]);
+    return columnDefs.map((col: ColDef) => {
+      const field = col.field as string;
+      const isHidden = field in columnOverrides
+        ? !columnOverrides[field]
+        : col.hide === true;
+      return {
+        ...col,
+        hide: isHidden,
+        sort:
+          sortColumn === field ? sortDirection || undefined : undefined,
+      };
+    });
+  }, [columnDefs, sortColumn, sortDirection, columnOverrides]);
 
   // Handle page change with callback
   const handlePageChange = useCallback(
@@ -183,8 +225,8 @@ export function PaginatedEvidenceTable({
 
   return (
     <div className={cn("flex flex-col gap-4", className)} data-testid="paginated-table">
-      {/* Results count */}
-      <div className="flex items-center justify-between">
+      {/* Results count + column toggle */}
+      <div className="flex items-center justify-between px-4">
         <div className="text-sm text-muted-foreground" data-testid="results-count">
           {totalItems > 0 ? (
             <>
@@ -206,6 +248,49 @@ export function PaginatedEvidenceTable({
             <span>No results</span>
           )}
         </div>
+
+        {/* Column visibility toggle */}
+        {toggleableColumns.length > 0 && (
+          <div className="relative" ref={columnMenuRef}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setColumnMenuOpen((v) => !v)}
+              aria-label="Toggle columns"
+              data-testid="btn-toggle-columns"
+            >
+              <Columns3 className="h-4 w-4" />
+            </Button>
+
+            {columnMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border bg-popover p-2 shadow-md">
+                <div className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+                  Columns
+                </div>
+                {toggleableColumns.map(({ field, headerName, defaultHidden }) => {
+                  const isVisible = field in columnOverrides
+                    ? columnOverrides[field]
+                    : !defaultHidden;
+                  return (
+                    <label
+                      key={field}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={() => toggleColumn(field, isVisible)}
+                        className="rounded"
+                      />
+                      {headerName}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Evidence Table */}

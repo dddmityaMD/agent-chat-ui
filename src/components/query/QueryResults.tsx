@@ -71,22 +71,23 @@ function getColumnDefsForEntityType(entityType: EntityType): ColDef[] {
         {
           field: "entity_type",
           headerName: "Type",
-          width: 120,
+          width: 100,
         },
         {
           field: "name",
           headerName: "Name",
-          width: 250,
+          width: 200,
         },
         {
           field: "description",
           headerName: "Description",
-          width: 400,
+          width: 200,
+          flex: 1,
         },
         {
           field: "source",
           headerName: "Source",
-          width: 150,
+          width: 120,
         },
       ];
   }

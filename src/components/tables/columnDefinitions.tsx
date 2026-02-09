@@ -95,12 +95,8 @@ export const TextColumn = (
   field,
   headerName,
   width,
-  flex: 1,
   filter: "agTextColumnFilter",
   floatingFilter: true,
-  wrapText: true,
-  autoHeight: true,
-  cellStyle: { lineHeight: "1.4", whiteSpace: "normal" },
 });
 
 export const LinkColumn = (
@@ -111,7 +107,6 @@ export const LinkColumn = (
   field,
   headerName,
   width,
-  flex: 1,
   cellRenderer: LinkCell,
   filter: "agTextColumnFilter",
 });
@@ -186,19 +181,21 @@ export function createTableColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
     },
     TextColumn("schema_name", "Schema", 100),
-    TextColumn("table_name", "Table", 150),
-    TextColumn("description", "Description", 200),
+    TextColumn("table_name", "Table", 160),
+    {
+      ...TextColumn("description", "Description", 200),
+      flex: 1,
+    },
     BadgeColumn("status", "Status", 100),
-    TimestampColumn("last_updated", "Last Updated", 150),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
-    LinkColumn("source_link", "Source", 120),
-    ActionsColumn(),
+    { ...TimestampColumn("last_updated", "Last Updated", 150), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
+    { ...LinkColumn("source_link", "Source", 150), hide: true },
   ];
 }
 
@@ -207,20 +204,22 @@ export function createColumnColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
     },
     TextColumn("schema_name", "Schema", 100),
-    TextColumn("table_name", "Table", 120),
-    TextColumn("column_name", "Column", 140),
+    TextColumn("table_name", "Table", 130),
+    TextColumn("column_name", "Column", 150),
     TextColumn("data_type", "Data Type", 100),
-    TextColumn("description", "Description", 200),
-    BadgeColumn("is_nullable", "Nullable", 90),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
-    LinkColumn("source_link", "Source", 120),
-    ActionsColumn(),
+    {
+      ...TextColumn("description", "Description", 200),
+      flex: 1,
+    },
+    { ...BadgeColumn("is_nullable", "Nullable", 100), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
+    { ...LinkColumn("source_link", "Source", 150), hide: true },
   ];
 }
 
@@ -229,34 +228,37 @@ export function createReportColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
     },
-    TextColumn("name", "Report Name", 180),
-    TextColumn("description", "Description", 200),
-    TextColumn("collection", "Collection", 120),
+    TextColumn("name", "Report Name", 200),
+    {
+      ...TextColumn("description", "Description", 200),
+      flex: 1,
+    },
+    TextColumn("collection", "Collection", 130),
+    BadgeColumn("status", "Status", 100),
     {
       field: "parent_dashboards",
       headerName: "Dashboards",
-      width: 160,
-      flex: 1,
+      width: 200,
       cellRenderer: DashboardCardBadgeCell,
       sortable: false,
       filter: false,
+      hide: true,
     },
-    BadgeColumn("status", "Status", 100),
-    TimestampColumn("created_at", "Created", 140),
-    TimestampColumn("updated_at", "Updated", 140),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
+    { ...TimestampColumn("created_at", "Created", 160), hide: true },
+    { ...TimestampColumn("updated_at", "Updated", 160), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
     {
       field: "card_id",
       headerName: "Metabase Link",
-      width: 120,
+      width: 150,
       cellRenderer: MetabaseCardRenderer,
+      hide: true,
     },
-    ActionsColumn(),
   ];
 }
 
@@ -265,33 +267,36 @@ export function createDashboardColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
     },
-    TextColumn("name", "Dashboard Name", 180),
-    TextColumn("description", "Description", 200),
+    TextColumn("name", "Dashboard Name", 200),
+    {
+      ...TextColumn("description", "Description", 200),
+      flex: 1,
+    },
+    BadgeColumn("status", "Status", 100),
     {
       field: "dashboard_cards",
       headerName: "Cards",
-      width: 160,
-      flex: 1,
+      width: 250,
       cellRenderer: DashboardCardBadgeCell,
       sortable: false,
       filter: false,
+      hide: true,
     },
-    BadgeColumn("status", "Status", 100),
-    TimestampColumn("created_at", "Created", 140),
-    TimestampColumn("updated_at", "Updated", 140),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
+    { ...TimestampColumn("created_at", "Created", 160), hide: true },
+    { ...TimestampColumn("updated_at", "Updated", 160), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
     {
       field: "dashboard_id",
       headerName: "Metabase Link",
-      width: 120,
+      width: 150,
       cellRenderer: MetabaseDashboardRenderer,
+      hide: true,
     },
-    ActionsColumn(),
   ];
 }
 
@@ -300,25 +305,28 @@ export function createDbtModelColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
     },
     TextColumn("name", "Model Name", 180),
-    TextColumn("package", "Package", 120),
-    TextColumn("description", "Description", 200),
+    {
+      ...TextColumn("description", "Description", 200),
+      flex: 1,
+    },
     BadgeColumn("materialized", "Materialized", 110),
     TextColumn("schema", "Schema", 100),
-    TimestampColumn("last_run", "Last Run", 140),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
+    { ...TextColumn("package", "Package", 120), hide: true },
+    { ...TimestampColumn("last_run", "Last Run", 150), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
     {
       field: "documentation_url",
       headerName: "Documentation",
-      width: 120,
+      width: 150,
       cellRenderer: DbtModelDocsRenderer,
+      hide: true,
     },
-    ActionsColumn(),
   ];
 }
 
@@ -327,7 +335,7 @@ export function createGitCommitColumnDefs(): ColDef[] {
     {
       field: "entity_type",
       headerName: "Type",
-      width: 100,
+      width: 90,
       cellRenderer: EntityIconCell,
       filter: "agTextColumnFilter",
       floatingFilter: true,
@@ -346,18 +354,21 @@ export function createGitCommitColumnDefs(): ColDef[] {
         );
       },
     },
-    TextColumn("message", "Message", 250),
+    {
+      ...TextColumn("message", "Message", 200),
+      flex: 1,
+    },
     TextColumn("author", "Author", 120),
     TimestampColumn("timestamp", "Date", 140),
-    TextColumn("file_path", "File", 180),
-    MatchReasonColumn("relevance_score", "Relevance", 100),
+    { ...TextColumn("file_path", "File", 200), hide: true },
+    { ...MatchReasonColumn("relevance_score", "Relevance", 120), hide: true },
     {
       field: "commit_url",
       headerName: "Git Link",
-      width: 100,
+      width: 120,
       cellRenderer: GitCommitRenderer,
+      hide: true,
     },
-    ActionsColumn(),
   ];
 }
 
