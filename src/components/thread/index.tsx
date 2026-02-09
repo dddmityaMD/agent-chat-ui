@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { ReactNode, useEffect, useRef } from "react";
+import { Component, ReactNode, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
@@ -50,6 +50,38 @@ import {
 import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState } from "@/providers/Thread";
+
+/**
+ * Error boundary that catches render errors in individual messages,
+ * preventing a single malformed message from crashing the entire thread.
+ */
+class MessageErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          Failed to render this message.{" "}
+          <span className="text-xs text-red-500">
+            {this.state.error?.message}
+          </span>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -313,13 +345,9 @@ export function Thread() {
     <div className="flex h-screen w-full overflow-hidden">
       <div className="relative hidden lg:flex">
         <motion.div
-          className="absolute z-20 h-full overflow-hidden border-r bg-white"
+          className="absolute z-20 h-full overflow-hidden border-r bg-background"
           style={{ width: 300 }}
-          animate={
-            isLargeScreen
-              ? { x: chatHistoryOpen ? 0 : -300 }
-              : { x: chatHistoryOpen ? 0 : -300 }
-          }
+          animate={{ x: chatHistoryOpen ? 0 : -300 }}
           initial={{ x: -300 }}
           transition={
             isLargeScreen
@@ -481,31 +509,33 @@ export function Thread() {
                 <>
                   {messages
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
-                    .map((message, index) =>
-                      message.type === "human" ? (
-                        <HumanMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                        />
-                      ) : (
-                        <AssistantMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
-                          isLoading={isLoading}
-                          handleRegenerate={handleRegenerate}
-                        />
-                      ),
-                    )}
+                    .map((message, index) => (
+                      <MessageErrorBoundary key={message.id || `${message.type}-${index}`}>
+                        {message.type === "human" ? (
+                          <HumanMessage
+                            message={message}
+                            isLoading={isLoading}
+                          />
+                        ) : (
+                          <AssistantMessage
+                            message={message}
+                            isLoading={isLoading}
+                            handleRegenerate={handleRegenerate}
+                          />
+                        )}
+                      </MessageErrorBoundary>
+                    ))}
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
-                    <AssistantMessage
-                      key="interrupt-msg"
-                      message={undefined}
-                      isLoading={isLoading}
-                      handleRegenerate={handleRegenerate}
-                    />
+                    <MessageErrorBoundary>
+                      <AssistantMessage
+                        key="interrupt-msg"
+                        message={undefined}
+                        isLoading={isLoading}
+                        handleRegenerate={handleRegenerate}
+                      />
+                    </MessageErrorBoundary>
                   )}
                   {isLoading && !firstTokenReceived && (
                     <AssistantMessageLoading />
@@ -543,6 +573,7 @@ export function Thread() {
                         onRemove={removeBlock}
                       />
                       <textarea
+                        aria-label="Message input"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onPaste={handlePaste}

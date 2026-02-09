@@ -45,7 +45,8 @@ interface UseSearchMatchDetailsReturn {
   clearDetails: () => void;
 }
 
-// Simple in-memory cache for match details
+// Simple in-memory cache for match details (bounded to prevent leaks)
+const MAX_CACHE_SIZE = 200;
 const detailsCache = new Map<string, { details: MatchDetails; timestamp: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -124,20 +125,8 @@ export function useSearchMatchDetails(
       const response = await fetch(`/api/evidence/${resultId}/match-details`);
 
       if (!response.ok) {
-        // If endpoint doesn't exist yet, create mock details from resultId
-        // This allows the UI to work before backend is fully implemented
         if (response.status === 404) {
-          const mockDetails: MatchDetails = {
-            matchedFields: [
-              { field: "name", confidence: 0.9, snippet: "..." },
-            ],
-            overallConfidence: 0.9,
-            queryTerms: [],
-            alternativeMatches: [],
-            isDuplicate: false,
-          };
-          setDetails(mockDetails);
-          detailsCache.set(resultId, { details: mockDetails, timestamp: Date.now() });
+          // Endpoint not found — leave details null
           return;
         }
         throw new Error(`Failed to fetch match details: ${response.statusText}`);
@@ -146,7 +135,11 @@ export function useSearchMatchDetails(
       const data = (await response.json()) as MatchDetails;
       setDetails(data);
 
-      // Cache the result
+      // Cache the result (evict oldest if at capacity)
+      if (detailsCache.size >= MAX_CACHE_SIZE) {
+        const oldest = detailsCache.keys().next().value;
+        if (oldest !== undefined) detailsCache.delete(oldest);
+      }
       detailsCache.set(resultId, { details: data, timestamp: Date.now() });
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));

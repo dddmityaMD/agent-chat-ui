@@ -33,7 +33,7 @@ const useCopyToClipboard = ({
     navigator.clipboard.writeText(value).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), copiedDuration);
-    });
+    }).catch(() => {/* clipboard unavailable */});
   };
 
   return { isCopied, copyToClipboard };

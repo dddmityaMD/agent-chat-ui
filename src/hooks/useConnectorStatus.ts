@@ -106,15 +106,7 @@ export function formatLastFetch(dateString: string | null): string {
   }
 }
 
-/**
- * Get API base URL
- */
-function getApiBaseUrl(): string {
-  if (typeof window === "undefined") {
-    return "http://localhost:8000";
-  }
-  return window.location.origin.replace(/:\d+$/, ":8000");
-}
+import { getApiBaseUrl } from "@/lib/api-url";
 
 /**
  * Hook options for useConnectorStatus

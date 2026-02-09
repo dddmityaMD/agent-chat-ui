@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, ChangeEvent } from "react";
+import { useState, useRef, useEffect, useCallback, ChangeEvent } from "react";
 import { toast } from "sonner";
 import { ContentBlock } from "@langchain/core/messages";
 import { fileToContentBlock } from "@/lib/multimodal-utils";
@@ -23,6 +23,8 @@ export function useFileUpload({
   const dropRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
+  const contentBlocksRef = useRef(contentBlocks);
+  contentBlocksRef.current = contentBlocks;
 
   const isDuplicate = (file: File, blocks: ContentBlock.Multimodal.Data[]) => {
     if (file.type === "application/pdf") {
@@ -115,10 +117,10 @@ export function useFileUpload({
         (file) => !SUPPORTED_FILE_TYPES.includes(file.type),
       );
       const duplicateFiles = validFiles.filter((file) =>
-        isDuplicate(file, contentBlocks),
+        isDuplicate(file, contentBlocksRef.current),
       );
       const uniqueFiles = validFiles.filter(
-        (file) => !isDuplicate(file, contentBlocks),
+        (file) => !isDuplicate(file, contentBlocksRef.current),
       );
 
       if (invalidFiles.length > 0) {
@@ -185,7 +187,7 @@ export function useFileUpload({
       window.removeEventListener("dragover", handleWindowDragOver);
       dragCounter.current = 0;
     };
-  }, [contentBlocks]);
+  }, []);
 
   const removeBlock = (idx: number) => {
     setContentBlocks((prev) => prev.filter((_, i) => i !== idx));

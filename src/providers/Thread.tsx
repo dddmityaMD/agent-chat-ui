@@ -8,6 +8,7 @@ import {
   useContext,
   ReactNode,
   useCallback,
+  useMemo,
   useState,
   Dispatch,
   SetStateAction,
@@ -104,17 +105,28 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     setPermissionState({ grants: [] });
   }, []);
 
-  const value = {
-    getThreads,
-    threads,
-    setThreads,
-    threadsLoading,
-    setThreadsLoading,
-    permissionState,
-    addPermissionGrant,
-    revokePermissionGrant,
-    clearPermissionGrants,
-  };
+  const value = useMemo(
+    () => ({
+      getThreads,
+      threads,
+      setThreads,
+      threadsLoading,
+      setThreadsLoading,
+      permissionState,
+      addPermissionGrant,
+      revokePermissionGrant,
+      clearPermissionGrants,
+    }),
+    [
+      getThreads,
+      threads,
+      threadsLoading,
+      permissionState,
+      addPermissionGrant,
+      revokePermissionGrant,
+      clearPermissionGrants,
+    ],
+  );
 
   return (
     <ThreadContext.Provider value={value}>{children}</ThreadContext.Provider>

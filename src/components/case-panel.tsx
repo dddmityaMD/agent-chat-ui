@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useQueryState } from "nuqs";
 import { useCases, CaseSummary } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
@@ -147,21 +147,44 @@ export function CasePanel({ className }: { className?: string }) {
     inferTypesFromIntent,
   } = useCaseEvidenceState();
 
-  const refreshKey = useMemo(
-    () =>
-      `${caseId ?? ""}:${stream.messages.length}:${stream.isLoading ? 1 : 0}`,
-    [caseId, stream.isLoading, stream.messages.length],
-  );
+  // Track loading→idle transitions to refetch only when stream completes,
+  // instead of on every new message (which caused redundant API calls).
+  const wasStreamingRef = useRef(false);
+  const prevCaseIdRef = useRef(caseId);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Reset on case change
     if (!caseId) {
       setSummary(null);
       setFindings(null);
       setError(null);
-      resetRequestedTypes(); // Reset on case change - clean slate
+      resetRequestedTypes();
+      prevCaseIdRef.current = caseId;
       return;
     }
+
+    // Determine whether to fetch: case changed OR stream just finished
+    const caseChanged = caseId !== prevCaseIdRef.current;
+    const streamJustFinished = wasStreamingRef.current && !stream.isLoading;
+
+    // Track loading state for next render
+    if (stream.isLoading) {
+      wasStreamingRef.current = true;
+    }
+
+    // Only fetch on case change or when stream transitions to idle
+    if (!caseChanged && !streamJustFinished) {
+      // Initial mount: fetch if we have no summary yet
+      if (summary !== null) return;
+    }
+
+    if (streamJustFinished) {
+      wasStreamingRef.current = false;
+    }
+    prevCaseIdRef.current = caseId;
+
     setLoading(true);
 
     // Fetch both summary and findings
@@ -191,7 +214,8 @@ export function CasePanel({ className }: { className?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [caseId, getCaseSummary, getFindings, refreshKey, resetRequestedTypes, inferTypesFromIntent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, stream.isLoading, getCaseSummary, getFindings, resetRequestedTypes, inferTypesFromIntent]);
 
   useEffect(() => {
     if (casePanelSection !== "permissions") return;
@@ -253,7 +277,7 @@ export function CasePanel({ className }: { className?: string }) {
           {/* Evidence Type Checklist - Clean Slate (EVID-06) */}
           <div className="mt-4 grid gap-2">
             <div className="text-sm font-semibold">Evidence Status</div>
-            <div className="rounded-md border bg-white p-3">
+            <div className="rounded-md border bg-card p-3">
               <div className="mt-1 grid gap-1">
                 {checks.map((c) => {
                   // Clean slate: Only show "Missing" status if user explicitly requested this type
@@ -295,7 +319,7 @@ export function CasePanel({ className }: { className?: string }) {
             data-testid="permissions-section"
           >
             <div className="text-sm font-semibold">Permissions</div>
-            <div className="rounded-md border bg-white p-3">
+            <div className="rounded-md border bg-card p-3">
               {permissionState.grants.length === 0 ? (
                 <div className="text-muted-foreground text-sm">No active grants</div>
               ) : (
@@ -324,7 +348,7 @@ export function CasePanel({ className }: { className?: string }) {
                         </div>
                         <button
                           type="button"
-                          className="rounded border border-amber-300 bg-white px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          className="rounded border border-amber-300 bg-card px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
                           onClick={() => {
                             revokePermissionGrant(grant.pending_action_id);
                             const text = `deny write${grant.pending_action_id ? ` pending_action_id=${grant.pending_action_id}` : ""}`;
@@ -360,7 +384,7 @@ export function CasePanel({ className }: { className?: string }) {
           {/* Mismatch Section */}
           <div className="mt-4 grid gap-2">
             <div className="text-sm font-semibold">Mismatch</div>
-            <div className="rounded-md border bg-white p-3">
+            <div className="rounded-md border bg-card p-3">
               {Object.keys(mismatch).length === 0 ? (
                 <div className="text-muted-foreground text-sm">
                   No comparison data yet
@@ -382,8 +406,11 @@ export function CasePanel({ className }: { className?: string }) {
           </div>
 
           {/* Tab Selector */}
-          <div className="mt-4 flex gap-2 border-b">
+          <div className="mt-4 flex gap-2 border-b" role="tablist" aria-label="Case details">
             <button
+              role="tab"
+              aria-selected={activeTab === "findings"}
+              aria-controls="panel-findings"
               className={cn(
                 "px-3 py-1 text-sm",
                 activeTab === "findings"
@@ -395,6 +422,9 @@ export function CasePanel({ className }: { className?: string }) {
               Findings
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "evidence"}
+              aria-controls="panel-evidence"
               data-testid="evidence-tab"
               className={cn(
                 "px-3 py-1 text-sm",
@@ -407,6 +437,9 @@ export function CasePanel({ className }: { className?: string }) {
               Evidence ({(summary.evidence ?? []).length})
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === "lineage"}
+              aria-controls="panel-lineage"
               data-testid="lineage-tab"
               className={cn(
                 "flex items-center gap-1 px-3 py-1 text-sm",
@@ -423,7 +456,7 @@ export function CasePanel({ className }: { className?: string }) {
 
           {/* Findings Tab */}
           {activeTab === "findings" && (
-            <div className="mt-3 grid gap-3">
+            <div id="panel-findings" role="tabpanel" aria-label="Findings" className="mt-3 grid gap-3">
               {/* Root Cause */}
               {findings?.root_cause ? (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3">
@@ -445,7 +478,7 @@ export function CasePanel({ className }: { className?: string }) {
                   />
                 </div>
               ) : (
-                <div className="rounded-md border bg-white p-3">
+                <div className="rounded-md border bg-card p-3">
                   <div className="text-sm font-semibold">Root Cause</div>
                   <div className="text-muted-foreground mt-1 text-sm">
                     Not yet identified
@@ -456,7 +489,7 @@ export function CasePanel({ className }: { className?: string }) {
               {/* Key Observations */}
               {findings?.key_observations &&
                 findings.key_observations.length > 0 && (
-                  <div className="rounded-md border bg-white p-3">
+                  <div className="rounded-md border bg-card p-3">
                     <div className="text-sm font-semibold">
                       Key Observations
                     </div>
@@ -515,7 +548,7 @@ export function CasePanel({ className }: { className?: string }) {
               {/* Next Tests */}
               {findings?.recommended_next_tests &&
                 findings.recommended_next_tests.length > 0 && (
-                  <div className="rounded-md border bg-white p-3">
+                  <div className="rounded-md border bg-card p-3">
                     <div className="text-sm font-semibold">Next Steps</div>
                     <ul className="mt-2 space-y-2">
                       {findings.recommended_next_tests.map((test, i) => (
@@ -558,7 +591,7 @@ export function CasePanel({ className }: { className?: string }) {
 
               {/* No findings yet */}
               {!findings && (
-                <div className="rounded-md border bg-white p-3">
+                <div className="rounded-md border bg-card p-3">
                   <div className="text-muted-foreground text-sm">
                     No findings yet. Start an investigation to generate
                     findings.
@@ -571,17 +604,20 @@ export function CasePanel({ className }: { className?: string }) {
           {/* Evidence Tab */}
           {activeTab === "evidence" && (
             <div
+              id="panel-evidence"
+              role="tabpanel"
+              aria-label="Evidence"
               data-testid="evidence-panel"
               className="mt-3 space-y-2"
             >
               {(summary.evidence ?? []).length === 0 ? (
-                <div className="text-muted-foreground rounded-md border bg-white p-3 text-sm">
+                <div className="text-muted-foreground rounded-md border bg-card p-3 text-sm">
                   No evidence yet.
                 </div>
               ) : (
-                (summary.evidence ?? []).slice(0, 25).map((e: any) => (
+                (summary.evidence ?? []).slice(0, 25).map((e: any, idx: number) => (
                   <EvidenceViewer
-                    key={String(e.evidence_id ?? e.title ?? Math.random())}
+                    key={String(e.evidence_id ?? e.title ?? `ev-${idx}`)}
                     evidence={e as EvidenceItem}
                     defaultExpanded={false}
                   />
@@ -593,6 +629,9 @@ export function CasePanel({ className }: { className?: string }) {
           {/* Lineage Tab */}
           {activeTab === "lineage" && (
             <div
+              id="panel-lineage"
+              role="tabpanel"
+              aria-label="Lineage"
               data-testid="lineage-panel"
               className="mt-3 flex flex-1 flex-col"
               style={{ minHeight: "400px" }}
@@ -605,7 +644,7 @@ export function CasePanel({ className }: { className?: string }) {
                 }
               >
                 <LineageGraph
-                  className="h-full min-h-[400px] rounded-md border bg-white"
+                  className="h-full min-h-[400px] rounded-md border bg-card"
                 />
               </Suspense>
             </div>

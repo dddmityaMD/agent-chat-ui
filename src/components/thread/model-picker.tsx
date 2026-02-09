@@ -2,28 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { AvailableModel } from '@/lib/types';
+import { getApiBaseUrl } from '@/lib/api-url';
 
-/**
- * Resolve the Cases API base URL.
- * Mirrors the pattern in Cases.tsx / LLMHealth.tsx.
- */
-function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_CASES_API_URL;
-
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (
-      envUrl &&
-      envUrl.includes('localhost') &&
-      host !== 'localhost' &&
-      host !== '127.0.0.1'
-    ) {
-      return 'http://api:8000';
-    }
-  }
-
-  return (envUrl || 'http://localhost:8000').replace(/\/$/, '');
-}
+const getBaseUrl = getApiBaseUrl;
 
 interface ModelPickerProps {
   onSelect: (model: AvailableModel) => void;

@@ -116,6 +116,10 @@ export default function ThreadHistory() {
         </div>
         {threadsLoading ? (
           <ThreadHistoryLoading />
+        ) : threads.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No conversations yet
+          </div>
         ) : (
           <ThreadList threads={threads} />
         )}

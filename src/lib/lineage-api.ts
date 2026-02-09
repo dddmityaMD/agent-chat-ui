@@ -68,10 +68,9 @@ export interface ImpactResult {
 
 // -- Helpers --------------------------------------------------------------
 
-function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_CASES_API_URL;
-  return (envUrl || "http://localhost:8000").replace(/\/$/, "");
-}
+import { getApiBaseUrl } from "@/lib/api-url";
+
+const getBaseUrl = getApiBaseUrl;
 
 // -- API calls ------------------------------------------------------------
 

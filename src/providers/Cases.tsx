@@ -52,20 +52,9 @@ type CasesContextType = {
 
 const CasesContext = createContext<CasesContextType | undefined>(undefined);
 
-function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_CASES_API_URL;
+import { getApiBaseUrl } from "@/lib/api-url";
 
-  // In dev/compose, the frontend may be accessed either from the host (localhost)
-  // or from within the compose network (service DNS like "frontend").
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (envUrl && envUrl.includes("localhost") && host !== "localhost" && host !== "127.0.0.1") {
-      return "http://api:8000";
-    }
-  }
-
-  return (envUrl || "http://localhost:8000").replace(/\/$/, "");
-}
+const getBaseUrl = getApiBaseUrl;
 
 export function CasesProvider({ children }: { children: ReactNode }) {
   const [cases, setCases] = useState<CaseRow[]>([]);

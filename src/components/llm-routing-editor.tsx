@@ -11,7 +11,9 @@ interface RoutingConfig {
   is_default: boolean;
 }
 
-const CASES_API = process.env.NEXT_PUBLIC_CASES_API_URL || "http://localhost:8000";
+import { getApiBaseUrl } from "@/lib/api-url";
+
+const CASES_API = getApiBaseUrl();
 
 export function LLMRoutingEditor() {
   const [configs, setConfigs] = useState<RoutingConfig[]>([]);

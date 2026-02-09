@@ -29,28 +29,9 @@ const LLMHealthContext = createContext<LLMHealthContextType | undefined>(
 /** Polling interval in milliseconds */
 const POLL_INTERVAL_MS = 30_000;
 
-/**
- * Resolve the Cases API base URL.
- * Mirrors the pattern in Cases.tsx so the health endpoint
- * reaches the same backend.
- */
-function getBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_CASES_API_URL;
+import { getApiBaseUrl } from "@/lib/api-url";
 
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (
-      envUrl &&
-      envUrl.includes("localhost") &&
-      host !== "localhost" &&
-      host !== "127.0.0.1"
-    ) {
-      return "http://api:8000";
-    }
-  }
-
-  return (envUrl || "http://localhost:8000").replace(/\/$/, "");
-}
+const getBaseUrl = getApiBaseUrl;
 
 /** Derive the worst status across all providers */
 function deriveOverallStatus(

@@ -6,6 +6,7 @@ import { BranchSwitcher, CommandBar } from "./shared";
 import { MarkdownText } from "../markdown-text";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { cn } from "@/lib/utils";
+import { getApiBaseUrl } from "@/lib/api-url";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
@@ -329,6 +330,7 @@ export function AssistantMessage({
   const thread = useStreamContext();
   const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
   const isLastMessage =
+    thread.messages.length > 0 &&
     thread.messages[thread.messages.length - 1].id === message?.id;
   const hasNoAIOrToolMessages = !thread.messages.find(
     (m) => m.type === "ai" || m.type === "tool",
@@ -378,6 +380,9 @@ export function AssistantMessage({
 
   // Handle handoff confirmation: SDK v1.3.0+ auto-queues submit() calls
   // when isLoading=true, so we can call submit directly without workarounds.
+  // Use thread.submit and thread.messages individually (stable references)
+  // instead of the full `thread` object which is recreated every render.
+  const { submit: threadSubmit, messages: threadMessages } = thread;
   const handleHandoffConfirm = useCallback(() => {
     if (!handoffProposal) return;
     const targetName =
@@ -393,9 +398,9 @@ export function AssistantMessage({
         },
       ] as Message["content"],
     };
-    thread.submit(
+    threadSubmit(
       {
-        messages: [...thread.messages, confirmMsg],
+        messages: [...threadMessages, confirmMsg],
         handoff_confirmed: true,
         handoff_target: handoffProposal.target_flow,
       } as Record<string, unknown> as any,
@@ -406,7 +411,7 @@ export function AssistantMessage({
       },
     );
     setHandoffDismissed(true);
-  }, [handoffProposal, thread]);
+  }, [handoffProposal, threadSubmit, threadMessages]);
 
   // Handle clarification option selection: send selected value as human message
   const handleClarificationSelect = useCallback(
@@ -416,9 +421,9 @@ export function AssistantMessage({
         type: "human",
         content: [{ type: "text", text: value }] as Message["content"],
       };
-      thread.submit(
+      threadSubmit(
         {
-          messages: [...thread.messages, clarifyMsg],
+          messages: [...threadMessages, clarifyMsg],
         } as Record<string, unknown> as any,
         {
           streamMode: ["values"],
@@ -427,7 +432,7 @@ export function AssistantMessage({
         },
       );
     },
-    [thread],
+    [threadSubmit, threadMessages],
   );
 
   if (isToolResult && hideToolCalls) {
@@ -513,10 +518,7 @@ export function AssistantMessage({
                     ""
                   }
                   proposals={remediationProposals}
-                  apiBaseUrl={
-                    process.env.NEXT_PUBLIC_CASES_API_URL ||
-                    "http://localhost:8000"
-                  }
+                  apiBaseUrl={getApiBaseUrl()}
                 />
               </div>
             )}

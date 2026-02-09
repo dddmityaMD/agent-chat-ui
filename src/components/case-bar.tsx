@@ -36,6 +36,7 @@ export function CaseBar() {
   // State for "start immediately" dialog after case creation
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [pendingCaseId, setPendingCaseId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selected = useMemo(
     () => cases.find((c) => c.case_id === caseId) ?? null,
@@ -62,7 +63,7 @@ export function CaseBar() {
       );
       setResumeAttempt({ ...resumeAttempt, stage: "done" });
     }, 50);
-  }, [resumeAttempt, setThreadId, stream, threadId]);
+  }, [resumeAttempt, setThreadId, stream.error, stream.submit, threadId]);
 
   // Auto-refresh cases list when stream finishes to pick up status changes
   const wasLoading = useRef(false);
@@ -90,7 +91,9 @@ export function CaseBar() {
   }, [caseStatus, stream.isLoading, refresh]);
 
   const onNewCase = async () => {
+    if (isSubmitting) return;
     const title = window.prompt("Case title (optional):", "");
+    setIsSubmitting(true);
     try {
       const row = await createCase(title ?? "");
       setCaseId(row.case_id);
@@ -101,6 +104,8 @@ export function CaseBar() {
       setShowStartDialog(true);
     } catch {
       toast.error("Failed to create case");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -129,6 +134,7 @@ export function CaseBar() {
   };
 
   const onDelete = async () => {
+    if (isSubmitting) return;
     if (!selected) {
       toast.message("Select a case first");
       return;
@@ -137,6 +143,7 @@ export function CaseBar() {
       `Delete case? This cannot be undone.\n\n${selected.title || selected.case_id}`,
     );
     if (!ok) return;
+    setIsSubmitting(true);
     try {
       await deleteCase(selected.case_id);
       setCaseId(null);
@@ -144,6 +151,8 @@ export function CaseBar() {
       toast.success("Case deleted");
     } catch {
       toast.error("Failed to delete case");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -174,8 +183,9 @@ export function CaseBar() {
     <>
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">Case</label>
+          <label htmlFor="case-selector" className="text-xs text-muted-foreground">Case</label>
           <select
+            id="case-selector"
             className="h-9 rounded-md border bg-background px-2 text-sm"
             value={caseId ?? ""}
             onChange={(e) => setCaseId(e.target.value || null)}
@@ -200,16 +210,16 @@ export function CaseBar() {
           )}
         </div>
 
-        <Button variant="secondary" size="sm" onClick={() => refresh()}>
+        <Button variant="secondary" size="sm" disabled={isSubmitting} onClick={() => refresh()}>
           Refresh
         </Button>
-        <Button variant="secondary" size="sm" onClick={onResume}>
+        <Button variant="secondary" size="sm" disabled={isSubmitting} onClick={onResume}>
           Resume
         </Button>
-        <Button variant="default" size="sm" onClick={onNewCase}>
+        <Button variant="default" size="sm" disabled={isSubmitting} onClick={onNewCase}>
           New Case
         </Button>
-        <Button variant="destructive" size="sm" onClick={onDelete}>
+        <Button variant="destructive" size="sm" disabled={isSubmitting} onClick={onDelete}>
           Delete
         </Button>
       </div>

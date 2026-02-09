@@ -256,12 +256,14 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
   };
 
   return (
-    <div className="border rounded-md bg-white overflow-hidden">
-      <div className="w-full flex items-center gap-2 p-3 hover:bg-gray-50 transition-colors">
+    <div className="border rounded-md bg-card overflow-hidden">
+      <div className="w-full flex items-center gap-2 p-3 hover:bg-muted transition-colors">
         {/* Expand/collapse button */}
         <button
           className="flex items-center gap-2 flex-1 text-left"
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${evidence.title || evidence.type}`}
         >
           {expanded ? (
             <ChevronDownIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -308,7 +310,7 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
       </div>
 
       {expanded && (
-        <div className="border-t p-3 bg-gray-50 overflow-x-auto max-h-[400px] overflow-y-auto">
+        <div className="border-t p-3 bg-muted overflow-x-auto max-h-[400px] overflow-y-auto">
           {renderPayload()}
         </div>
       )}
@@ -342,9 +344,9 @@ export function LinkedEvidence({ evidenceIds, allEvidence, defaultExpanded = fal
   return (
     <div className="mt-2 space-y-2">
       <div className="text-xs font-medium text-muted-foreground">Supporting Evidence:</div>
-      {linkedItems.map((e) => (
+      {linkedItems.map((e, idx) => (
         <EvidenceViewer
-          key={e.evidence_id || Math.random().toString()}
+          key={e.evidence_id || `linked-${idx}`}
           evidence={e}
           defaultExpanded={defaultExpanded}
         />

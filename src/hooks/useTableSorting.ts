@@ -39,10 +39,15 @@ function defaultCompare(a: unknown, b: unknown): number {
   if (b == null) return -1;
 
   // Handle dates (ISO strings or Date objects)
-  const aDate = a instanceof Date ? a.getTime() : Date.parse(String(a));
-  const bDate = b instanceof Date ? b.getTime() : Date.parse(String(b));
-  if (!isNaN(aDate) && !isNaN(bDate)) {
-    return aDate - bDate;
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+  const strA = String(a);
+  const strB = String(b);
+  if (a instanceof Date || b instanceof Date || (ISO_DATE_RE.test(strA) && ISO_DATE_RE.test(strB))) {
+    const aDate = a instanceof Date ? a.getTime() : Date.parse(strA);
+    const bDate = b instanceof Date ? b.getTime() : Date.parse(strB);
+    if (!isNaN(aDate) && !isNaN(bDate)) {
+      return aDate - bDate;
+    }
   }
 
   // Handle numbers

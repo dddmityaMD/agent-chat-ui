@@ -52,15 +52,6 @@ export function PermissionModal({
     }
   }, [isOpen, blockerMetadata.agent_reason]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen]);
-
   const handleGrant = () => {
     onGrant({
       scope,
@@ -98,7 +89,7 @@ export function PermissionModal({
               {showDetails ? "Hide details" : "View details"}
             </button>
             {showDetails && (
-              <div className="mt-2 rounded-md border border-amber-200 bg-white p-3 text-sm text-amber-950">
+              <div className="mt-2 rounded-md border border-amber-200 bg-card p-3 text-sm text-amber-950">
                 <div>
                   <span className="font-medium">Tool:</span> {blockerMetadata.tool_name || "unknown"}
                 </div>
@@ -157,7 +148,7 @@ export function PermissionModal({
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Add context for audit trail"
-              className="h-9 rounded-md border border-amber-200 bg-white px-3 text-sm outline-none ring-amber-400 focus:ring-2"
+              className="h-9 rounded-md border border-amber-200 bg-background px-3 text-sm outline-none ring-amber-400 focus:ring-2"
               data-testid="permission-modal-reason"
             />
           </label>
@@ -167,7 +158,7 @@ export function PermissionModal({
           <Button
             type="button"
             variant="outline"
-            className="border-gray-300 bg-white"
+            className="border-gray-300 bg-background"
             onClick={onDeny}
           >
             Deny

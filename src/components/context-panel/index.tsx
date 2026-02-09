@@ -34,8 +34,9 @@ import { EntityCandidates } from "./entity-candidates";
 import { ContextBudget } from "./context-budget";
 import { GraphTiming } from "./graph-timing";
 
-const CASES_API =
-  process.env.NEXT_PUBLIC_CASES_API_URL || "http://localhost:8000";
+import { getApiBaseUrl } from "@/lib/api-url";
+
+const CASES_API = getApiBaseUrl();
 
 /** Shape returned by GET /threads/{id}/context */
 interface ThreadContextData {

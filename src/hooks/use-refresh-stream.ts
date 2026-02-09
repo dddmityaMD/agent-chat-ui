@@ -278,14 +278,24 @@ export function useRefreshStream(
     onError,
   ]);
 
-  // Manual reconnect
+  // Manual reconnect — inline cleanup instead of calling disconnect()
+  // because disconnect() sets isManualDisconnect=true which blocks connect()
   const reconnect = useCallback(() => {
+    // Clean up existing connection without setting isManualDisconnect
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
     isManualDisconnect.current = false;
     setReconnectAttempts(0);
     setError(null);
-    disconnect();
     connect();
-  }, [connect, disconnect]);
+  }, [connect]);
 
   // Auto-connect on mount
   useEffect(() => {

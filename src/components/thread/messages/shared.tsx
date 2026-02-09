@@ -24,7 +24,7 @@ function ContentCopyable({
 
   const handleCopy = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(content).catch(() => {/* clipboard unavailable */});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -135,15 +135,17 @@ export function CommandBar({
   isLoading: boolean;
 }) {
   if (isHumanMessage && isAiMessage) {
-    throw new Error(
-      "Can only set one of isHumanMessage or isAiMessage to true, not both.",
+    console.error(
+      "CommandBar: Can only set one of isHumanMessage or isAiMessage to true, not both.",
     );
+    return null;
   }
 
   if (!isHumanMessage && !isAiMessage) {
-    throw new Error(
-      "One of isHumanMessage or isAiMessage must be set to true.",
+    console.error(
+      "CommandBar: One of isHumanMessage or isAiMessage must be set to true.",
     );
+    return null;
   }
 
   if (
@@ -152,9 +154,10 @@ export function CommandBar({
       setIsEditing === undefined ||
       handleSubmitEdit === undefined)
   ) {
-    throw new Error(
-      "If isHumanMessage is true, all of isEditing, setIsEditing, and handleSubmitEdit must be set.",
+    console.error(
+      "CommandBar: If isHumanMessage is true, all of isEditing, setIsEditing, and handleSubmitEdit must be set.",
     );
+    return null;
   }
 
   const showEdit =

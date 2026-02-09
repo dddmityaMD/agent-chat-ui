@@ -129,7 +129,11 @@ export function useQueryStreaming(
   const wsRef = useRef<WebSocket | null>(null);
   const evidenceAccumulatorRef = useRef<EvidenceItem[]>([]);
   const reconnectAttemptsRef = useRef(0);
+  const statusRef = useRef<QueryStatus>(status);
   const maxReconnectAttempts = 3;
+
+  // Keep statusRef in sync
+  statusRef.current = status;
 
   const isStreaming = status !== "idle" && status !== "complete" && status !== "error";
 
@@ -201,7 +205,7 @@ export function useQueryStreaming(
             ) {
               const batchProgress =
                 (evidenceMsg.batchIndex / evidenceMsg.totalBatches) * 100;
-              setProgress(Math.max(progress, batchProgress));
+              setProgress(prev => Math.max(prev, batchProgress));
             }
             break;
           }
@@ -241,7 +245,7 @@ export function useQueryStreaming(
         console.error("Failed to parse WebSocket message:", e);
       }
     },
-    [updateStatus, onEvidenceUpdate, onClarificationNeeded, onComplete, onError, closeConnection, progress]
+    [updateStatus, onEvidenceUpdate, onClarificationNeeded, onComplete, onError, closeConnection]
   );
 
   // Connect WebSocket
@@ -284,9 +288,11 @@ export function useQueryStreaming(
 
       ws.onclose = () => {
         // Attempt reconnection if not complete and attempts remaining
+        // Use statusRef to avoid stale closure — prevents connectWebSocket
+        // from being recreated on every status change
         if (
-          status !== "complete" &&
-          status !== "error" &&
+          statusRef.current !== "complete" &&
+          statusRef.current !== "error" &&
           reconnectAttemptsRef.current < maxReconnectAttempts
         ) {
           reconnectAttemptsRef.current++;
@@ -298,7 +304,7 @@ export function useQueryStreaming(
 
       wsRef.current = ws;
     },
-    [baseUrl, handleMessage, onError, resetState, closeConnection, status, updateStatus]
+    [baseUrl, handleMessage, onError, resetState, closeConnection, updateStatus]
   );
 
   // Submit query

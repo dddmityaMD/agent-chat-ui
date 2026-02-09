@@ -11,27 +11,7 @@ export interface DashboardCardRelation {
   type: "card" | "dashboard";
 }
 
-/**
- * Get the base API URL for backend requests.
- * Handles both browser and SSR contexts.
- */
-function getApiBaseUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_CASES_API_URL;
-
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (
-      envUrl &&
-      envUrl.includes("localhost") &&
-      host !== "localhost" &&
-      host !== "127.0.0.1"
-    ) {
-      return "http://api:8000";
-    }
-  }
-
-  return (envUrl || "http://localhost:8000").replace(/\/$/, "");
-}
+import { getApiBaseUrl } from "@/lib/api-url";
 
 /**
  * Fetch cards contained in a dashboard.
@@ -99,6 +79,7 @@ export async function fetchCardDashboards(
  * Simple in-memory cache for relationship data.
  * TTL: 5 minutes (300000ms)
  */
+const MAX_CACHE_SIZE = 200;
 const relationCache = new Map<
   string,
   { data: DashboardCardRelation[]; timestamp: number }
@@ -116,6 +97,11 @@ function getCachedData(
 }
 
 function setCachedData(key: string, data: DashboardCardRelation[]): void {
+  if (relationCache.size >= MAX_CACHE_SIZE) {
+    // Evict oldest entry
+    const oldest = relationCache.keys().next().value;
+    if (oldest !== undefined) relationCache.delete(oldest);
+  }
   relationCache.set(key, { data, timestamp: Date.now() });
 }
 
