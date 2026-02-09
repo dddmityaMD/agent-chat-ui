@@ -1,9 +1,11 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useThreads } from "@/providers/Thread";
-import { Thread } from "@langchain/langgraph-sdk";
-import { useEffect } from "react";
-
-import { getContentString } from "../utils";
+import { useThreadSearch } from "@/hooks/useThreadSearch";
+import type { ThreadWithMeta } from "@/lib/types";
+import { formatDistanceToNow } from "date-fns";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import {
   Sheet,
@@ -12,68 +14,243 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PanelRightOpen, PanelRightClose } from "lucide-react";
+import {
+  PanelRightOpen,
+  PanelRightClose,
+  Plus,
+  Search,
+  Pin,
+  PinOff,
+  MoreVertical,
+  Archive,
+  Pencil,
+} from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { toast } from "sonner";
+
+// ---------------------------------------------------------------------------
+// Thread kebab / context menu (lightweight, no Radix DropdownMenu needed)
+// ---------------------------------------------------------------------------
+
+function ThreadContextMenu({
+  thread,
+  onRename,
+  onTogglePin,
+  onArchive,
+}: {
+  thread: ThreadWithMeta;
+  onRename: (threadId: string) => void;
+  onTogglePin: (threadId: string, isPinned: boolean) => void;
+  onArchive: (threadId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        className="rounded p-1 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-slate-700"
+        aria-label="Thread actions"
+      >
+        <MoreVertical className="size-4 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-md border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onRename(thread.thread_id);
+            }}
+          >
+            <Pencil className="size-3.5" />
+            Rename
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onTogglePin(thread.thread_id, thread.is_pinned);
+            }}
+          >
+            {thread.is_pinned ? (
+              <>
+                <PinOff className="size-3.5" />
+                Unpin
+              </>
+            ) : (
+              <>
+                <Pin className="size-3.5" />
+                Pin
+              </>
+            )}
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onArchive(thread.thread_id);
+            }}
+          >
+            <Archive className="size-3.5" />
+            Archive
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Thread list entry
+// ---------------------------------------------------------------------------
+
+function ThreadEntry({
+  thread,
+  isActive,
+  onClick,
+  onRename,
+  onTogglePin,
+  onArchive,
+}: {
+  thread: ThreadWithMeta;
+  isActive: boolean;
+  onClick: () => void;
+  onRename: (threadId: string) => void;
+  onTogglePin: (threadId: string, isPinned: boolean) => void;
+  onArchive: (threadId: string) => void;
+}) {
+  const displayTitle =
+    thread.title ||
+    (thread.last_message_preview
+      ? thread.last_message_preview.slice(0, 60)
+      : thread.thread_id.slice(0, 8));
+
+  const relativeTime = formatDistanceToNow(new Date(thread.last_activity_at), {
+    addSuffix: true,
+  });
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
+      className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
+        isActive
+          ? "bg-slate-200 dark:bg-slate-700"
+          : "hover:bg-slate-100 dark:hover:bg-slate-800"
+      }`}
+    >
+      {/* Pin indicator */}
+      {thread.is_pinned && (
+        <Pin className="size-3 shrink-0 text-amber-500" />
+      )}
+
+      {/* Title + timestamp */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium">{displayTitle}</span>
+        <span className="truncate text-xs text-muted-foreground">
+          {relativeTime}
+        </span>
+      </div>
+
+      {/* Context menu */}
+      <ThreadContextMenu
+        thread={thread}
+        onRename={onRename}
+        onTogglePin={onTogglePin}
+        onArchive={onArchive}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Thread list (shared between desktop and mobile)
+// ---------------------------------------------------------------------------
 
 function ThreadList({
   threads,
   onThreadClick,
+  onRename,
+  onTogglePin,
+  onArchive,
 }: {
-  threads: Thread[];
+  threads: ThreadWithMeta[];
   onThreadClick?: (threadId: string) => void;
+  onRename: (threadId: string) => void;
+  onTogglePin: (threadId: string, isPinned: boolean) => void;
+  onArchive: (threadId: string) => void;
 }) {
   const [threadId, setThreadId] = useQueryState("threadId");
 
   return (
-    <div className="flex h-full w-full flex-col items-start justify-start gap-2 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
-      {threads.map((t) => {
-        let itemText = t.thread_id;
-        if (
-          typeof t.values === "object" &&
-          t.values &&
-          "messages" in t.values &&
-          Array.isArray(t.values.messages) &&
-          t.values.messages?.length > 0
-        ) {
-          const firstMessage = t.values.messages[0];
-          itemText = getContentString(firstMessage.content);
-        }
-        return (
-          <div
+    <div className="flex h-full w-full flex-col items-start gap-1 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+      {threads.length === 0 ? (
+        <div className="w-full py-8 text-center text-sm text-muted-foreground">
+          No threads found
+        </div>
+      ) : (
+        threads.map((t) => (
+          <ThreadEntry
             key={t.thread_id}
-            className="w-full px-1"
-          >
-            <Button
-              variant="ghost"
-              className="w-[280px] items-start justify-start text-left font-normal"
-              onClick={(e) => {
-                e.preventDefault();
-                onThreadClick?.(t.thread_id);
-                if (t.thread_id === threadId) return;
+            thread={t}
+            isActive={t.thread_id === threadId}
+            onClick={() => {
+              onThreadClick?.(t.thread_id);
+              if (t.thread_id !== threadId) {
                 setThreadId(t.thread_id);
-              }}
-            >
-              <p className="truncate text-ellipsis">{itemText}</p>
-            </Button>
-          </div>
-        );
-      })}
+              }
+            }}
+            onRename={onRename}
+            onTogglePin={onTogglePin}
+            onArchive={onArchive}
+          />
+        ))
+      )}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+
 function ThreadHistoryLoading() {
   return (
-    <div className="flex h-full w-full flex-col items-start justify-start gap-2 overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
-      {Array.from({ length: 30 }).map((_, i) => (
-        <Skeleton
-          key={`skeleton-${i}`}
-          className="h-10 w-[280px]"
-        />
+    <div className="flex h-full w-full flex-col items-start gap-2 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+      {Array.from({ length: 12 }).map((_, i) => (
+        <Skeleton key={`skeleton-${i}`} className="h-12 w-full rounded-md" />
       ))}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Main ThreadHistory sidebar
+// ---------------------------------------------------------------------------
 
 export default function ThreadHistory() {
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
@@ -81,10 +258,22 @@ export default function ThreadHistory() {
     "chatHistoryOpen",
     parseAsBoolean.withDefault(false),
   );
+  const [, setThreadId] = useQueryState("threadId");
 
-  const { getThreads, threads, setThreads, threadsLoading, setThreadsLoading } =
-    useThreads();
+  const {
+    getThreads,
+    threads,
+    setThreads,
+    threadsLoading,
+    setThreadsLoading,
+    updateThread,
+    archiveThread: archiveThreadApi,
+  } = useThreads();
 
+  const { query, setQuery, showArchived, setShowArchived, filtered } =
+    useThreadSearch(threads);
+
+  // Fetch threads on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     setThreadsLoading(true);
@@ -95,35 +284,128 @@ export default function ThreadHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
+  // Refresh thread list helper
+  const refreshThreads = useCallback(async () => {
+    const updated = await getThreads(showArchived);
+    setThreads(updated);
+  }, [getThreads, setThreads, showArchived]);
+
+  // Handlers
+  const handleNewThread = useCallback(() => {
+    setThreadId(null);
+  }, [setThreadId]);
+
+  const handleRename = useCallback(
+    async (threadId: string) => {
+      const newTitle = window.prompt("Enter new thread title:");
+      if (newTitle === null || newTitle.trim() === "") return;
+      await updateThread(threadId, { title: newTitle.trim() });
+      await refreshThreads();
+    },
+    [updateThread, refreshThreads],
+  );
+
+  const handleTogglePin = useCallback(
+    async (threadId: string, isPinned: boolean) => {
+      await updateThread(threadId, { is_pinned: !isPinned });
+      await refreshThreads();
+    },
+    [updateThread, refreshThreads],
+  );
+
+  const handleArchive = useCallback(
+    async (threadId: string) => {
+      await archiveThreadApi(threadId);
+      toast.success("Thread archived");
+      await refreshThreads();
+    },
+    [archiveThreadApi, refreshThreads],
+  );
+
+  // Shared sidebar content
+  const sidebarContent = (
     <>
-      <div className="shadow-inner-right hidden h-screen w-[300px] shrink-0 flex-col items-start justify-start gap-6 border-r-[1px] border-slate-300 lg:flex">
-        <div className="flex w-full items-center justify-between px-4 pt-1.5">
-          <Button
-            className="hover:bg-gray-100"
-            variant="ghost"
-            onClick={() => setChatHistoryOpen((p) => !p)}
-          >
-            {chatHistoryOpen ? (
-              <PanelRightOpen className="size-5" />
-            ) : (
-              <PanelRightClose className="size-5" />
-            )}
-          </Button>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Thread History
-          </h1>
-        </div>
+      {/* Header with toggle and new-thread button */}
+      <div className="flex w-full items-center justify-between px-3 pt-2">
+        <Button
+          className="hover:bg-gray-100"
+          variant="ghost"
+          size="icon"
+          onClick={() => setChatHistoryOpen((p) => !p)}
+        >
+          {chatHistoryOpen ? (
+            <PanelRightOpen className="size-5" />
+          ) : (
+            <PanelRightClose className="size-5" />
+          )}
+        </Button>
+        <h1 className="text-lg font-semibold tracking-tight">Threads</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNewThread}
+          title="New Thread"
+        >
+          <Plus className="size-5" />
+        </Button>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative px-3 pt-2">
+        <Search className="absolute left-5 top-4.5 size-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search threads..."
+          className="pl-8 text-sm"
+        />
+      </div>
+
+      {/* Show archived toggle */}
+      <div className="flex items-center gap-2 px-4 pt-2">
+        <Switch
+          id="show-archived"
+          checked={showArchived}
+          onCheckedChange={(checked) => {
+            setShowArchived(checked);
+            // Re-fetch if toggling on (need archived threads from backend)
+            if (checked) {
+              getThreads(true).then(setThreads).catch(console.error);
+            }
+          }}
+        />
+        <label
+          htmlFor="show-archived"
+          className="cursor-pointer text-xs text-muted-foreground"
+        >
+          Show archived
+        </label>
+      </div>
+
+      {/* Thread list */}
+      <div className="mt-2 flex-1 overflow-hidden">
         {threadsLoading ? (
           <ThreadHistoryLoading />
-        ) : threads.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No conversations yet
-          </div>
         ) : (
-          <ThreadList threads={threads} />
+          <ThreadList
+            threads={filtered}
+            onRename={handleRename}
+            onTogglePin={handleTogglePin}
+            onArchive={handleArchive}
+          />
         )}
       </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="shadow-inner-right hidden h-screen w-[300px] shrink-0 flex-col items-start justify-start border-r-[1px] border-slate-300 lg:flex">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile sidebar (Sheet) */}
       <div className="lg:hidden">
         <Sheet
           open={!!chatHistoryOpen && !isLargeScreen}
@@ -132,17 +414,51 @@ export default function ThreadHistory() {
             setChatHistoryOpen(open);
           }}
         >
-          <SheetContent
-            side="left"
-            className="flex lg:hidden"
-          >
+          <SheetContent side="left" className="flex flex-col lg:hidden">
             <SheetHeader>
-              <SheetTitle>Thread History</SheetTitle>
+              <SheetTitle>Threads</SheetTitle>
             </SheetHeader>
-            <ThreadList
-              threads={threads}
-              onThreadClick={() => setChatHistoryOpen((o) => !o)}
-            />
+            {/* Re-use same content with thread click closing sheet */}
+            <div className="relative px-3 pt-2">
+              <Search className="absolute left-5 top-4.5 size-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search threads..."
+                className="pl-8 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2">
+              <Switch
+                id="show-archived-mobile"
+                checked={showArchived}
+                onCheckedChange={(checked) => {
+                  setShowArchived(checked);
+                  if (checked) {
+                    getThreads(true).then(setThreads).catch(console.error);
+                  }
+                }}
+              />
+              <label
+                htmlFor="show-archived-mobile"
+                className="cursor-pointer text-xs text-muted-foreground"
+              >
+                Show archived
+              </label>
+            </div>
+            <div className="mt-2 flex-1 overflow-hidden">
+              {threadsLoading ? (
+                <ThreadHistoryLoading />
+              ) : (
+                <ThreadList
+                  threads={filtered}
+                  onThreadClick={() => setChatHistoryOpen(false)}
+                  onRename={handleRename}
+                  onTogglePin={handleTogglePin}
+                  onArchive={handleArchive}
+                />
+              )}
+            </div>
           </SheetContent>
         </Sheet>
       </div>

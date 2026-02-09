@@ -1,6 +1,5 @@
 import { getApiBaseUrl } from "@/lib/api-url";
 import type { PermissionGrant, PermissionState, ThreadWithMeta } from "@/lib/types";
-import { useQueryState } from "nuqs";
 import {
   createContext,
   useContext,
