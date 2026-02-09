@@ -62,12 +62,6 @@ importers:
       diff:
         specifier: ^8.0.3
         version: 8.0.3
-      esbuild:
-        specifier: ^0.25.0
-        version: 0.25.12
-      esbuild-plugin-tailwindcss:
-        specifier: ^2.0.1
-        version: 2.1.0
       framer-motion:
         specifier: ^12.4.9
         version: 12.31.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -195,6 +189,12 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      esbuild-plugin-tailwindcss:
+        specifier: ^2.0.1
+        version: 2.1.0
       eslint:
         specifier: ^9.19.0
         version: 9.39.2(jiti@2.6.1)
