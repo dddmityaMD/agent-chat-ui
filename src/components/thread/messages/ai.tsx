@@ -21,12 +21,14 @@ import { BatchReview } from "@/components/remediation/BatchReview";
 import type { RemediationProposalData } from "@/components/remediation/DiffCard";
 import { BlockerMessage } from "../blocker-message";
 import { MultiIntentResult } from "../multi-intent-result";
+import { ConfidenceBadge } from "../confidence-badge";
 import type { Blocker, MultiIntentPayload } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { usePermissionState } from "@/providers/Thread";
 import type { PermissionGrant } from "@/lib/types";
+import { ClarificationCard, getClarification } from "../clarification-card";
 
 // Type for metadata_results from sais_ui payload
 interface MetadataResults {
@@ -122,6 +124,22 @@ function getBlockers(saisUi: unknown): Blocker[] | null {
       typeof (b as Record<string, unknown>).message === "string"
   );
   return valid ? (blockers as Blocker[]) : null;
+}
+
+// Extract confidence data from sais_ui
+function getConfidenceData(saisUi: unknown): { level: "high" | "medium" | "low"; reason?: string } | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const confidence = obj.confidence;
+  if (!confidence || typeof confidence !== "object") return null;
+  const c = confidence as Record<string, unknown>;
+  if (typeof c.level !== "string") return null;
+  const level = c.level.toLowerCase();
+  if (level !== "high" && level !== "medium" && level !== "low") return null;
+  return {
+    level: level as "high" | "medium" | "low",
+    reason: typeof c.reason === "string" ? c.reason : undefined,
+  };
 }
 
 // Extract multi-intent payload from sais_ui
@@ -336,6 +354,9 @@ export function AssistantMessage({
   const remediationProposals = isLastMessage ? getRemediationProposals(saisUi) : null;
   const blockers = isLastMessage ? getBlockers(saisUi) : null;
   const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUi) : null;
+  const clarificationData = isLastMessage ? getClarification(saisUi) : null;
+  // Confidence data: extract from sais_ui for last message (structured source)
+  const confidenceData = isLastMessage ? getConfidenceData(saisUi) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -387,6 +408,28 @@ export function AssistantMessage({
     setHandoffDismissed(true);
   }, [handoffProposal, thread]);
 
+  // Handle clarification option selection: send selected value as human message
+  const handleClarificationSelect = useCallback(
+    (value: string) => {
+      const clarifyMsg: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: [{ type: "text", text: value }] as Message["content"],
+      };
+      thread.submit(
+        {
+          messages: [...thread.messages, clarifyMsg],
+        } as Record<string, unknown> as any,
+        {
+          streamMode: ["values"],
+          streamSubgraphs: true,
+          streamResumable: true,
+        },
+      );
+    },
+    [thread],
+  );
+
   if (isToolResult && hideToolCalls) {
     return null;
   }
@@ -422,6 +465,12 @@ export function AssistantMessage({
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
+
+            {/* Confidence badge: structured sais_ui.confidence (primary) or regex fallback */}
+            <ConfidenceBadge
+              saisUiConfidence={confidenceData}
+              content={contentString}
+            />
 
             {/* Render QueryResults for metadata responses with structured data (replaces text list) */}
             {metadataResults && metadataResults.items.length > 0 && (
@@ -530,6 +579,14 @@ export function AssistantMessage({
                   />
                 ))}
               </div>
+            )}
+
+            {/* Clarification card -- structured query clarification */}
+            {clarificationData && (
+              <ClarificationCard
+                data={clarificationData}
+                onSelect={handleClarificationSelect}
+              />
             )}
 
             {!hideToolCalls && (
