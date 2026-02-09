@@ -73,62 +73,6 @@ export interface PermissionBlockerMetadata {
   target?: string;
 }
 
-// --- Resolution steps (for debugging UI) ---
-
-export interface ResolutionStep {
-  /** Scope name: "thread_context" | "workspace" | "catalog" */
-  scope: string;
-  /** What was attempted: "Checking thread context..." */
-  action: string;
-  /** Outcome: "found 'sales' mentioned" | "2 matches" */
-  result: string;
-  /** Confidence score (0.0-1.0) */
-  confidence?: number;
-  /** ISO timestamp */
-  timestamp?: string;
-}
-
-export interface ResolutionStepsPayload {
-  type: 'resolution_steps';
-  steps: ResolutionStep[];
-  /** Summary message: "Using sales_orders (high confidence)" */
-  final_result?: string;
-}
-
-// --- Disambiguation types ---
-
-export interface DisambiguationOption {
-  /** 1-based index */
-  index: number;
-  /** Full entity dict */
-  entity: Record<string, unknown>;
-  /** Display label (entity name) */
-  label: string;
-  /** Type label (e.g., "table", "column", "dbt model") */
-  type_label: string;
-  /** Context hint (e.g., "used in Sales Dashboard") */
-  context_hint?: string;
-}
-
-export interface DisambiguationPayload {
-  type: 'disambiguation';
-  /** The ambiguous mention */
-  mention: string;
-  /** Question to display */
-  question: string;
-  /** Up to 4 options per CONTEXT.md */
-  options: DisambiguationOption[];
-  /** Whether free text input is allowed */
-  allow_free_text: boolean;
-}
-
-export interface DisambiguationSelection {
-  /** 1-based index of selected option */
-  index?: number;
-  /** Free text clarification */
-  freeText?: string;
-}
-
 // --- Multi-intent types (from backend multi_intent module) ---
 
 export interface DecomposedIntent {
