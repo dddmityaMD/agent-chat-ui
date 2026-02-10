@@ -119,6 +119,44 @@ export interface ThreadWithMeta {
   last_message_preview: string | null;
 }
 
+// --- Disambiguation types (restored, aligned with backend shape from 9B-08) ---
+
+export interface DisambiguationCandidate {
+  node_id: string;
+  canonical_key: string;
+  entity_type: string;
+  name: string;
+  similarity: number;
+  location?: string;
+  match_reason?: string;
+  rank_explanation?: Record<string, unknown>;
+}
+
+export interface PendingDisambiguation {
+  type: 'pending_disambiguation';
+  mention: string;
+  candidates: DisambiguationCandidate[];
+  skip_option?: string;
+  vague_detected?: boolean;
+  note?: string;
+}
+
+// --- Resolution steps (restored for future resolution visibility) ---
+
+export interface ResolutionStep {
+  scope: string;
+  action: string;
+  result: string;
+  confidence?: number;
+  timestamp?: string;
+}
+
+export interface ResolutionStepsPayload {
+  type: 'resolution_steps';
+  steps: ResolutionStep[];
+  final_result?: string;
+}
+
 // --- LLM Health types (from backend llm wrapper / health endpoint) ---
 
 export interface LLMHealthStatus {
