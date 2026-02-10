@@ -32,12 +32,15 @@ import type { PermissionGrant } from "@/lib/types";
 import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 
-// Type for metadata_results from sais_ui payload
-interface MetadataResults {
+// Type for a single metadata section (one entity type)
+interface MetadataSection {
   entity_type: EntityType;
   items: Array<Record<string, unknown>>;
   total: number;
 }
+
+// Type for metadata_results from sais_ui payload — flat (single type) or sectioned (mixed)
+type MetadataResults = MetadataSection | { sections: MetadataSection[] };
 
 // Type for handoff proposal from sais_ui payload
 interface HandoffProposal {
@@ -54,7 +57,25 @@ const FLOW_DISPLAY_NAMES: Record<string, string> = {
   ops: "Operations",
 };
 
-// Type guard for sais_ui payload
+// Display labels for entity type section headers
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  table: "Tables",
+  column: "Columns",
+  report: "Reports",
+  dashboard: "Dashboards",
+  dbt_model: "dbt Models",
+  git_commit: "Git Commits",
+  mixed: "Other",
+};
+
+// Type guard: check if a single section is valid
+function isValidSection(s: unknown): s is MetadataSection {
+  if (!s || typeof s !== "object") return false;
+  const obj = s as Record<string, unknown>;
+  return typeof obj.entity_type === "string" && Array.isArray(obj.items) && typeof obj.total === "number";
+}
+
+// Type guard for sais_ui payload — accepts flat (single type) or sectioned (mixed)
 function hasMetadataResults(
   saisUi: unknown
 ): saisUi is { metadata_results: MetadataResults } {
@@ -63,11 +84,17 @@ function hasMetadataResults(
   if (!obj.metadata_results || typeof obj.metadata_results !== "object")
     return false;
   const mr = obj.metadata_results as Record<string, unknown>;
-  return (
-    typeof mr.entity_type === "string" &&
-    Array.isArray(mr.items) &&
-    typeof mr.total === "number"
-  );
+  // Sectioned format: { sections: [...] }
+  if (Array.isArray(mr.sections)) return mr.sections.some(isValidSection);
+  // Flat format: { entity_type, items, total }
+  return isValidSection(mr);
+}
+
+// Normalize metadata_results into an array of sections
+function toSections(mr: MetadataResults): MetadataSection[] {
+  if ("sections" in mr && Array.isArray(mr.sections)) return mr.sections.filter(isValidSection);
+  if (isValidSection(mr)) return [mr];
+  return [];
 }
 
 // Extract active_flow from sais_ui
@@ -350,6 +377,7 @@ export function AssistantMessage({
   const metadataResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
     ? (msgMetadataResults as MetadataResults)
     : null;
+  const metadataSections = metadataResults ? toSections(metadataResults) : [];
 
   // Extract flow information from sais_ui (only for last message to avoid stale badges)
   const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
@@ -506,28 +534,35 @@ export function AssistantMessage({
             )}
 
             {contentString.length > 0
-              && !(metadataResults && metadataResults.items.length > 0)
+              && !(metadataSections.length > 0)
               && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
               <div className="py-1" data-testid="ai-message-content">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
 
-            {/* Render QueryResults for metadata responses with structured data (replaces text list) */}
-            {metadataResults && metadataResults.items.length > 0 && (
-              <div className="mt-4">
-                <QueryResults
-                  evidence={metadataResults.items.map((item, idx) => ({
-                    id: String(item.id || item.canonical_key || `item-${idx}`),
-                    entity_type: metadataResults.entity_type,
-                    ...item,
-                  }))}
-                  entityType={metadataResults.entity_type}
-                  totalCount={metadataResults.total}
-                  isLoading={isLoading}
-                />
-              </div>
-            )}
+            {/* Render QueryResults for metadata responses — one grid per entity type section */}
+            {metadataSections.map((section) => (
+              section.items.length > 0 && (
+                <div className="mt-4" key={section.entity_type}>
+                  {metadataSections.length > 1 && (
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
+                    </h4>
+                  )}
+                  <QueryResults
+                    evidence={section.items.map((item, idx) => ({
+                      id: String(item.id || item.canonical_key || `item-${idx}`),
+                      entity_type: section.entity_type,
+                      ...item,
+                    }))}
+                    entityType={section.entity_type}
+                    totalCount={section.total}
+                    isLoading={isLoading}
+                  />
+                </div>
+              )
+            ))}
 
             {/* Confidence badge: always after all content (text + table) for consistent position */}
             <ConfidenceBadge
