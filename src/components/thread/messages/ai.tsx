@@ -23,13 +23,14 @@ import type { RemediationProposalData } from "@/components/remediation/DiffCard"
 import { BlockerMessage } from "../blocker-message";
 import { MultiIntentResult } from "../multi-intent-result";
 import { ConfidenceBadge } from "../confidence-badge";
-import type { Blocker, MultiIntentPayload } from "@/lib/types";
+import type { Blocker, MultiIntentPayload, PendingDisambiguation } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { usePermissionState } from "@/providers/Thread";
 import type { PermissionGrant } from "@/lib/types";
 import { ClarificationCard, getClarification } from "../clarification-card";
+import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 
 // Type for metadata_results from sais_ui payload
 interface MetadataResults {
@@ -338,7 +339,7 @@ export function AssistantMessage({
   const meta = message ? thread.getMessagesMetadata(message) : undefined;
   const threadInterrupt = thread.interrupt;
 
-  // Extract metadata_results: prefer per-message data, fall back to thread state for last message
+  // Extract metadata_results: per-message only (no thread-level fallback to prevent grid bleed)
   const msgResponseMeta = message && "response_metadata" in message
     ? (message as AIMessage).response_metadata
     : undefined;
@@ -348,7 +349,7 @@ export function AssistantMessage({
   const saisUi = thread.values?.sais_ui;
   const metadataResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
     ? (msgMetadataResults as MetadataResults)
-    : (isLastMessage && hasMetadataResults(saisUi) ? saisUi.metadata_results : null);
+    : null;
 
   // Extract flow information from sais_ui (only for last message to avoid stale badges)
   const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
@@ -357,6 +358,11 @@ export function AssistantMessage({
   const blockers = isLastMessage ? getBlockers(saisUi) : null;
   const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUi) : null;
   const clarificationData = isLastMessage ? getClarification(saisUi) : null;
+  // Disambiguation data: prefer sais_ui for last message, fall back to response_metadata
+  const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
+  const pendingDisambiguation = isLastMessage
+    ? getPendingDisambiguation(saisUi) ?? (msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null)
+    : msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null;
   // Confidence data: extract from sais_ui for last message (structured source)
   const confidenceData = isLastMessage ? getConfidenceData(saisUi) : null;
 
@@ -435,6 +441,32 @@ export function AssistantMessage({
     [threadSubmit, threadMessages],
   );
 
+  // Handle disambiguation selection: send entity action or skip as human message
+  const handleDisambiguationSelect = useCallback(
+    (entityName: string, action: string) => {
+      const text =
+        action === "skip"
+          ? "None of these match what I meant"
+          : action;
+      const disambigMsg: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: [{ type: "text", text }] as Message["content"],
+      };
+      threadSubmit(
+        {
+          messages: [...threadMessages, disambigMsg],
+        } as Record<string, unknown> as any,
+        {
+          streamMode: ["values"],
+          streamSubgraphs: true,
+          streamResumable: true,
+        },
+      );
+    },
+    [threadSubmit, threadMessages],
+  );
+
   if (isToolResult && hideToolCalls) {
     return null;
   }
@@ -465,17 +497,21 @@ export function AssistantMessage({
               <MultiIntentResult payload={multiIntentPayload} />
             )}
 
-            {contentString.length > 0 && !(metadataResults && metadataResults.items.length > 0) && (
+            {/* Disambiguation card -- ambiguous entity matches */}
+            {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
+              <DisambiguationCard
+                payload={pendingDisambiguation}
+                onSelect={handleDisambiguationSelect}
+              />
+            )}
+
+            {contentString.length > 0
+              && !(metadataResults && metadataResults.items.length > 0)
+              && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
               <div className="py-1" data-testid="ai-message-content">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
-
-            {/* Confidence badge: structured sais_ui.confidence (primary) or regex fallback */}
-            <ConfidenceBadge
-              saisUiConfidence={confidenceData}
-              content={contentString}
-            />
 
             {/* Render QueryResults for metadata responses with structured data (replaces text list) */}
             {metadataResults && metadataResults.items.length > 0 && (
@@ -492,6 +528,12 @@ export function AssistantMessage({
                 />
               </div>
             )}
+
+            {/* Confidence badge: always after all content (text + table) for consistent position */}
+            <ConfidenceBadge
+              saisUiConfidence={confidenceData}
+              content={contentString}
+            />
 
             {/* Handoff confirmation card */}
             {handoffProposal && !handoffProposal.confirmed && (
