@@ -109,6 +109,20 @@ const StreamSession = ({
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
       sleep().then(() => getThreads().then(setThreads).catch(console.error));
     },
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      // Thread state lost after server restart (in-memory storage)
+      if (msg.includes("500") || msg.includes("404") || msg.includes("config")) {
+        toast.error("Thread history unavailable", {
+          description: "This thread's state was lost after a server restart. Please start a new conversation.",
+          duration: 8000,
+          richColors: true,
+          closeButton: true,
+        });
+        // Clear the broken threadId so the user can start fresh
+        setThreadId(null);
+      }
+    },
   });
 
   useEffect(() => {

@@ -102,6 +102,12 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
+      // Optimistically update local state so header and sidebar stay in sync
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.thread_id === threadId ? { ...t, ...updates } : t,
+        ),
+      );
     } catch (err) {
       console.error("Failed to update thread:", err);
     }

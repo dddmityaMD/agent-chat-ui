@@ -155,19 +155,25 @@ function OpenGitHubRepo() {
 function EditableThreadTitle({
   threadId,
   title,
+  preview,
   onSave,
 }: {
   threadId: string | null;
   title: string | null;
+  /** Fallback display text when title is empty (e.g. last_message_preview). */
+  preview: string | null;
   onSave: (newTitle: string) => void;
 }) {
+  const displayTitle =
+    title ||
+    (preview ? preview.slice(0, 60) : null);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(title ?? "");
+  const [draft, setDraft] = useState(displayTitle ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setDraft(title ?? "");
-  }, [title]);
+    setDraft(displayTitle ?? "");
+  }, [displayTitle]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -179,7 +185,7 @@ function EditableThreadTitle({
   const commit = () => {
     setEditing(false);
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== (title ?? "")) {
+    if (trimmed && trimmed !== (displayTitle ?? "")) {
       onSave(trimmed);
     }
   };
@@ -203,7 +209,7 @@ function EditableThreadTitle({
           onKeyDown={(e) => {
             if (e.key === "Enter") commit();
             if (e.key === "Escape") {
-              setDraft(title ?? "");
+              setDraft(displayTitle ?? "");
               setEditing(false);
             }
           }}
@@ -230,7 +236,7 @@ function EditableThreadTitle({
       title="Click to edit thread title"
       data-testid="thread-title"
     >
-      {title || "New conversation"}
+      {displayTitle || "New conversation"}
     </button>
   );
 }
@@ -261,7 +267,7 @@ export function Thread() {
     handlePaste,
   } = useFileUpload();
   const { permissionState, addPermissionGrant, clearPermissionGrants } = usePermissionState();
-  const { threads, updateThread } = useThreads();
+  const { threads, updateThread, getThreads, setThreads } = useThreads();
   const currentThread = threads.find((t) => t.thread_id === threadId) ?? null;
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
@@ -305,7 +311,10 @@ export function Thread() {
         }
       }
     }
-  }, [isLoading, stream.values, clearPermissionGrants, addPermissionGrant]);
+
+    // Refresh thread list to pick up auto-generated titles from first AI response
+    getThreads().then(setThreads).catch(console.error);
+  }, [isLoading, stream.values, clearPermissionGrants, addPermissionGrant, getThreads, setThreads]);
 
   const lastError = useRef<string | undefined>(undefined);
 
@@ -544,6 +553,7 @@ export function Thread() {
                   <EditableThreadTitle
                     threadId={threadId}
                     title={currentThread?.title ?? null}
+                    preview={currentThread?.last_message_preview ?? null}
                     onSave={(newTitle) => {
                       if (threadId) {
                         updateThread(threadId, { title: newTitle });

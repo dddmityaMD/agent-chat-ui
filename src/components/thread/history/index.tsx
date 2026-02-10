@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -44,13 +45,18 @@ function ThreadContextMenu({
   onArchive: (threadId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
   // Close menu on outside click
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -58,64 +64,78 @@ function ThreadContextMenu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  return (
-    <div ref={menuRef} className="relative">
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen((prev) => !prev);
+  };
+
+  const dropdown = open ? createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[9999] w-40 rounded-md border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+      style={{ top: menuPos.top, left: menuPos.left }}
+    >
       <button
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((prev) => !prev);
+          setOpen(false);
+          onRename(thread.thread_id);
         }}
-        className="rounded p-1 opacity-0 transition-opacity hover:bg-slate-200 group-hover:opacity-100 dark:hover:bg-slate-700"
+      >
+        <Pencil className="size-3.5" />
+        Rename
+      </button>
+      <button
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(false);
+          onTogglePin(thread.thread_id, thread.is_pinned);
+        }}
+      >
+        {thread.is_pinned ? (
+          <>
+            <PinOff className="size-3.5" />
+            Unpin
+          </>
+        ) : (
+          <>
+            <Pin className="size-3.5" />
+            Pin
+          </>
+        )}
+      </button>
+      <button
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(false);
+          onArchive(thread.thread_id);
+        }}
+      >
+        <Archive className="size-3.5" />
+        Archive
+      </button>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <div className="shrink-0">
+      <button
+        ref={buttonRef}
+        onClick={handleToggle}
+        className="rounded p-1 text-muted-foreground hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-700"
         aria-label="Thread actions"
       >
-        <MoreVertical className="size-4 text-muted-foreground" />
+        <MoreVertical className="size-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-md border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-          <button
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onRename(thread.thread_id);
-            }}
-          >
-            <Pencil className="size-3.5" />
-            Rename
-          </button>
-          <button
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onTogglePin(thread.thread_id, thread.is_pinned);
-            }}
-          >
-            {thread.is_pinned ? (
-              <>
-                <PinOff className="size-3.5" />
-                Unpin
-              </>
-            ) : (
-              <>
-                <Pin className="size-3.5" />
-                Pin
-              </>
-            )}
-          </button>
-          <button
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onArchive(thread.thread_id);
-            }}
-          >
-            <Archive className="size-3.5" />
-            Archive
-          </button>
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
@@ -157,12 +177,20 @@ function ThreadEntry({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
-      className={`group flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${
+      className={`group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors ${
         isActive
           ? "bg-slate-200 dark:bg-slate-700"
           : "hover:bg-slate-100 dark:hover:bg-slate-800"
       }`}
     >
+      {/* Context menu (left side) */}
+      <ThreadContextMenu
+        thread={thread}
+        onRename={onRename}
+        onTogglePin={onTogglePin}
+        onArchive={onArchive}
+      />
+
       {/* Pin indicator */}
       {thread.is_pinned && (
         <Pin className="size-3 shrink-0 text-amber-500" />
@@ -175,14 +203,6 @@ function ThreadEntry({
           {relativeTime}
         </span>
       </div>
-
-      {/* Context menu */}
-      <ThreadContextMenu
-        thread={thread}
-        onRename={onRename}
-        onTogglePin={onTogglePin}
-        onArchive={onArchive}
-      />
     </div>
   );
 }
