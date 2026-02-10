@@ -43,7 +43,9 @@ interface ThreadContextData {
   intent_confidence: number | null;
   active_flow: string | null;
   evidence_count: number;
+  /** @deprecated Backend still returns case_id for backward compat; prefer thread_id */
   case_id: string | null;
+  thread_id: string | null;
   confidence: Record<string, unknown> | null;
 }
 
@@ -158,7 +160,7 @@ export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
                   intentConfidence={contextData.intent_confidence}
                   activeFlow={contextData.active_flow}
                   evidenceCount={contextData.evidence_count}
-                  caseId={contextData.case_id}
+                  threadId={contextData.thread_id ?? contextData.case_id}
                 />
 
                 {/* Entity Resolution */}
@@ -211,13 +213,13 @@ function IntentFlowSection({
   intentConfidence,
   activeFlow,
   evidenceCount,
-  caseId,
+  threadId,
 }: {
   intent: string | null;
   intentConfidence: number | null;
   activeFlow: string | null;
   evidenceCount: number;
-  caseId: string | null;
+  threadId: string | null;
 }) {
   return (
     <section className="flex flex-col gap-2">
@@ -238,9 +240,9 @@ function IntentFlowSection({
             {activeFlow}
           </span>
         )}
-        {caseId && (
+        {threadId && (
           <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-            Case: {caseId.slice(0, 8)}...
+            Thread: {threadId.slice(0, 8)}...
           </span>
         )}
         <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">

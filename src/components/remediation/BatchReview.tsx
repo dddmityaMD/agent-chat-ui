@@ -16,8 +16,8 @@ import { ConfirmationDialog } from "./ConfirmationDialog";
 export interface BatchReviewProps {
   /** Batch ID for API calls */
   batchId: string;
-  /** Case ID for context */
-  caseId: string;
+  /** Thread ID for context */
+  threadId: string;
   /** List of proposals in this batch */
   proposals: RemediationProposalData[];
   /** Base URL for the remediation API (default: "") */
@@ -28,7 +28,7 @@ type FixStatus = "pending" | "approved" | "rejected";
 
 export function BatchReview({
   batchId,
-  caseId,
+  threadId,
   proposals,
   apiBaseUrl = "",
 }: BatchReviewProps) {

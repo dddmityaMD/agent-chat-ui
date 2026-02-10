@@ -513,7 +513,8 @@ export function AssistantMessage({
                       ?.remediation_batch_id as string) ||
                     `msg-${message?.id ?? "unknown"}`
                   }
-                  caseId={
+                  threadId={
+                    ((saisUi as Record<string, unknown>)?.thread_id as string) ||
                     ((saisUi as Record<string, unknown>)?.case_id as string) ||
                     ""
                   }

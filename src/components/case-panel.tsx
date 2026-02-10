@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useQueryState } from "nuqs";
-import { useCases, CaseSummary } from "@/providers/Cases";
 import { useStreamContext } from "@/providers/Stream";
 import { usePermissionState } from "@/providers/Thread";
 import { cn } from "@/lib/utils";
@@ -11,7 +10,6 @@ import {
   LinkedEvidence,
   EvidenceItem,
 } from "@/components/evidence-viewer";
-import { getStatusColor } from "@/components/tables/cell-renderers/BadgeCell";
 import {
   useCaseEvidenceState,
   EVIDENCE_TYPE_MAP,
@@ -19,14 +17,38 @@ import {
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
-import { Network } from "lucide-react";
+import { Copy, Network } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ContextPanelSection } from "@/components/context-panel";
+import { getApiBaseUrl } from "@/lib/api-url";
+import { toast } from "sonner";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
 
 type Check = { id: string; label: string; ok: boolean; requested: boolean };
+
+// ---------------------------------------------------------------------------
+// Thread Summary types (local to this component, matches backend ThreadSummaryOut)
+// ---------------------------------------------------------------------------
+
+interface ThreadMeta {
+  thread_id: string;
+  workspace_id: string | null;
+  title: string | null;
+  is_pinned: boolean;
+  is_archived: boolean;
+  created_at: string;
+  last_activity_at: string;
+  last_message_preview: string | null;
+}
+
+interface ThreadSummary {
+  thread: ThreadMeta;
+  evidence: Array<Record<string, unknown>>;
+  hypotheses: Array<Record<string, unknown>>;
+  findings: Record<string, unknown> | null;
+}
 
 // Types for findings
 interface RootCause {
@@ -69,7 +91,7 @@ interface Findings {
 }
 
 function computeChecks(
-  summary: CaseSummary | null,
+  summary: ThreadSummary | null,
   requestedTypes: Set<EvidenceType>,
 ): {
   checks: Check[];
@@ -98,7 +120,7 @@ function computeChecks(
   return { checks, missing };
 }
 
-function computeMismatch(summary: CaseSummary | null): Record<string, string> {
+function computeMismatch(summary: ThreadSummary | null): Record<string, string> {
   const ev = (summary?.evidence ?? []) as Array<Record<string, any>>;
   const mismatch: Record<string, string> = {};
   const patterns = [
@@ -125,20 +147,33 @@ function computeMismatch(summary: CaseSummary | null): Record<string, string> {
   return mismatch;
 }
 
+// ---------------------------------------------------------------------------
+// API helpers -- direct fetch from /api/threads
+// ---------------------------------------------------------------------------
+
+async function fetchThreadSummary(threadId: string): Promise<ThreadSummary> {
+  const res = await fetch(`${getApiBaseUrl()}/api/threads/${threadId}/summary`);
+  if (!res.ok) throw new Error("Failed to fetch thread summary");
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// CasePanel (thread-scoped)
+// ---------------------------------------------------------------------------
+
 export function CasePanel({ className }: { className?: string }) {
-  const { getCaseSummary, getFindings } = useCases();
   const stream = useStreamContext();
   const { permissionState, revokePermissionGrant } = usePermissionState();
-  const [caseId] = useQueryState("caseId");
   const [threadId] = useQueryState("threadId");
   const [casePanelSection, setCasePanelSection] = useQueryState("casePanelSection");
-  const [summary, setSummary] = useState<CaseSummary | null>(null);
+  const [summary, setSummary] = useState<ThreadSummary | null>(null);
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "findings" | "evidence" | "lineage"
   >("findings");
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
   // Clean slate experience: Track which evidence types user has requested
   const {
@@ -149,26 +184,49 @@ export function CasePanel({ className }: { className?: string }) {
     inferTypesFromIntent,
   } = useCaseEvidenceState();
 
-  // Track loading→idle transitions to refetch only when stream completes,
-  // instead of on every new message (which caused redundant API calls).
+  // Track loading->idle transitions to refetch only when stream completes
   const wasStreamingRef = useRef(false);
-  const prevCaseIdRef = useRef(caseId);
+  const prevThreadIdRef = useRef(threadId);
+
+  const doFetch = useCallback(async (tid: string) => {
+    setLoading(true);
+    try {
+      const s = await fetchThreadSummary(tid);
+      setSummary(s);
+      // findings is included in the summary response
+      setFindings(s.findings as Findings | null);
+      setError(null);
+
+      // Infer requested types from sais_ui intent (if available from stream)
+      const saisUi = (stream.values as Record<string, unknown>)?.sais_ui as
+        | Record<string, unknown>
+        | undefined;
+      const currentIntent = saisUi?.intent;
+      if (typeof currentIntent === "string") {
+        inferTypesFromIntent(currentIntent);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load");
+      setSummary(null);
+      setFindings(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [stream.values, inferTypesFromIntent]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    // Reset on case change
-    if (!caseId) {
+    // Reset on thread change
+    if (!threadId) {
       setSummary(null);
       setFindings(null);
       setError(null);
       resetRequestedTypes();
-      prevCaseIdRef.current = caseId;
+      prevThreadIdRef.current = threadId;
       return;
     }
 
-    // Determine whether to fetch: case changed OR stream just finished
-    const caseChanged = caseId !== prevCaseIdRef.current;
+    // Determine whether to fetch: thread changed OR stream just finished
+    const threadChanged = threadId !== prevThreadIdRef.current;
     const streamJustFinished = wasStreamingRef.current && !stream.isLoading;
 
     // Track loading state for next render
@@ -176,8 +234,8 @@ export function CasePanel({ className }: { className?: string }) {
       wasStreamingRef.current = true;
     }
 
-    // Only fetch on case change or when stream transitions to idle
-    if (!caseChanged && !streamJustFinished) {
+    // Only fetch on thread change or when stream transitions to idle
+    if (!threadChanged && !streamJustFinished) {
       // Initial mount: fetch if we have no summary yet
       if (summary !== null) return;
     }
@@ -185,39 +243,12 @@ export function CasePanel({ className }: { className?: string }) {
     if (streamJustFinished) {
       wasStreamingRef.current = false;
     }
-    prevCaseIdRef.current = caseId;
+    prevThreadIdRef.current = threadId;
 
-    setLoading(true);
+    doFetch(threadId);
 
-    // Fetch both summary and findings
-    Promise.all([getCaseSummary(caseId), getFindings(caseId).catch(() => null)])
-      .then(([s, f]) => {
-        if (cancelled) return;
-        setSummary(s);
-        setFindings(f?.latest as Findings | null);
-        setError(null);
-
-        // Infer requested types from current intent if available
-        const currentIntent = s?.case?.current_intent;
-        if (currentIntent) {
-          inferTypesFromIntent(currentIntent);
-        }
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(e?.message ?? "Failed to load");
-        setSummary(null);
-        setFindings(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseId, stream.isLoading, getCaseSummary, getFindings, resetRequestedTypes, inferTypesFromIntent]);
+  }, [threadId, stream.isLoading, resetRequestedTypes, doFetch]);
 
   useEffect(() => {
     if (casePanelSection !== "permissions") return;
@@ -232,27 +263,48 @@ export function CasePanel({ className }: { className?: string }) {
   );
   const mismatch = useMemo(() => computeMismatch(summary), [summary]);
 
+  const handleCopyThreadId = useCallback(() => {
+    if (!threadId) return;
+    navigator.clipboard.writeText(threadId).then(() => {
+      setCopyFeedback(true);
+      toast.success("Thread ID copied");
+      setTimeout(() => setCopyFeedback(false), 1500);
+    }).catch(() => {
+      toast.error("Failed to copy");
+    });
+  }, [threadId]);
+
   return (
     <div className={cn("h-full overflow-y-auto p-4", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Case</span>
-            {summary && (
+            <span className="text-sm font-semibold">Thread</span>
+            {summary?.thread.is_archived && (
               <span
-                className={cn(
-                  "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                  getStatusColor(summary.case.status),
-                )}
-                data-testid="case-status-badge"
+                className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                data-testid="thread-archived-badge"
               >
-                {summary.case.status}
+                Archived
               </span>
             )}
           </div>
-          <div className="text-muted-foreground text-xs">
-            {caseId ? caseId.slice(0, 8) + "..." : "(none selected)"}
-          </div>
+          {/* CASE-02: Copyable full thread UUID */}
+          {threadId ? (
+            <div className="flex items-center gap-1 text-muted-foreground text-xs" data-testid="thread-id-display">
+              <span className="font-mono select-all">{threadId}</span>
+              <button
+                onClick={handleCopyThreadId}
+                className="text-muted-foreground hover:text-foreground"
+                title="Copy thread ID"
+                data-testid="copy-thread-id"
+              >
+                <Copy className={cn("h-3 w-3", copyFeedback && "text-green-600")} />
+              </button>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-xs">(no thread selected)</div>
+          )}
         </div>
         {loading && (
           <div className="text-muted-foreground text-xs">Loading...</div>
@@ -400,7 +452,7 @@ export function CasePanel({ className }: { className?: string }) {
                     <span className="capitalize">
                       {key.replace(/_/g, " ")}:{" "}
                     </span>
-                    <span className="font-mono">{value ?? "—"}</span>
+                    <span className="font-mono">{value ?? "\u2014"}</span>
                   </div>
                 ))
               )}
@@ -411,7 +463,7 @@ export function CasePanel({ className }: { className?: string }) {
           <ContextPanelSection threadId={threadId} />
 
           {/* Tab Selector */}
-          <div className="mt-4 flex gap-2 border-b" role="tablist" aria-label="Case details">
+          <div className="mt-4 flex gap-2 border-b" role="tablist" aria-label="Thread details">
             <button
               role="tab"
               aria-selected={activeTab === "findings"}
@@ -505,7 +557,7 @@ export function CasePanel({ className }: { className?: string }) {
                           className="text-sm"
                         >
                           <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground">&#8226;</span>
                             <div className="flex-1">
                               <span>{obs.statement}</span>
                               <span className="text-muted-foreground ml-1 text-xs">
