@@ -23,8 +23,8 @@ import type { RemediationProposalData } from "@/components/remediation/DiffCard"
 import { BlockerMessage } from "../blocker-message";
 import { MultiIntentResult } from "../multi-intent-result";
 import { ConfidenceBadge } from "../confidence-badge";
-import type { Blocker, MultiIntentPayload, PendingDisambiguation, BuildPlan, BuildPlanStatus } from "@/lib/types";
-import { ArrowRightLeft, X } from "lucide-react";
+import type { Blocker, MultiIntentPayload, PendingDisambiguation, BuildPlan, BuildPlanStatus, VerificationResult } from "@/lib/types";
+import { ArrowRightLeft, X, Loader2 } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { usePermissionState } from "@/providers/Thread";
@@ -32,6 +32,7 @@ import type { PermissionGrant } from "@/lib/types";
 import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 import { BuildPlanDisplay } from "./build-plan";
+import { VerificationBadge } from "./verification-badge";
 
 // Type for a single metadata section (one entity type)
 interface MetadataSection {
@@ -219,6 +220,22 @@ function getBuildPlanStatus(saisUi: unknown): BuildPlanStatus | null {
   // Validate it's a valid status
   const validStatuses: BuildPlanStatus[] = ["proposed", "approved", "rejected", "executing", "completed", "failed"];
   return validStatuses.includes(status as BuildPlanStatus) ? (status as BuildPlanStatus) : null;
+}
+
+// Extract build verification result from sais_ui
+function getBuildVerificationResult(saisUi: unknown): VerificationResult | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const verificationResult = obj.build_verification_result;
+  if (!verificationResult || typeof verificationResult !== "object") return null;
+  const result = verificationResult as Record<string, unknown>;
+  // Validate required fields
+  if (
+    typeof result.status !== "string" ||
+    typeof result.comparison_summary !== "string" ||
+    typeof result.verification_method !== "string"
+  ) return null;
+  return result as unknown as VerificationResult;
 }
 
 function CustomComponent({
@@ -419,6 +436,7 @@ export function AssistantMessage({
   const clarificationData = isLastMessage ? getClarification(saisUi) : null;
   const buildPlan = isLastMessage ? getBuildPlan(saisUi) : null;
   const buildPlanStatus = isLastMessage ? getBuildPlanStatus(saisUi) : null;
+  const buildVerificationResult = isLastMessage ? getBuildVerificationResult(saisUi) : null;
   // Disambiguation data: prefer sais_ui for last message, fall back to response_metadata
   const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
   const pendingDisambiguation = isLastMessage
@@ -566,22 +584,35 @@ export function AssistantMessage({
               />
             )}
 
+            {/* Synthesis indicator (TODO 2) - show when streaming but no content yet */}
+            {isLoading && contentString.length === 0 && !pendingDisambiguation && (
+              <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Synthesizing answer...</span>
+              </div>
+            )}
+
+            {/* AI text content - show alongside metadata grids (TODO 1) */}
             {contentString.length > 0
-              && !(metadataSections.length > 0)
               && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
               <div className="py-1" data-testid="ai-message-content">
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
 
-            {/* Render QueryResults for metadata responses — one grid per entity type section */}
+            {/* Render QueryResults for metadata responses — one grid per entity type section (TODO 1) */}
             {metadataSections.map((section) => (
               section.items.length > 0 && (
-                <div className="mt-4" key={section.entity_type}>
+                <details
+                  className="mt-4"
+                  key={section.entity_type}
+                  open={true}
+                  data-testid={`entity-grid-section-${section.entity_type}`}
+                >
                   {metadataSections.length > 1 && (
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
                       {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
-                    </h4>
+                    </summary>
                   )}
                   <QueryResults
                     evidence={section.items.map((item, idx) => ({
@@ -593,7 +624,7 @@ export function AssistantMessage({
                     totalCount={section.total}
                     isLoading={isLoading}
                   />
-                </div>
+                </details>
               )
             ))}
 
@@ -619,6 +650,13 @@ export function AssistantMessage({
                     Executing build plan...
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Build verification result */}
+            {buildVerificationResult && (
+              <div className="mt-3">
+                <VerificationBadge result={buildVerificationResult} />
               </div>
             )}
 

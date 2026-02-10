@@ -93,6 +93,11 @@ function getColumnDefsForEntityType(entityType: EntityType): ColDef[] {
   }
 }
 
+/**
+ * @deprecated This component is mostly dead code. A lightweight synthesis indicator
+ * was added directly to ai.tsx (shows during streaming before content arrives).
+ * Kept for potential future use but not actively used in Phase 11 build flow.
+ */
 function AnswerSection({
   answer,
   isLoading,
