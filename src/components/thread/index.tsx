@@ -270,6 +270,10 @@ export function Thread() {
   const { threads, updateThread, getThreads, setThreads } = useThreads();
   const currentThread = threads.find((t) => t.thread_id === threadId) ?? null;
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
+  // Optimistic human message: shown immediately on submit so the loading
+  // dots appear below it, not below the previous AI message.  Cleared once
+  // the message shows up in stream.messages (by ID match).
+  const [pendingHumanMessage, setPendingHumanMessage] = useState<Message | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
   const [casePanelOpen, setCasePanelOpen] = useQueryState(
@@ -355,6 +359,16 @@ export function Thread() {
     }
   }, [stream.error]);
 
+  // Clear pendingHumanMessage once it appears in stream.messages (by ID).
+  useEffect(() => {
+    if (
+      pendingHumanMessage &&
+      messages.some((m) => m.id === pendingHumanMessage.id)
+    ) {
+      setPendingHumanMessage(null);
+    }
+  }, [messages, pendingHumanMessage]);
+
   // TODO: this should be part of the useStream hook
   const prevMessageLength = useRef(0);
   useEffect(() => {
@@ -374,7 +388,8 @@ export function Thread() {
     if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
       return;
     setFirstTokenReceived(false);
-
+    // Build the message first so we can use it for both optimistic render
+    // and the actual submit payload.
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
@@ -383,6 +398,9 @@ export function Thread() {
         ...contentBlocks,
       ] as Message["content"],
     };
+
+    // Show the human message immediately so loading dots appear below it.
+    setPendingHumanMessage(newHumanMessage);
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
 
@@ -631,6 +649,16 @@ export function Thread() {
                         )}
                       </MessageErrorBoundary>
                     ))}
+                  {/* Optimistic human message: render if not yet in stream.messages */}
+                  {pendingHumanMessage &&
+                    !messages.some((m) => m.id === pendingHumanMessage.id) && (
+                      <MessageErrorBoundary key={pendingHumanMessage.id}>
+                        <HumanMessage
+                          message={pendingHumanMessage}
+                          isLoading={isLoading}
+                        />
+                      </MessageErrorBoundary>
+                    )}
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
