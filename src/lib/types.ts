@@ -172,3 +172,35 @@ export interface AvailableModel {
   is_primary: boolean;
   is_fallback: boolean;
 }
+
+// --- Build flow types (Phase 11) ---
+
+export type VerificationStatus = "VERIFIED_FIXED" | "PARTIALLY_FIXED" | "NOT_FIXED" | "REGRESSION_DETECTED";
+export type BuildPlanStatus = "proposed" | "approved" | "rejected" | "executing" | "completed" | "failed";
+
+export interface BuildStep {
+  step_number: number;
+  action: "create_file" | "modify_file" | "create_card" | "run_dbt" | "run_test" | "verify";
+  target: string;
+  description: string;
+  content_preview?: string;
+  depends_on?: number[];
+}
+
+export interface BuildPlan {
+  plan_id: string;
+  title: string;
+  steps: BuildStep[];
+  context_summary: string;
+  estimated_impact: string;
+  risk_level: "low" | "medium" | "high";
+}
+
+export interface VerificationResult {
+  status: VerificationStatus;
+  before_snapshot?: Record<string, unknown>;
+  after_snapshot?: Record<string, unknown>;
+  comparison_summary: string;
+  verification_method: string;
+  downstream_check?: Record<string, unknown>;
+}

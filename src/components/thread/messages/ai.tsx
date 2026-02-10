@@ -23,7 +23,7 @@ import type { RemediationProposalData } from "@/components/remediation/DiffCard"
 import { BlockerMessage } from "../blocker-message";
 import { MultiIntentResult } from "../multi-intent-result";
 import { ConfidenceBadge } from "../confidence-badge";
-import type { Blocker, MultiIntentPayload, PendingDisambiguation } from "@/lib/types";
+import type { Blocker, MultiIntentPayload, PendingDisambiguation, BuildPlan, BuildPlanStatus } from "@/lib/types";
 import { ArrowRightLeft, X } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -31,6 +31,7 @@ import { usePermissionState } from "@/providers/Thread";
 import type { PermissionGrant } from "@/lib/types";
 import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
+import { BuildPlanDisplay } from "./build-plan";
 
 // Type for a single metadata section (one entity type)
 interface MetadataSection {
@@ -188,6 +189,36 @@ function getMultiIntentPayload(saisUi: unknown): MultiIntentPayload | null {
     was_parallel: payload.was_parallel === true,
     merged_output: (payload.merged_output as Record<string, unknown>) || {},
   };
+}
+
+// Extract build plan from sais_ui
+function getBuildPlan(saisUi: unknown): BuildPlan | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const buildPlan = obj.build_plan;
+  if (!buildPlan || typeof buildPlan !== "object") return null;
+  const plan = buildPlan as Record<string, unknown>;
+  // Validate required fields
+  if (
+    typeof plan.plan_id !== "string" ||
+    typeof plan.title !== "string" ||
+    !Array.isArray(plan.steps) ||
+    typeof plan.context_summary !== "string" ||
+    typeof plan.estimated_impact !== "string" ||
+    typeof plan.risk_level !== "string"
+  ) return null;
+  return plan as unknown as BuildPlan;
+}
+
+// Extract build plan status from sais_ui
+function getBuildPlanStatus(saisUi: unknown): BuildPlanStatus | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const status = obj.build_plan_status;
+  if (typeof status !== "string") return null;
+  // Validate it's a valid status
+  const validStatuses: BuildPlanStatus[] = ["proposed", "approved", "rejected", "executing", "completed", "failed"];
+  return validStatuses.includes(status as BuildPlanStatus) ? (status as BuildPlanStatus) : null;
 }
 
 function CustomComponent({
@@ -386,6 +417,8 @@ export function AssistantMessage({
   const blockers = isLastMessage ? getBlockers(saisUi) : null;
   const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUi) : null;
   const clarificationData = isLastMessage ? getClarification(saisUi) : null;
+  const buildPlan = isLastMessage ? getBuildPlan(saisUi) : null;
+  const buildPlanStatus = isLastMessage ? getBuildPlanStatus(saisUi) : null;
   // Disambiguation data: prefer sais_ui for last message, fall back to response_metadata
   const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
   const pendingDisambiguation = isLastMessage
@@ -569,6 +602,25 @@ export function AssistantMessage({
               saisUiConfidence={confidenceData}
               content={contentString}
             />
+
+            {/* Build plan display */}
+            {buildPlan && buildPlanStatus === "proposed" && (
+              <div className="mt-3">
+                <BuildPlanDisplay plan={buildPlan} />
+              </div>
+            )}
+
+            {/* Build execution progress indicator */}
+            {buildPlanStatus === "executing" && (
+              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400"></div>
+                  <span className="text-sm text-blue-800 dark:text-blue-200">
+                    Executing build plan...
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Handoff confirmation card */}
             {handoffProposal && !handoffProposal.confirmed && (
