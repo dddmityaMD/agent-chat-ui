@@ -31,7 +31,6 @@ export type StateType = {
   ui?: UIMessage[];
   // SAIS panel payload (not LangGraph UI messages)
   sais_ui?: unknown;
-  case_id?: string;
 };
 
 type BagType = {
@@ -39,7 +38,6 @@ type BagType = {
     messages?: Message[] | Message | string;
     ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
     context?: Record<string, unknown>;
-    case_id?: string;
   };
   CustomEventType: UIMessage | RemoveUIMessage;
 };

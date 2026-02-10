@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 10 migration: CasesProvider is no longer used in the provider tree.
+ * Data is now fetched directly from /api/threads endpoints.
+ * This file is retained for backward-compatible type exports (CaseRow, CaseSummary, FindingsResponse)
+ * during gradual cleanup. Remove entirely when no imports remain.
+ */
 "use client";
 
 import React, {

@@ -13,7 +13,6 @@ import {
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
 import { LangGraphLogoSVG } from "../icons/langgraph";
-import { CaseBar } from "@/components/case-bar";
 import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
@@ -24,6 +23,7 @@ import {
   SquarePen,
   XIcon,
   Plus,
+  Check,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -49,7 +49,7 @@ import {
 } from "./artifact";
 import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
-import { usePermissionState } from "@/providers/Thread";
+import { usePermissionState, useThreads } from "@/providers/Thread";
 
 /**
  * Error boundary that catches render errors in individual messages,
@@ -148,13 +148,99 @@ function OpenGitHubRepo() {
   );
 }
 
+/**
+ * Editable thread title displayed in the header.
+ * Shows thread title (or "New conversation") and allows inline editing.
+ */
+function EditableThreadTitle({
+  threadId,
+  title,
+  onSave,
+}: {
+  threadId: string | null;
+  title: string | null;
+  onSave: (newTitle: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(title ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setDraft(title ?? "");
+  }, [title]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== (title ?? "")) {
+      onSave(trimmed);
+    }
+  };
+
+  if (!threadId) {
+    return (
+      <span className="text-xl font-semibold tracking-tight">
+        Agent Chat
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setDraft(title ?? "");
+              setEditing(false);
+            }
+          }}
+          className="max-w-[200px] rounded border bg-background px-1.5 py-0.5 text-sm font-medium outline-none focus:ring-1 focus:ring-blue-400"
+          data-testid="thread-title-input"
+        />
+        <button
+          type="button"
+          onClick={commit}
+          className="rounded p-0.5 hover:bg-gray-100"
+          title="Save title"
+        >
+          <Check className="size-3.5 text-green-600" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="cursor-pointer truncate text-sm font-semibold tracking-tight hover:underline"
+      title="Click to edit thread title"
+      data-testid="thread-title"
+    >
+      {title || "New conversation"}
+    </button>
+  );
+}
+
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
 
   const [threadId, _setThreadId] = useQueryState("threadId");
   const [, setCasePanelSection] = useQueryState("casePanelSection");
-  const [caseId] = useQueryState("caseId");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
     parseAsBoolean.withDefault(false),
@@ -175,6 +261,8 @@ export function Thread() {
     handlePaste,
   } = useFileUpload();
   const { permissionState, addPermissionGrant, clearPermissionGrants } = usePermissionState();
+  const { threads, updateThread } = useThreads();
+  const currentThread = threads.find((t) => t.thread_id === threadId) ?? null;
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -297,7 +385,6 @@ export function Thread() {
     // toolMessages are synthetic responses for incomplete tool calls.
     stream.submit(
       {
-        case_id: caseId ?? undefined,
         messages: [...stream.messages, ...toolMessages, newHumanMessage],
         context,
       },
@@ -308,7 +395,6 @@ export function Thread() {
         optimisticValues: (prev) => ({
           ...prev,
           context,
-          ...(caseId ? { case_id: caseId } : {}),
           messages: [
             ...(prev.messages ?? []),
             ...toolMessages,
@@ -411,7 +497,7 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-3">
-                <CaseBar />
+                <HealthDot />
                 <OpenGitHubRepo />
               </div>
             </div>
@@ -434,9 +520,8 @@ export function Thread() {
                     </Button>
                   )}
                 </div>
-                <motion.button
-                  className="flex cursor-pointer items-center gap-2"
-                  onClick={() => setThreadId(null)}
+                <motion.div
+                  className="flex items-center gap-2"
                   animate={{
                     marginLeft: !chatHistoryOpen ? 48 : 0,
                   }}
@@ -446,14 +531,26 @@ export function Thread() {
                     damping: 30,
                   }}
                 >
-                  <LangGraphLogoSVG
-                    width={32}
-                    height={32}
+                  <button
+                    type="button"
+                    className="flex cursor-pointer items-center gap-2"
+                    onClick={() => setThreadId(null)}
+                  >
+                    <LangGraphLogoSVG
+                      width={24}
+                      height={24}
+                    />
+                  </button>
+                  <EditableThreadTitle
+                    threadId={threadId}
+                    title={currentThread?.title ?? null}
+                    onSave={(newTitle) => {
+                      if (threadId) {
+                        updateThread(threadId, { title: newTitle });
+                      }
+                    }}
                   />
-                  <span className="text-xl font-semibold tracking-tight">
-                    Agent Chat
-                  </span>
-                </motion.button>
+                </motion.div>
                 <HealthDot />
                 <PermissionPill
                   grants={permissionState.grants}
@@ -465,14 +562,13 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
-                <CaseBar />
                 <div className="flex items-center">
                   <OpenGitHubRepo />
                 </div>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
-                  tooltip={casePanelOpen ? "Hide case panel" : "Show case panel"}
+                  tooltip={casePanelOpen ? "Hide thread panel" : "Show thread panel"}
                   variant="ghost"
                   onClick={() => setCasePanelOpen((p) => !p)}
                 >
@@ -659,7 +755,7 @@ export function Thread() {
         <div className={cn("relative flex flex-col border-l", !casePanelOpen && "hidden")}>
           <div className="absolute inset-0 flex min-w-[30vw] flex-col">
             <div className="grid grid-cols-[1fr_auto] border-b p-4">
-              <div className="truncate overflow-hidden text-sm font-semibold">Case Summary</div>
+              <div className="truncate overflow-hidden text-sm font-semibold">Thread Summary</div>
               <button
                 onClick={() => setCasePanelOpen(false)}
                 className="cursor-pointer"
