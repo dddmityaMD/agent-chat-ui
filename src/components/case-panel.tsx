@@ -22,6 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import { ContextPanelSection } from "@/components/context-panel";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { toast } from "sonner";
+import { useSaisUi } from "@/hooks/useSaisUi";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -165,6 +166,7 @@ export function CasePanel({ className }: { className?: string }) {
   const stream = useStreamContext();
   const { permissionState, revokePermissionGrant } = usePermissionState();
   const [threadId] = useQueryState("threadId");
+  const saisUiData = useSaisUi();
   const [casePanelSection, setCasePanelSection] = useQueryState("casePanelSection");
   const [summary, setSummary] = useState<ThreadSummary | null>(null);
   const [findings, setFindings] = useState<Findings | null>(null);
@@ -198,10 +200,7 @@ export function CasePanel({ className }: { className?: string }) {
       setError(null);
 
       // Infer requested types from sais_ui intent (if available from stream)
-      const saisUi = (stream.values as Record<string, unknown>)?.sais_ui as
-        | Record<string, unknown>
-        | undefined;
-      const currentIntent = saisUi?.intent;
+      const currentIntent = saisUiData.raw?.intent;
       if (typeof currentIntent === "string") {
         inferTypesFromIntent(currentIntent);
       }
@@ -212,7 +211,7 @@ export function CasePanel({ className }: { className?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [stream.values, inferTypesFromIntent]);
+  }, [saisUiData.raw, inferTypesFromIntent]);
 
   useEffect(() => {
     // Reset on thread change

@@ -50,6 +50,7 @@ import {
 import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState, useThreads } from "@/providers/Thread";
+import { useSaisUi } from "@/hooks/useSaisUi";
 
 /**
  * Error boundary that catches render errors in individual messages,
@@ -284,6 +285,7 @@ export function Thread() {
   const stream = useStreamContext();
   const messages = stream.messages;
   const isLoading = stream.isLoading;
+  const saisUiData = useSaisUi();
 
   // Sync permission grants from backend sais_ui state to local React state.
   // When a stream completes (isLoading transitions false), reconcile local
@@ -298,27 +300,19 @@ export function Thread() {
     if (!wasLoadingRef.current) return; // only sync on loading→idle transition
     wasLoadingRef.current = false;
 
-    const saisUi = (stream.values as Record<string, unknown>)?.sais_ui as
-      | Record<string, unknown>
-      | undefined;
-    const permissions = saisUi?.permissions as
-      | Record<string, unknown>
-      | undefined;
-    const backendGrants = permissions?.grants;
+    const backendGrants = saisUiData.permissionGrants;
 
     // Reconcile: clear local state and re-add only what backend reports
     clearPermissionGrants();
-    if (Array.isArray(backendGrants)) {
-      for (const g of backendGrants) {
-        if (g && typeof g === "object" && "capability" in g) {
-          addPermissionGrant(g as import("@/lib/types").PermissionGrant);
-        }
+    for (const g of backendGrants) {
+      if (g && typeof g === "object" && "capability" in g) {
+        addPermissionGrant(g as import("@/lib/types").PermissionGrant);
       }
     }
 
     // Refresh thread list to pick up auto-generated titles from first AI response
     getThreads().then(setThreads).catch(console.error);
-  }, [isLoading, stream.values, clearPermissionGrants, addPermissionGrant, getThreads, setThreads]);
+  }, [isLoading, saisUiData.permissionGrants, clearPermissionGrants, addPermissionGrant, getThreads, setThreads]);
 
   const lastError = useRef<string | undefined>(undefined);
 

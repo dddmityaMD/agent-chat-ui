@@ -33,6 +33,17 @@ import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 import { BuildPlanDisplay } from "./build-plan";
 import { VerificationBadge } from "./verification-badge";
+import {
+  useSaisUi,
+  extractHandoffProposal,
+  extractRemediationProposals,
+  extractBlockers,
+  extractConfidence,
+  extractMultiIntent,
+  extractBuildPlan,
+  extractBuildPlanStatus,
+  extractBuildVerification
+} from "@/hooks/useSaisUi";
 
 // Type for a single metadata section (one entity type)
 interface MetadataSection {
@@ -99,19 +110,9 @@ function toSections(mr: MetadataResults): MetadataSection[] {
   return [];
 }
 
-// Extract active_flow from sais_ui
-function getActiveFlow(saisUi: unknown): string | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const flow = obj.active_flow;
-  return typeof flow === "string" && flow.length > 0 ? flow : null;
-}
-
-// Extract handoff proposal from sais_ui
+// Wrapper functions that adapt centralized extractors to local type contracts
 function getHandoffProposal(saisUi: unknown): HandoffProposal | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const handoff = obj.handoff;
+  const handoff = extractHandoffProposal(saisUi);
   if (!handoff || typeof handoff !== "object") return null;
   const h = handoff as Record<string, unknown>;
   if (typeof h.target_flow !== "string") return null;
@@ -122,12 +123,9 @@ function getHandoffProposal(saisUi: unknown): HandoffProposal | null {
   };
 }
 
-// Extract remediation proposals from sais_ui
 function getRemediationProposals(saisUi: unknown): RemediationProposalData[] | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const proposals = obj.remediation_proposals;
-  if (!Array.isArray(proposals) || proposals.length === 0) return null;
+  const proposals = extractRemediationProposals(saisUi);
+  if (proposals.length === 0) return null;
   // Validate that each proposal has required fields
   const valid = proposals.every(
     (p: unknown) =>
@@ -136,36 +134,21 @@ function getRemediationProposals(saisUi: unknown): RemediationProposalData[] | n
       typeof (p as Record<string, unknown>).fix_id === "string" &&
       typeof (p as Record<string, unknown>).title === "string"
   );
-  return valid ? (proposals as RemediationProposalData[]) : null;
+  return valid ? (proposals as unknown as RemediationProposalData[]) : null;
 }
 
-// Extract blockers from sais_ui
 function getBlockers(saisUi: unknown): Blocker[] | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const blockers = obj.blockers;
-  if (!Array.isArray(blockers) || blockers.length === 0) return null;
-  // Validate each blocker has required fields
-  const valid = blockers.every(
-    (b: unknown) =>
-      b &&
-      typeof b === "object" &&
-      typeof (b as Record<string, unknown>).type === "string" &&
-      typeof (b as Record<string, unknown>).severity === "string" &&
-      typeof (b as Record<string, unknown>).message === "string"
-  );
-  return valid ? (blockers as Blocker[]) : null;
+  const blockers = extractBlockers(saisUi);
+  if (blockers.length === 0) return null;
+  return blockers as Blocker[];
 }
 
-// Extract confidence data from sais_ui
 function getConfidenceData(saisUi: unknown): { level: "high" | "medium" | "low"; reason?: string } | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const confidence = obj.confidence;
-  if (!confidence || typeof confidence !== "object") return null;
+  const confidence = extractConfidence(saisUi);
+  if (!confidence) return null;
   const c = confidence as Record<string, unknown>;
   if (typeof c.level !== "string") return null;
-  const level = c.level.toLowerCase();
+  const level = (c.level as string).toLowerCase();
   if (level !== "high" && level !== "medium" && level !== "low") return null;
   return {
     level: level as "high" | "medium" | "low",
@@ -173,12 +156,9 @@ function getConfidenceData(saisUi: unknown): { level: "high" | "medium" | "low";
   };
 }
 
-// Extract multi-intent payload from sais_ui
 function getMultiIntentPayload(saisUi: unknown): MultiIntentPayload | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const mi = obj.multi_intent;
-  if (!mi || typeof mi !== "object") return null;
+  const mi = extractMultiIntent(saisUi);
+  if (!mi) return null;
   const payload = mi as Record<string, unknown>;
   // Validate required fields
   if (!Array.isArray(payload.intents) || !Array.isArray(payload.results)) return null;
@@ -192,12 +172,9 @@ function getMultiIntentPayload(saisUi: unknown): MultiIntentPayload | null {
   };
 }
 
-// Extract build plan from sais_ui
 function getBuildPlan(saisUi: unknown): BuildPlan | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const buildPlan = obj.build_plan;
-  if (!buildPlan || typeof buildPlan !== "object") return null;
+  const buildPlan = extractBuildPlan(saisUi);
+  if (!buildPlan) return null;
   const plan = buildPlan as Record<string, unknown>;
   // Validate required fields
   if (
@@ -211,23 +188,17 @@ function getBuildPlan(saisUi: unknown): BuildPlan | null {
   return plan as unknown as BuildPlan;
 }
 
-// Extract build plan status from sais_ui
 function getBuildPlanStatus(saisUi: unknown): BuildPlanStatus | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const status = obj.build_plan_status;
-  if (typeof status !== "string") return null;
+  const status = extractBuildPlanStatus(saisUi);
+  if (!status) return null;
   // Validate it's a valid status
   const validStatuses: BuildPlanStatus[] = ["proposed", "approved", "rejected", "executing", "completed", "failed"];
   return validStatuses.includes(status as BuildPlanStatus) ? (status as BuildPlanStatus) : null;
 }
 
-// Extract build verification result from sais_ui
 function getBuildVerificationResult(saisUi: unknown): VerificationResult | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const verificationResult = obj.build_verification_result;
-  if (!verificationResult || typeof verificationResult !== "object") return null;
+  const verificationResult = extractBuildVerification(saisUi);
+  if (!verificationResult) return null;
   const result = verificationResult as Record<string, unknown>;
   // Validate required fields
   if (
@@ -405,6 +376,7 @@ export function AssistantMessage({
 
   const thread = useStreamContext();
   const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
+  const saisUiData = useSaisUi();
   const isLastMessage =
     thread.messages.length > 0 &&
     thread.messages[thread.messages.length - 1].id === message?.id;
@@ -421,29 +393,28 @@ export function AssistantMessage({
   const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
     ? (msgResponseMeta as Record<string, unknown>).metadata_results
     : null;
-  const saisUi = thread.values?.sais_ui;
   const metadataResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
     ? (msgMetadataResults as MetadataResults)
     : null;
   const metadataSections = metadataResults ? toSections(metadataResults) : [];
 
   // Extract flow information from sais_ui (only for last message to avoid stale badges)
-  const activeFlow = isLastMessage ? getActiveFlow(saisUi) : null;
-  const handoffProposal = isLastMessage ? getHandoffProposal(saisUi) : null;
-  const remediationProposals = isLastMessage ? getRemediationProposals(saisUi) : null;
-  const blockers = isLastMessage ? getBlockers(saisUi) : null;
-  const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUi) : null;
-  const clarificationData = isLastMessage ? getClarification(saisUi) : null;
-  const buildPlan = isLastMessage ? getBuildPlan(saisUi) : null;
-  const buildPlanStatus = isLastMessage ? getBuildPlanStatus(saisUi) : null;
-  const buildVerificationResult = isLastMessage ? getBuildVerificationResult(saisUi) : null;
+  const activeFlow = isLastMessage ? saisUiData.flowType : null;
+  const handoffProposal = isLastMessage ? getHandoffProposal(saisUiData.raw) : null;
+  const remediationProposals = isLastMessage ? getRemediationProposals(saisUiData.raw) : null;
+  const blockers = isLastMessage ? getBlockers(saisUiData.raw) : null;
+  const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUiData.raw) : null;
+  const clarificationData = isLastMessage ? getClarification(saisUiData.raw) : null;
+  const buildPlan = isLastMessage ? getBuildPlan(saisUiData.raw) : null;
+  const buildPlanStatus = isLastMessage ? getBuildPlanStatus(saisUiData.raw) : null;
+  const buildVerificationResult = isLastMessage ? getBuildVerificationResult(saisUiData.raw) : null;
   // Disambiguation data: prefer sais_ui for last message, fall back to response_metadata
   const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
   const pendingDisambiguation = isLastMessage
-    ? getPendingDisambiguation(saisUi) ?? (msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null)
+    ? getPendingDisambiguation(saisUiData.raw) ?? (msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null)
     : msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null;
   // Confidence data: extract from sais_ui for last message (structured source)
-  const confidenceData = isLastMessage ? getConfidenceData(saisUi) : null;
+  const confidenceData = isLastMessage ? getConfidenceData(saisUiData.raw) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -676,13 +647,13 @@ export function AssistantMessage({
               <div className="mt-3" data-testid="remediation-proposals">
                 <BatchReview
                   batchId={
-                    ((saisUi as Record<string, unknown>)
+                    ((saisUiData.raw as Record<string, unknown>)
                       ?.remediation_batch_id as string) ||
                     `msg-${message?.id ?? "unknown"}`
                   }
                   threadId={
-                    ((saisUi as Record<string, unknown>)?.thread_id as string) ||
-                    ((saisUi as Record<string, unknown>)?.case_id as string) ||
+                    ((saisUiData.raw as Record<string, unknown>)?.thread_id as string) ||
+                    ((saisUiData.raw as Record<string, unknown>)?.case_id as string) ||
                     ""
                   }
                   proposals={remediationProposals}

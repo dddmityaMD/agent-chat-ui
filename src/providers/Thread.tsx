@@ -10,6 +10,7 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
+import { extractFlowType, extractHandoffProposal } from "@/hooks/useSaisUi";
 
 // ---------------------------------------------------------------------------
 // Flow-related types extracted from sais_ui state
@@ -213,22 +214,20 @@ export function usePermissionState() {
  * This is a pure helper -- it does not use hooks or context.  Components
  * that already have access to `sais_ui` (e.g. from `useStreamContext`) can
  * call this directly.
+ *
+ * Uses centralized extractors from useSaisUi for consistency.
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function extractFlowInfo(saisUi: unknown): FlowInfo {
   const empty: FlowInfo = { activeFlow: null, handoff: null };
   if (!saisUi || typeof saisUi !== "object") return empty;
 
-  const obj = saisUi as Record<string, unknown>;
-
-  const activeFlow =
-    typeof obj.active_flow === "string" && obj.active_flow.length > 0
-      ? obj.active_flow
-      : null;
+  const activeFlow = extractFlowType(saisUi);
 
   let handoff: HandoffInfo | null = null;
-  if (obj.handoff && typeof obj.handoff === "object") {
-    const h = obj.handoff as Record<string, unknown>;
+  const handoffData = extractHandoffProposal(saisUi);
+  if (handoffData && typeof handoffData === "object") {
+    const h = handoffData as Record<string, unknown>;
     if (typeof h.target_flow === "string") {
       handoff = {
         target_flow: h.target_flow,

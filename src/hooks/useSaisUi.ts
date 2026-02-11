@@ -214,6 +214,49 @@ export function extractRemediationProposals(saisUi: unknown): Array<Record<strin
   return Array.isArray(proposals) ? proposals : [];
 }
 
+/**
+ * Extract multi_intent payload from sais_ui.
+ */
+export function extractMultiIntent(saisUi: unknown): Record<string, unknown> | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const multiIntent = obj.multi_intent;
+  if (!multiIntent || typeof multiIntent !== "object") return null;
+  return multiIntent as Record<string, unknown>;
+}
+
+/**
+ * Extract metadata_results from sais_ui.
+ */
+export function extractMetadataResults(saisUi: unknown): Array<Record<string, unknown>> {
+  if (!saisUi || typeof saisUi !== "object") return [];
+  const obj = saisUi as Record<string, unknown>;
+  const results = obj.metadata_results;
+  return Array.isArray(results) ? results : [];
+}
+
+/**
+ * Extract disambiguation from sais_ui.
+ */
+export function extractDisambiguation(saisUi: unknown): Record<string, unknown> | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const disambiguation = obj.disambiguation;
+  if (!disambiguation || typeof disambiguation !== "object") return null;
+  return disambiguation as Record<string, unknown>;
+}
+
+/**
+ * Extract resolution_steps from sais_ui.
+ */
+export function extractResolutionSteps(saisUi: unknown): Record<string, unknown> | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const obj = saisUi as Record<string, unknown>;
+  const steps = obj.resolution_steps;
+  if (!steps || typeof steps !== "object") return null;
+  return steps as Record<string, unknown>;
+}
+
 // ---------------------------------------------------------------------------
 // Hook Implementation
 // ---------------------------------------------------------------------------
