@@ -52,8 +52,8 @@ interface MetadataSection {
   total: number;
 }
 
-// Type for metadata_results from sais_ui payload — flat (single type) or sectioned (mixed)
-type MetadataResults = MetadataSection | { sections: MetadataSection[] };
+// Type for metadata_results from sais_ui payload — list (new), flat (legacy single type), or sectioned (legacy mixed)
+type MetadataResults = MetadataSection[] | MetadataSection | { sections: MetadataSection[] };
 
 // Type for handoff proposal from sais_ui payload
 interface HandoffProposal {
@@ -88,24 +88,31 @@ function isValidSection(s: unknown): s is MetadataSection {
   return typeof obj.entity_type === "string" && Array.isArray(obj.items) && typeof obj.total === "number";
 }
 
-// Type guard for sais_ui payload — accepts flat (single type) or sectioned (mixed)
+// Type guard for sais_ui payload — accepts list (new), flat (legacy single type), or sectioned (legacy mixed)
 function hasMetadataResults(
   saisUi: unknown
 ): saisUi is { metadata_results: MetadataResults } {
   if (!saisUi || typeof saisUi !== "object") return false;
   const obj = saisUi as Record<string, unknown>;
-  if (!obj.metadata_results || typeof obj.metadata_results !== "object")
-    return false;
-  const mr = obj.metadata_results as Record<string, unknown>;
-  // Sectioned format: { sections: [...] }
-  if (Array.isArray(mr.sections)) return mr.sections.some(isValidSection);
-  // Flat format: { entity_type, items, total }
-  return isValidSection(mr);
+  const mr = obj.metadata_results;
+  if (!mr) return false;
+  // New list format: MetadataSection[]
+  if (Array.isArray(mr)) return mr.some(isValidSection);
+  if (typeof mr !== "object") return false;
+  const mrObj = mr as Record<string, unknown>;
+  // Legacy sectioned format: { sections: [...] }
+  if (Array.isArray(mrObj.sections)) return mrObj.sections.some(isValidSection);
+  // Legacy flat format: { entity_type, items, total }
+  return isValidSection(mrObj);
 }
 
 // Normalize metadata_results into an array of sections
 function toSections(mr: MetadataResults): MetadataSection[] {
+  // New list format: already an array of sections
+  if (Array.isArray(mr)) return mr.filter(isValidSection);
+  // Legacy sectioned format: { sections: [...] }
   if ("sections" in mr && Array.isArray(mr.sections)) return mr.sections.filter(isValidSection);
+  // Legacy flat format: single MetadataSection
   if (isValidSection(mr)) return [mr];
   return [];
 }
