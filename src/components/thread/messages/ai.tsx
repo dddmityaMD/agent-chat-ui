@@ -499,16 +499,24 @@ export function AssistantMessage({
   );
 
   // Handle disambiguation selection: send entity action or skip as human message
+  // 14-24: Include node_id as entity_selection content block so backend can pin
+  // the exact entity without re-resolving from scratch.
   const handleDisambiguationSelect = useCallback(
-    (entityName: string, action: string) => {
+    (entityName: string, action: string, nodeId?: string) => {
       const text =
         action === "skip"
           ? "None of these match what I meant"
           : action;
+      const contentBlocks: Array<Record<string, unknown>> = [
+        { type: "text", text },
+      ];
+      if (nodeId) {
+        contentBlocks.push({ type: "entity_selection", node_id: nodeId });
+      }
       const disambigMsg: Message = {
         id: uuidv4(),
         type: "human",
-        content: [{ type: "text", text }] as Message["content"],
+        content: contentBlocks as Message["content"],
       };
       threadSubmit(
         {
