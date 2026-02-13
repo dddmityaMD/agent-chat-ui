@@ -79,7 +79,7 @@ function getTypeBadgeClass(entityType: string): string {
 
 interface DisambiguationCardProps {
   payload: PendingDisambiguation;
-  onSelect: (entityName: string, action: string) => void;
+  onSelect: (entityName: string, action: string, nodeId?: string) => void;
 }
 
 // --- Component ---
@@ -161,7 +161,7 @@ export function DisambiguationCard({ payload, onSelect }: DisambiguationCardProp
                     <button
                       key={action.label}
                       type="button"
-                      onClick={() => onSelect(candidate.name, `${action.verb} ${candidate.name}`)}
+                      onClick={() => onSelect(candidate.name, `${action.verb} ${candidate.name}`, candidate.node_id)}
                       className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-600 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700"
                       data-testid="disambiguation-action"
                     >
