@@ -32,11 +32,11 @@ export const PermissionGrantSchema = z
 
 export const SaisUiSchema = z
   .object({
-    blockers: z.array(BlockerSchema).optional(),
-    case_status: z.string().optional(),
+    blockers: z.array(BlockerSchema).nullable().optional(),
+    case_status: z.string().nullable().optional(),
     active_flow: z.string().nullable().optional(),
     handoff: z.record(z.string(), z.unknown()).nullable().optional(),
-    evidence: z.array(z.record(z.string(), z.unknown())).optional(),
+    evidence: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
     findings: z.record(z.string(), z.unknown()).nullable().optional(),
     confidence: z.record(z.string(), z.unknown()).nullable().optional(),
     permissions: z
@@ -44,6 +44,7 @@ export const SaisUiSchema = z
         grants: z.array(PermissionGrantSchema).optional(),
       })
       .passthrough()
+      .nullable()
       .optional(),
     multi_intent: z.record(z.string(), z.unknown()).nullable().optional(),
   })

@@ -393,17 +393,31 @@ export function AssistantMessage({
   const meta = message ? thread.getMessagesMetadata(message) : undefined;
   const threadInterrupt = thread.interrupt;
 
-  // Extract metadata_results: per-message only (no thread-level fallback to prevent grid bleed)
+  // Extract metadata_results: prefer per-message response_metadata, fall back to sais_ui for last message
   const msgResponseMeta = message && "response_metadata" in message
     ? (message as AIMessage).response_metadata
     : undefined;
   const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
     ? (msgResponseMeta as Record<string, unknown>).metadata_results
     : null;
-  const metadataResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
+  const perMsgResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
     ? (msgMetadataResults as MetadataResults)
     : null;
+  // Fallback: for the last message, use sais_ui.metadata_results if per-message response_metadata is empty.
+  // This prevents "grid bleed" (older messages showing current grid) while ensuring the latest response
+  // always shows metadata grids even if response_metadata is lost during streaming/serialization.
+  const saisUiMr = isLastMessage && saisUiData.metadataResults.length > 0
+    ? saisUiData.metadataResults
+    : null;
+  const metadataResults = perMsgResults
+    ?? (saisUiMr && hasMetadataResults({ metadata_results: saisUiMr }) ? (saisUiMr as unknown as MetadataResults) : null);
   const metadataSections = metadataResults ? toSections(metadataResults) : [];
+
+  // Diagnostic: log when fallback is used (remove after debugging)
+  if (isLastMessage && !perMsgResults && saisUiMr) {
+    console.debug("[ai.tsx] Grid fallback: response_metadata empty, using sais_ui.metadata_results",
+      { hasResponseMeta: !!msgResponseMeta, responseMetaKeys: msgResponseMeta ? Object.keys(msgResponseMeta as Record<string, unknown>) : [], saisUiMrCount: saisUiMr.length });
+  }
 
   // Extract flow information from sais_ui (only for last message to avoid stale badges)
   const activeFlow = isLastMessage ? saisUiData.flowType : null;
