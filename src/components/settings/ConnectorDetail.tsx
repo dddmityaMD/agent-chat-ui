@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api-url";
 import type {
   ConnectorConfigResponse,
   ConnectorConfigCreate,
@@ -148,22 +149,30 @@ export function ConnectorDetail({
       lastTestPassedRef.current = false;
 
       try {
-        if (connector?.name) {
-          // Saved connector — use named endpoint
-          const result = await testConnection(connector.name);
+        // View mode on saved connector: use named endpoint (tests saved config)
+        // Create/edit mode: always use inline endpoint with current form values
+        const useNamedEndpoint = mode === "view" && !!connector?.name;
+
+        if (useNamedEndpoint) {
+          const result = await testConnection(connector!.name);
           if (mountedRef.current) {
             setTestResult(result);
             lastTestPassedRef.current = result.success;
           }
         } else {
-          // Unsaved — use inline endpoint
           const type = selectedType ?? connector?.type;
           if (!type) return;
-          const res = await fetch("/api/connectors/config/test-inline", {
+          const base = getApiBaseUrl();
+          const res = await fetch(`${base}/api/connectors/config/test-inline`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ type, config: formData.config, credentials: formData.credentials }),
+            body: JSON.stringify({
+              type,
+              config: formData.config,
+              credentials: formData.credentials,
+              connector_name: connector?.name ?? null,
+            }),
           });
           const result = await res.json();
           if (mountedRef.current) {
@@ -185,7 +194,7 @@ export function ConnectorDetail({
         }
       }
     },
-    [connector, selectedType, testConnection],
+    [connector, selectedType, mode, testConnection],
   );
 
   // ----- Save -----
