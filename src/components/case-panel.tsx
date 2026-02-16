@@ -18,7 +18,7 @@ import {
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
-import { Copy } from "lucide-react";
+import { Copy, X, Filter } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ContextPanelSection } from "@/components/context-panel";
 import { getApiBaseUrl } from "@/lib/api-url";
@@ -29,6 +29,8 @@ import { TAB_CONFIG, TabTrigger } from "@/components/case-panel/tabs";
 import type { TabValue } from "@/components/case-panel/tabs";
 import { SummaryTab } from "@/components/case-panel/summary-tab";
 import { CostTab } from "@/components/case-panel/cost-tab";
+import { LINEAGE_NAVIGATE_EVENT } from "@/components/lineage-link";
+import type { LineageNavigateDetail } from "@/components/lineage-link";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -188,6 +190,20 @@ export function CasePanel({ className }: { className?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabValue>("summary");
+  const [lineageFilter, setLineageFilter] = useState<{ entities: string[] } | null>(null);
+
+  // Listen for lineage navigation events from AI messages (cross-component communication)
+  useEffect(() => {
+    function handleLineageNavigate(e: Event) {
+      const detail = (e as CustomEvent<LineageNavigateDetail>).detail;
+      if (detail?.entities?.length > 0) {
+        setLineageFilter({ entities: detail.entities });
+        setActiveTab("lineage");
+      }
+    }
+    window.addEventListener(LINEAGE_NAVIGATE_EVENT, handleLineageNavigate);
+    return () => window.removeEventListener(LINEAGE_NAVIGATE_EVENT, handleLineageNavigate);
+  }, []);
 
   // Clean slate experience: Track which evidence types user has requested
   const {
@@ -231,6 +247,7 @@ export function CasePanel({ className }: { className?: string }) {
       setError(null);
       resetRequestedTypes();
       setActiveTab("summary"); // Reset tab on thread clear
+      setLineageFilter(null); // Clear lineage filter on thread clear
       prevThreadIdRef.current = threadId;
       return;
     }
@@ -246,9 +263,10 @@ export function CasePanel({ className }: { className?: string }) {
       if (summary !== null) return;
     }
 
-    // Reset to summary tab when switching threads
+    // Reset to summary tab and clear lineage filter when switching threads
     if (threadChanged) {
       setActiveTab("summary");
+      setLineageFilter(null);
     }
 
     if (streamJustFinished) {
@@ -516,6 +534,31 @@ export function CasePanel({ className }: { className?: string }) {
                 className="flex flex-1 flex-col"
                 style={{ minHeight: "400px" }}
               >
+                {/* Lineage filter chip */}
+                {lineageFilter && lineageFilter.entities.length > 0 && (
+                  <div
+                    className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-950"
+                    data-testid="lineage-filter"
+                  >
+                    <Filter className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs text-blue-700 dark:text-blue-300">
+                      Showing lineage for:{" "}
+                      <span className="font-medium">
+                        {lineageFilter.entities.join(", ")}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setLineageFilter(null)}
+                      className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-600 transition-colors hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900"
+                      data-testid="lineage-filter-clear"
+                      title="Clear filter to show full lineage graph"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear filter
+                    </button>
+                  </div>
+                )}
                 <Suspense
                   fallback={
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

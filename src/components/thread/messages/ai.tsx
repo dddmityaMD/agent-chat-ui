@@ -33,6 +33,7 @@ import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 import { BuildPlanDisplay } from "./build-plan";
 import { VerificationBadge } from "./verification-badge";
+import { ViewInLineageButton, extractLineageEntities } from "@/components/lineage-link";
 import {
   useSaisUi,
   extractHandoffProposal,
@@ -557,6 +558,9 @@ function LastMessageDecorations({
         content={contentString}
       />
 
+      {/* Lineage deep-link button */}
+      <ViewInLineageButton entities={extractLineageEntities(contentString)} />
+
       {/* Build plan display */}
       {buildPlan && buildPlanStatus === "proposed" && (
         <div className="mt-3">
@@ -751,6 +755,9 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
         saisUiConfidence={null}
         content={contentString}
       />
+
+      {/* Lineage deep-link button */}
+      <ViewInLineageButton entities={extractLineageEntities(contentString)} />
     </>
   );
 }, (prev, next) => {
