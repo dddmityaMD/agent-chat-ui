@@ -16,13 +16,16 @@ import { LangGraphLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
+  AlertTriangle,
   ArrowDown,
   LoaderCircle,
   PanelRightOpen,
   PanelRightClose,
+  RotateCcw,
   Square,
   SquarePen,
   XIcon,
+  Pencil,
   Plus,
   Check,
 } from "lucide-react";
@@ -354,6 +357,10 @@ export function Thread() {
         ),
         richColors: true,
         closeButton: true,
+        action: {
+          label: "Retry",
+          onClick: () => handleRetry(),
+        },
       });
     } catch {
       // no-op
@@ -448,6 +455,62 @@ export function Thread() {
       streamSubgraphs: true,
       streamResumable: true,
     });
+  };
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Extract plain text from the last human message in the conversation. */
+  const getLastUserMessageText = (): string | null => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.type === "human") {
+        if (typeof m.content === "string") return m.content;
+        if (Array.isArray(m.content)) {
+          const textBlock = m.content.find(
+            (b: any) => b.type === "text" && b.text,
+          );
+          return (textBlock as any)?.text ?? null;
+        }
+      }
+    }
+    return null;
+  };
+
+  /** Retry: re-send the last user message as-is. */
+  const handleRetry = () => {
+    const text = getLastUserMessageText();
+    if (!text) return;
+    setFirstTokenReceived(false);
+
+    const retryMessage: Message = {
+      id: uuidv4(),
+      type: "human",
+      content: [{ type: "text", text }] as Message["content"],
+    };
+    setPendingHumanMessage(retryMessage);
+
+    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
+    stream.submit(
+      { messages: [...stream.messages, ...toolMessages, retryMessage] },
+      {
+        streamMode: ["values"],
+        streamSubgraphs: true,
+        streamResumable: true,
+        optimisticValues: (prev) => ({
+          ...prev,
+          messages: [...(prev.messages ?? []), ...toolMessages, retryMessage],
+        }),
+      },
+    );
+  };
+
+  /** Edit & Retry: place the last user message text in the input for editing. */
+  const handleEditRetry = () => {
+    const text = getLastUserMessageText();
+    if (!text) return;
+    setInput(text);
+    // Focus the textarea so the user can immediately edit
+    setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
   const chatStarted = !!threadId || !!messages.length;
@@ -679,6 +742,33 @@ export function Thread() {
                   {isLoading && !firstTokenReceived && (
                     <AssistantMessageLoading />
                   )}
+                  {/* Inline error indicator with Retry and Edit & Retry */}
+                  {!isLoading && stream.error && (
+                    <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />
+                      <span className="text-red-700">Something went wrong</span>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRetry}
+                          className="h-7 gap-1 text-xs"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Retry
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEditRetry}
+                          className="h-7 gap-1 text-xs"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit & Retry
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               }
               footer={
@@ -715,6 +805,7 @@ export function Thread() {
                         onRemove={removeBlock}
                       />
                       <textarea
+                        ref={textareaRef}
                         aria-label="Message input"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
