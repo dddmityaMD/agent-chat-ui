@@ -77,13 +77,15 @@ function ConnectorsPageContent() {
   }, []);
 
   const handleSaved = useCallback(
-    (connector: ConnectorConfigResponse) => {
+    (connector: ConnectorConfigResponse, testPassed?: boolean) => {
       setSelectedName(connector.name);
       setMode("view");
-      // Trigger sync after save
-      triggerSync(connector.name).catch(() => {
-        // Sync failure is non-blocking
-      });
+      // Only auto-sync if test passed
+      if (testPassed) {
+        triggerSync(connector.name).catch(() => {
+          // Sync failure is non-blocking
+        });
+      }
     },
     [triggerSync],
   );

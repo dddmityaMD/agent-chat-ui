@@ -63,7 +63,7 @@ interface ConnectorDetailProps {
   connector: ConnectorConfigResponse | null;
   mode: DetailMode;
   connectors: ConnectorConfigResponse[];
-  onSave: (connector: ConnectorConfigResponse) => void;
+  onSave: (connector: ConnectorConfigResponse, testPassed?: boolean) => void;
   onDelete: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -135,6 +135,9 @@ export function ConnectorDetail({
     (c) => c.type === "postgres",
   );
 
+  // Track last test result for conditional sync
+  const lastTestPassedRef = useRef(false);
+
   // ----- Test Connection -----
   const handleTest = useCallback(
     async (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => {
@@ -142,25 +145,31 @@ export function ConnectorDetail({
 
       setTestLoading(true);
       setTestResult(null);
+      lastTestPassedRef.current = false;
 
       try {
-        // For testing, we need a saved connector. If in create mode, we need
-        // to save first (or use a temporary approach). The backend test endpoint
-        // requires a saved connector name. For simplicity, show a message.
-        if (mode === "create") {
-          // Cannot test before saving — inform user
-          setTestResult({
-            success: false,
-            message: "Save the connector first, then test the connection.",
-            details: null,
+        if (connector?.name) {
+          // Saved connector — use named endpoint
+          const result = await testConnection(connector.name);
+          if (mountedRef.current) {
+            setTestResult(result);
+            lastTestPassedRef.current = result.success;
+          }
+        } else {
+          // Unsaved — use inline endpoint
+          const type = selectedType ?? connector?.type;
+          if (!type) return;
+          const res = await fetch("/api/connectors/config/test-inline", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ type, config: formData.config, credentials: formData.credentials }),
           });
-          return;
-        }
-
-        if (!connector) return;
-        const result = await testConnection(connector.name);
-        if (mountedRef.current) {
-          setTestResult(result);
+          const result = await res.json();
+          if (mountedRef.current) {
+            setTestResult(result);
+            lastTestPassedRef.current = result.success;
+          }
         }
       } catch (err) {
         if (mountedRef.current) {
@@ -176,7 +185,7 @@ export function ConnectorDetail({
         }
       }
     },
-    [connector, mode, selectedType, testConnection],
+    [connector, selectedType, testConnection],
   );
 
   // ----- Save -----
@@ -211,10 +220,15 @@ export function ConnectorDetail({
           saved = await updateConnector(connector.name, update);
         }
 
-        // Trigger auto-sync (non-blocking)
+        // Only auto-sync if test passed
+        const testPassed = lastTestPassedRef.current;
         if (mountedRef.current) {
+          onSave(saved, testPassed);
+          if (!testPassed) {
+            // Skip sync — test didn't pass
+            return;
+          }
           setSyncStatus("syncing");
-          onSave(saved);
         }
 
         // Background sync + polling

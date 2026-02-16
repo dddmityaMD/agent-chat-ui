@@ -191,16 +191,16 @@ export function PostgresForm({
       </div>
 
       {/* Buttons */}
-      {!isView && (
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handleTest}
-            disabled={testLoading}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            {testLoading ? "Testing..." : "Test Connection"}
-          </button>
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={testLoading}
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+        >
+          {testLoading ? "Testing..." : "Test Connection"}
+        </button>
+        {!isView && (
           <button
             type="submit"
             disabled={!isValid || saveLoading}
@@ -208,8 +208,8 @@ export function PostgresForm({
           >
             {saveLoading ? "Saving..." : "Save"}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </form>
   );
 }
