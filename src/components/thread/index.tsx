@@ -57,6 +57,7 @@ import { usePermissionState, useThreads } from "@/providers/Thread";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { LogoutButton } from "@/components/logout-button";
 import { SettingsButton } from "@/components/settings-button";
+import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
 
 /**
@@ -588,6 +589,7 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-3">
+                <BudgetIndicator />
                 <LogoutButton />
                 <SettingsButton />
                 <HealthDot />
@@ -656,6 +658,7 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                <BudgetIndicator />
                 <LogoutButton />
                 <SettingsButton />
                 <div className="flex items-center">
