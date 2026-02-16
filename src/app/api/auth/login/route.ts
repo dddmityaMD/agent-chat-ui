@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { COOKIE_NAME } from "@/lib/auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_CASES_API_URL || "http://api:8000";
+// Server-side routes run inside the container — use internal Docker hostname.
+// CASES_API_URL_INTERNAL is a runtime env var (not NEXT_PUBLIC_ baked at build).
+const API_BASE = process.env.CASES_API_URL_INTERNAL || "http://api:8000";
 
 export async function POST(request: Request) {
   const { token, username } = await request.json();

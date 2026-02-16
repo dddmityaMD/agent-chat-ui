@@ -52,6 +52,7 @@ import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState, useThreads } from "@/providers/Thread";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { LogoutButton } from "@/components/logout-button";
+import { SettingsButton } from "@/components/settings-button";
 
 /**
  * Error boundary that catches render errors in individual messages,
@@ -520,6 +521,7 @@ export function Thread() {
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-3">
                 <LogoutButton />
+                <SettingsButton />
                 <HealthDot />
                 <OpenGitHubRepo />
               </div>
@@ -587,6 +589,7 @@ export function Thread() {
 
               <div className="flex items-center gap-4">
                 <LogoutButton />
+                <SettingsButton />
                 <div className="flex items-center">
                   <OpenGitHubRepo />
                 </div>

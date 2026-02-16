@@ -236,8 +236,8 @@ export function ReadinessPanel({
   enabled = true,
 }: ReadinessPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [expandedConnector, setExpandedConnector] = useState<string | null>(
-    null,
+  const [expandedConnectors, setExpandedConnectors] = useState<Set<string>>(
+    new Set(),
   );
   const [refreshingConnector, setRefreshingConnector] = useState<string | null>(
     null,
@@ -300,7 +300,15 @@ export function ReadinessPanel({
   );
 
   const handleConnectorToggle = useCallback((name: string) => {
-    setExpandedConnector((prev) => (prev === name ? null : name));
+    setExpandedConnectors((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
   }, []);
 
   const overallStatusColor = getStatusColorClass(overallStatus);
@@ -322,7 +330,8 @@ export function ReadinessPanel({
 
   // Determine if we're in no-connector state
   const hasNoConnectors = setupStatus?.has_connectors === false;
-  const isReady = setupStatus?.is_ready === true;
+  // System ready only when ALL connectors are healthy (no unhealthy ones)
+  const isReady = setupStatus?.is_ready === true && unhealthyCount === 0;
 
   return (
     <Card
@@ -521,7 +530,7 @@ export function ReadinessPanel({
                   <ConnectorStatusCard
                     key={connector.name}
                     connector={connector}
-                    expanded={expandedConnector === connector.name}
+                    expanded={expandedConnectors.has(connector.name)}
                     onToggle={() => handleConnectorToggle(connector.name)}
                     onRefresh={handleConnectorRefresh}
                     isRefreshing={refreshingConnector === connector.name}

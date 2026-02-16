@@ -77,17 +77,11 @@ function ConnectorsPageContent() {
   }, []);
 
   const handleSaved = useCallback(
-    (connector: ConnectorConfigResponse, testPassed?: boolean) => {
+    (connector: ConnectorConfigResponse) => {
       setSelectedName(connector.name);
       setMode("view");
-      // Only auto-sync if test passed
-      if (testPassed) {
-        triggerSync(connector.name).catch(() => {
-          // Sync failure is non-blocking
-        });
-      }
     },
-    [triggerSync],
+    [],
   );
 
   const handleDeleted = useCallback(() => {

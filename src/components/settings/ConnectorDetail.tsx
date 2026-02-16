@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode } from "lucide-react";
+import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode, RefreshCw } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-url";
 import type {
   ConnectorConfigResponse,
@@ -64,7 +64,7 @@ interface ConnectorDetailProps {
   connector: ConnectorConfigResponse | null;
   mode: DetailMode;
   connectors: ConnectorConfigResponse[];
-  onSave: (connector: ConnectorConfigResponse, testPassed?: boolean) => void;
+  onSave: (connector: ConnectorConfigResponse) => void;
   onDelete: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -136,9 +136,6 @@ export function ConnectorDetail({
     (c) => c.type === "postgres",
   );
 
-  // Track last test result for conditional sync
-  const lastTestPassedRef = useRef(false);
-
   // ----- Test Connection -----
   const handleTest = useCallback(
     async (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => {
@@ -146,7 +143,6 @@ export function ConnectorDetail({
 
       setTestLoading(true);
       setTestResult(null);
-      lastTestPassedRef.current = false;
 
       try {
         // View mode on saved connector: use named endpoint (tests saved config)
@@ -157,7 +153,6 @@ export function ConnectorDetail({
           const result = await testConnection(connector!.name);
           if (mountedRef.current) {
             setTestResult(result);
-            lastTestPassedRef.current = result.success;
           }
         } else {
           const type = selectedType ?? connector?.type;
@@ -177,7 +172,6 @@ export function ConnectorDetail({
           const result = await res.json();
           if (mountedRef.current) {
             setTestResult(result);
-            lastTestPassedRef.current = result.success;
           }
         }
       } catch (err) {
@@ -197,7 +191,7 @@ export function ConnectorDetail({
     [connector, selectedType, mode, testConnection],
   );
 
-  // ----- Save -----
+  // ----- Save (no auto-sync — user triggers sync explicitly) -----
   const handleSave = useCallback(
     async (formData: {
       name: string;
@@ -229,45 +223,8 @@ export function ConnectorDetail({
           saved = await updateConnector(connector.name, update);
         }
 
-        // Only auto-sync if test passed
-        const testPassed = lastTestPassedRef.current;
         if (mountedRef.current) {
-          onSave(saved, testPassed);
-          if (!testPassed) {
-            // Skip sync — test didn't pass
-            return;
-          }
-          setSyncStatus("syncing");
-        }
-
-        // Background sync + polling
-        try {
-          await triggerSync(saved.name);
-          // Poll for completion (up to 30s)
-          let attempts = 0;
-          const maxAttempts = 15;
-          while (attempts < maxAttempts && mountedRef.current) {
-            await new Promise((r) => setTimeout(r, 2000));
-            attempts++;
-            const polled = await pollConnector(saved.name);
-            if (polled.last_sync_at && polled.entity_count != null) {
-              if (mountedRef.current) {
-                setSyncStatus("complete");
-                setSyncEntityCount(polled.entity_count);
-              }
-              return;
-            }
-          }
-          // Timeout — still show as complete (sync may finish later)
-          if (mountedRef.current) {
-            setSyncStatus("complete");
-            setSyncEntityCount(null);
-          }
-        } catch {
-          if (mountedRef.current) {
-            setSyncStatus("error");
-            setSyncError("Sync failed");
-          }
+          onSave(saved);
         }
       } catch (err) {
         if (mountedRef.current) {
@@ -279,8 +236,44 @@ export function ConnectorDetail({
         }
       }
     },
-    [mode, connector, selectedType, createConnector, updateConnector, triggerSync, pollConnector, onSave],
+    [mode, connector, selectedType, createConnector, updateConnector, onSave],
   );
+
+  // ----- Sync (explicit, user-triggered) -----
+  const handleSync = useCallback(async () => {
+    if (!connector) return;
+    setSyncStatus("syncing");
+    setSyncError(null);
+    setSyncEntityCount(null);
+
+    try {
+      await triggerSync(connector.name);
+      // Poll for completion (up to 30s)
+      let attempts = 0;
+      const maxAttempts = 15;
+      while (attempts < maxAttempts && mountedRef.current) {
+        await new Promise((r) => setTimeout(r, 2000));
+        attempts++;
+        const polled = await pollConnector(connector.name);
+        if (polled.last_sync_at && polled.entity_count != null) {
+          if (mountedRef.current) {
+            setSyncStatus("complete");
+            setSyncEntityCount(polled.entity_count);
+          }
+          return;
+        }
+      }
+      if (mountedRef.current) {
+        setSyncStatus("complete");
+        setSyncEntityCount(null);
+      }
+    } catch {
+      if (mountedRef.current) {
+        setSyncStatus("error");
+        setSyncError("Sync failed");
+      }
+    }
+  }, [connector, triggerSync, pollConnector]);
 
   // ----- Delete -----
   const handleDeleteConfirm = useCallback(async () => {
@@ -385,6 +378,14 @@ export function ConnectorDetail({
 
         {mode === "view" && connector && (
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncStatus === "syncing"}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+              {syncStatus === "syncing" ? "Syncing..." : "Sync"}
+            </button>
             <button
               onClick={onEdit}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"

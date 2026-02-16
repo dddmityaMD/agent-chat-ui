@@ -310,25 +310,14 @@ export function ConnectorStatusCard({
   // Use controlled or uncontrolled expanded state
   const isExpanded = controlledExpanded ?? internalExpanded;
 
-  const handleToggle = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (onToggle) {
-        onToggle();
-      } else {
-        setInternalExpanded((prev) => !prev);
-      }
-    },
-    [onToggle],
-  );
-
   const handleCardClick = useCallback(() => {
-    if (navigateOnClick) {
-      router.push(
-        `/settings/connectors?selected=${encodeURIComponent(connector.name)}`,
-      );
+    // Card click always toggles expand/collapse
+    if (onToggle) {
+      onToggle();
+    } else {
+      setInternalExpanded((prev) => !prev);
     }
-  }, [navigateOnClick, router, connector.name]);
+  }, [onToggle]);
 
   const handleCopyUrl = useCallback(async () => {
     if (!connector.server_url) return;
@@ -359,14 +348,12 @@ export function ConnectorStatusCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white transition-all duration-200",
-        navigateOnClick && "cursor-pointer hover:bg-gray-100 transition-colors",
+        "rounded-lg border bg-white transition-all duration-200 cursor-pointer hover:bg-gray-50",
         hasError && "border-red-200 bg-red-50/30",
         className,
       )}
       data-testid={`connector-card-${connector.name}`}
       onClick={handleCardClick}
-      role={navigateOnClick ? "link" : undefined}
     >
       {/* Header - Always visible */}
       <div className="flex w-full items-center gap-3 p-3 text-left">
@@ -384,9 +371,17 @@ export function ConnectorStatusCard({
         {/* Connector name, status text, and metadata */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">
+            <a
+              href={`/settings/connectors?selected=${encodeURIComponent(connector.name)}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/settings/connectors?selected=${encodeURIComponent(connector.name)}`);
+                e.preventDefault();
+              }}
+              className="truncate text-sm font-medium text-blue-600 underline hover:text-blue-800"
+            >
               {connector.name}
-            </span>
+            </a>
             <span className="shrink-0 text-xs text-gray-500">
               {getStatusText(connector.status)}
             </span>
@@ -406,17 +401,16 @@ export function ConnectorStatusCard({
         </div>
 
         {/* Expand/collapse indicator */}
-        <button
-          onClick={handleToggle}
+        <div
           className={cn(
-            "text-gray-400 transition-transform duration-200 p-1 hover:text-gray-600",
+            "text-gray-400 transition-transform duration-200 p-1",
             isExpanded && "rotate-180",
           )}
           aria-expanded={isExpanded}
           aria-label={isExpanded ? "Collapse details" : "Expand details"}
         >
           <ChevronDownIcon />
-        </button>
+        </div>
       </div>
 
       {/* Expanded details */}
