@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface CostStep {
-  operation: string;
+  operation_type: string;
   label: string;
   model: string;
   input_tokens: number;
@@ -28,10 +28,10 @@ interface CostStep {
 }
 
 interface ThreadCostData {
-  thread_id: string;
   steps: CostStep[];
   total_input_tokens: number;
   total_output_tokens: number;
+  total_tokens: number;
   total_cost_usd: number;
 }
 
@@ -141,7 +141,7 @@ export function CostTab({ threadId }: CostTabProps) {
           <tbody>
             {data.steps.map((step, i) => (
               <tr
-                key={`${step.operation}-${i}`}
+                key={`${step.operation_type}-${i}`}
                 className={i % 2 === 0 ? "bg-muted/30" : ""}
               >
                 <td className="py-1.5 pr-2">
@@ -153,7 +153,7 @@ export function CostTab({ threadId }: CostTabProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        <p className="text-xs">{step.operation}</p>
+                        <p className="text-xs">{step.operation_type}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

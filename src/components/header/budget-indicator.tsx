@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/tooltip";
 
 interface BudgetStatus {
-  total_cost_usd: number;
-  monthly_limit_usd: number;
+  used_usd: number;
+  limit_usd: number;
   remaining_usd: number;
   percent_used: number;
   warning_active: boolean;
@@ -53,7 +53,7 @@ export function BudgetIndicator() {
         warnedRef.current = true;
         const pct = Math.round(data.percent_used * 100);
         toast.warning(
-          `Budget alert: You've used ${pct}% of your monthly limit (${formatCost(data.total_cost_usd)} of ${formatCost(data.monthly_limit_usd)})`,
+          `Budget alert: You've used ${pct}% of your monthly limit (${formatCost(data.used_usd)} of ${formatCost(data.limit_usd)})`,
           {
             duration: 8000,
             closeButton: true,
@@ -89,13 +89,13 @@ export function BudgetIndicator() {
           >
             <span>{formatTokens(budget.total_tokens)}</span>
             <span className="text-muted-foreground">tokens</span>
-            <span>(~{formatCost(budget.total_cost_usd)})</span>
+            <span>(~{formatCost(budget.used_usd)})</span>
           </span>
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p className="text-xs">
-            Monthly budget: {formatCost(budget.total_cost_usd)} used of{" "}
-            {formatCost(budget.monthly_limit_usd)} limit
+            Monthly budget: {formatCost(budget.used_usd)} used of{" "}
+            {formatCost(budget.limit_usd)} limit
           </p>
         </TooltipContent>
       </Tooltip>

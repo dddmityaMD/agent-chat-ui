@@ -214,7 +214,7 @@ function BudgetConfigSection() {
     warning_threshold_pct: 0.8,
   });
   const [usageSummary, setUsageSummary] = useState<{
-    total_cost_usd: number;
+    used_usd: number;
     percent_used: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -236,7 +236,7 @@ function BudgetConfigSection() {
         if (budgetRes.ok) {
           const b = await budgetRes.json();
           setUsageSummary({
-            total_cost_usd: b.total_cost_usd,
+            used_usd: b.used_usd,
             percent_used: b.percent_used,
           });
         }
@@ -298,7 +298,7 @@ function BudgetConfigSection() {
           <p className="text-sm text-muted-foreground">
             Current month usage:{" "}
             <span className="font-medium text-foreground">
-              ${usageSummary.total_cost_usd.toFixed(2)}
+              ${usageSummary.used_usd.toFixed(2)}
             </span>{" "}
             ({Math.round(usageSummary.percent_used * 100)}% of limit)
           </p>
