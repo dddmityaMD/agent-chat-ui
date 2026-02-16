@@ -7,7 +7,6 @@ import { AuthProvider } from "@/providers/Auth";
 import { ArtifactProvider } from "@/components/thread/artifact";
 import { Toaster } from "@/components/ui/sonner";
 import { LLMHealthProvider } from "@/providers/LLMHealth";
-import { LLMRoutingEditor } from "@/components/llm-routing-editor";
 import React from "react";
 
 export default function DemoPage(): React.ReactNode {
@@ -19,7 +18,6 @@ export default function DemoPage(): React.ReactNode {
           <StreamProvider>
             <LLMHealthProvider>
               <ArtifactProvider>
-                <LLMRoutingEditor />
                 <Thread />
               </ArtifactProvider>
             </LLMHealthProvider>
