@@ -23,6 +23,7 @@ import { ContextPanelSection } from "@/components/context-panel";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { toast } from "sonner";
 import { useSaisUi } from "@/hooks/useSaisUi";
+import { useAuth } from "@/providers/Auth";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -152,8 +153,12 @@ function computeMismatch(summary: ThreadSummary | null): Record<string, string> 
 // API helpers -- direct fetch from /api/threads
 // ---------------------------------------------------------------------------
 
-async function fetchThreadSummary(threadId: string): Promise<ThreadSummary> {
-  const res = await fetch(`${getApiBaseUrl()}/api/threads/${threadId}/summary`);
+async function fetchThreadSummary(
+  threadId: string,
+  setSessionExpired: (expired: boolean) => void,
+): Promise<ThreadSummary | null> {
+  const res = await fetch(`${getApiBaseUrl()}/api/threads/${threadId}/summary`, { credentials: "include" });
+  if (res.status === 401) { setSessionExpired(true); return null; }
   if (!res.ok) throw new Error("Failed to fetch thread summary");
   return res.json();
 }
@@ -165,6 +170,7 @@ async function fetchThreadSummary(threadId: string): Promise<ThreadSummary> {
 export function CasePanel({ className }: { className?: string }) {
   const stream = useStreamContext();
   const { permissionState, revokePermissionGrant } = usePermissionState();
+  const { setSessionExpired } = useAuth();
   const [threadId] = useQueryState("threadId");
   const saisUiData = useSaisUi();
   const [casePanelSection, setCasePanelSection] = useQueryState("casePanelSection");
@@ -193,7 +199,8 @@ export function CasePanel({ className }: { className?: string }) {
   const doFetch = useCallback(async (tid: string) => {
     setLoading(true);
     try {
-      const s = await fetchThreadSummary(tid);
+      const s = await fetchThreadSummary(tid, setSessionExpired);
+      if (!s) return; // 401 handled -- modal already showing
       setSummary(s);
       // findings is included in the summary response
       setFindings(s.findings as Findings | null);
@@ -211,7 +218,7 @@ export function CasePanel({ className }: { className?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [saisUiData.raw, inferTypesFromIntent]);
+  }, [saisUiData.raw, inferTypesFromIntent, setSessionExpired]);
 
   useEffect(() => {
     // Reset on thread change
