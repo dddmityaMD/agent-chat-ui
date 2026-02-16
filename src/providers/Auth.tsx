@@ -63,6 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         onReauth={() => {
           sessionExpiredRef.current = false;
           setSessionExpired(false);
+          // Full reload to reset all providers, polling intervals, and component
+          // effects with the fresh session cookie. router.refresh() won't reset
+          // client-side hooks/intervals, so a hard reload is needed.
+          window.location.reload();
         }}
         savedUsername={username}
       />
