@@ -111,9 +111,15 @@ const StreamSession = ({
       }
     },
     onThreadId: (id) => {
-      setThreadId(id);
-      // Register the thread in backend metadata (idempotent).
-      registerThread(id).catch(console.error);
+      // Register the thread in backend metadata BEFORE setting threadId in state.
+      // This prevents a race condition where CasePanel detects the threadId change
+      // and fetches /api/threads/{id}/summary before registration completes (UX-06).
+      registerThread(id)
+        .then(() => setThreadId(id))
+        .catch((err) => {
+          console.error("Thread registration failed, setting threadId anyway:", err);
+          setThreadId(id);
+        });
       // Refetch threads list when thread ID changes.
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
       sleep().then(() => getThreads().then(setThreads).catch(console.error));

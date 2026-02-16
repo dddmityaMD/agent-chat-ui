@@ -159,7 +159,13 @@ async function fetchThreadSummary(
 ): Promise<ThreadSummary | null> {
   const res = await fetch(`${getApiBaseUrl()}/api/threads/${threadId}/summary`, { credentials: "include" });
   if (res.status === 401) { setSessionExpired(true); return null; }
-  if (!res.ok) throw new Error("Failed to fetch thread summary");
+  // Gracefully handle 404/500 for newly-created threads where registration
+  // may not have completed yet (UX-06). Return null instead of throwing --
+  // the summary will be fetched again when the stream completes.
+  if (!res.ok) {
+    console.warn(`[case-panel] Thread summary fetch returned ${res.status} for ${threadId}, returning empty`);
+    return null;
+  }
   return res.json();
 }
 
