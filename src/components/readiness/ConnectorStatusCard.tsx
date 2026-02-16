@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   ConnectorStatus,
+  ReadinessStatus,
   getStatusColorClass,
   formatLastFetch,
 } from "@/hooks/useConnectorStatus";
@@ -238,6 +240,23 @@ function getConnectorIcon(type: string): React.ReactNode {
 }
 
 /**
+ * Get human-readable status text
+ */
+function getStatusText(status: ReadinessStatus): string {
+  switch (status) {
+    case "healthy":
+      return "Healthy";
+    case "degraded":
+      return "Unknown";
+    case "unhealthy":
+      return "Unhealthy";
+    case "unknown":
+    default:
+      return "Unknown";
+  }
+}
+
+/**
  * Props for ConnectorStatusCard
  */
 export interface ConnectorStatusCardProps {
@@ -253,6 +272,8 @@ export interface ConnectorStatusCardProps {
   onRefresh?: (name: string) => Promise<void>;
   /** Whether a refresh is in progress */
   isRefreshing?: boolean;
+  /** Whether clicking the card navigates to settings (default: true) */
+  navigateOnClick?: boolean;
   /** Additional CSS classes */
   className?: string;
 }
@@ -261,14 +282,16 @@ export interface ConnectorStatusCardProps {
  * ConnectorStatusCard displays health status for a single connector
  *
  * Features:
- * - Traffic light status indicator (green/yellow/red circle)
+ * - Traffic light status indicator (green/yellow/red circle) with status text
+ * - Last tested time, last synced time, entity count display
+ * - Clickable card navigates to /settings/connectors?selected={name}
  * - Expandable details section
  * - Server URL with hostname display (click to show full URL)
- * - Last fetch timestamp with relative time and ISO hover
  * - Response time display
  * - Capabilities list
  * - Error message display for unhealthy/degraded status
  * - Refresh action button
+ * - Shared between ReadinessPanel and Settings page
  */
 export function ConnectorStatusCard({
   connector,
@@ -277,21 +300,35 @@ export function ConnectorStatusCard({
   showDetails = true,
   onRefresh,
   isRefreshing = false,
+  navigateOnClick = true,
   className,
 }: ConnectorStatusCardProps) {
+  const router = useRouter();
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Use controlled or uncontrolled expanded state
   const isExpanded = controlledExpanded ?? internalExpanded;
 
-  const handleToggle = useCallback(() => {
-    if (onToggle) {
-      onToggle();
-    } else {
-      setInternalExpanded((prev) => !prev);
+  const handleToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onToggle) {
+        onToggle();
+      } else {
+        setInternalExpanded((prev) => !prev);
+      }
+    },
+    [onToggle],
+  );
+
+  const handleCardClick = useCallback(() => {
+    if (navigateOnClick) {
+      router.push(
+        `/settings/connectors?selected=${encodeURIComponent(connector.name)}`,
+      );
     }
-  }, [onToggle]);
+  }, [navigateOnClick, router, connector.name]);
 
   const handleCopyUrl = useCallback(async () => {
     if (!connector.server_url) return;
@@ -305,11 +342,15 @@ export function ConnectorStatusCard({
     }
   }, [connector.server_url]);
 
-  const handleRefresh = useCallback(async () => {
-    if (onRefresh) {
-      await onRefresh(connector.name);
-    }
-  }, [onRefresh, connector.name]);
+  const handleRefresh = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onRefresh) {
+        await onRefresh(connector.name);
+      }
+    },
+    [onRefresh, connector.name],
+  );
 
   const statusColor = getStatusColorClass(connector.status);
   const hasError =
@@ -319,17 +360,16 @@ export function ConnectorStatusCard({
     <div
       className={cn(
         "rounded-lg border bg-white transition-all duration-200",
+        navigateOnClick && "cursor-pointer hover:bg-gray-100 transition-colors",
         hasError && "border-red-200 bg-red-50/30",
         className,
       )}
       data-testid={`connector-card-${connector.name}`}
+      onClick={handleCardClick}
+      role={navigateOnClick ? "link" : undefined}
     >
       {/* Header - Always visible */}
-      <button
-        onClick={handleToggle}
-        className="flex w-full items-center gap-3 p-3 text-left hover:bg-gray-50/50"
-        aria-expanded={isExpanded}
-      >
+      <div className="flex w-full items-center gap-3 p-3 text-left">
         {/* Traffic light status circle */}
         <div
           className={cn("h-2.5 w-2.5 shrink-0 rounded-full", statusColor)}
@@ -341,30 +381,50 @@ export function ConnectorStatusCard({
         {/* Connector type icon */}
         <div className="text-gray-500">{getConnectorIcon(connector.type)}</div>
 
-        {/* Connector name and hostname */}
+        {/* Connector name, status text, and metadata */}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{connector.name}</div>
-          {connector.hostname && (
-            <div className="truncate text-xs text-gray-500">
-              {connector.hostname}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium">
+              {connector.name}
+            </span>
+            <span className="shrink-0 text-xs text-gray-500">
+              {getStatusText(connector.status)}
+            </span>
+          </div>
+          {/* Compact metadata row: last tested, last synced, entity count */}
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span>Tested {formatLastFetch(connector.last_check_at)}</span>
+            <span>
+              Synced {formatLastFetch(connector.last_sync_at)}
+            </span>
+            <span>
+              {connector.entity_count != null
+                ? `${connector.entity_count} entities`
+                : "Not synced"}
+            </span>
+          </div>
         </div>
 
         {/* Expand/collapse indicator */}
-        <div
+        <button
+          onClick={handleToggle}
           className={cn(
-            "text-gray-400 transition-transform duration-200",
+            "text-gray-400 transition-transform duration-200 p-1 hover:text-gray-600",
             isExpanded && "rotate-180",
           )}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? "Collapse details" : "Expand details"}
         >
           <ChevronDownIcon />
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Expanded details */}
       {isExpanded && showDetails && (
-        <div className="border-t px-3 pb-3 pt-2">
+        <div
+          className="border-t px-3 pb-3 pt-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Server URL */}
           {connector.server_url && (
             <div className="mb-2">
@@ -376,13 +436,17 @@ export function ConnectorStatusCard({
                   rel="noopener noreferrer"
                   className="truncate text-sm text-blue-600 hover:underline"
                   data-testid="connector-url"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {connector.hostname || connector.server_url}
                 </a>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={handleCopyUrl}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopyUrl();
+                      }}
                       className="shrink-0 p-1 text-gray-400 hover:text-gray-600"
                       aria-label="Copy URL"
                     >
@@ -397,7 +461,7 @@ export function ConnectorStatusCard({
             </div>
           )}
 
-          {/* Last check / Last successful fetch */}
+          {/* Last check / Response time */}
           <div className="mb-2 grid grid-cols-2 gap-2">
             <div>
               <div className="text-xs font-medium text-gray-500">

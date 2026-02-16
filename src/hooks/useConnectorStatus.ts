@@ -20,9 +20,11 @@ export interface ConnectorStatus {
   hostname: string;
   last_successful_fetch: string | null;
   last_check_at: string | null;
+  last_sync_at: string | null;
   response_time_ms: number | null;
   error_message: string | null;
   capabilities: string[];
+  entity_count: number | null;
 }
 
 /**

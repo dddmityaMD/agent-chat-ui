@@ -71,9 +71,11 @@ const createMockConnector = (
   hostname: `${name}.example.com`,
   last_successful_fetch: "2024-01-15T10:30:00Z",
   last_check_at: "2024-01-15T10:30:00Z",
+  last_sync_at: "2024-01-15T10:00:00Z",
   response_time_ms: 150,
   error_message: null,
   capabilities: ["fetch_cards", "fetch_dashboards"],
+  entity_count: 47,
 });
 
 describe("ReadinessPanel", () => {
