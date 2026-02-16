@@ -10,7 +10,7 @@ import { getApiBaseUrl } from "@/lib/api-url";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
-import { useState } from "react";
+import React, { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
@@ -364,6 +364,404 @@ function HandoffConfirmationCard({
   );
 }
 
+/**
+ * LastMessageDecorations - Renders sais_ui-dependent UI elements (flow badges,
+ * blockers, handoffs, build plans, etc.) for the LAST AI message only.
+ *
+ * This component calls useSaisUi() and therefore subscribes to stream context.
+ * By extracting it into a separate component, historical messages avoid this
+ * subscription entirely, preventing unnecessary re-renders (UX-05 fix).
+ */
+function LastMessageDecorations({
+  message,
+  contentString,
+  isLoading,
+  msgResponseMeta,
+}: {
+  message: Message | undefined;
+  contentString: string;
+  isLoading: boolean;
+  msgResponseMeta: Record<string, unknown> | undefined;
+}) {
+  const saisUiData = useSaisUi();
+  const thread = useStreamContext();
+  const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
+
+  // Metadata results fallback: use sais_ui when per-message response_metadata is empty
+  const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
+    ? (msgResponseMeta as Record<string, unknown>).metadata_results
+    : null;
+  const perMsgResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
+    ? (msgMetadataResults as MetadataResults)
+    : null;
+  const saisUiMr = saisUiData.metadataResults.length > 0
+    ? saisUiData.metadataResults
+    : null;
+  const metadataResults = perMsgResults
+    ?? (saisUiMr && hasMetadataResults({ metadata_results: saisUiMr }) ? (saisUiMr as unknown as MetadataResults) : null);
+  const metadataSections = metadataResults ? toSections(metadataResults) : [];
+
+  if (!perMsgResults && saisUiMr) {
+    console.debug("[ai.tsx] Grid fallback: response_metadata empty, using sais_ui.metadata_results",
+      { hasResponseMeta: !!msgResponseMeta, responseMetaKeys: msgResponseMeta ? Object.keys(msgResponseMeta as Record<string, unknown>) : [], saisUiMrCount: saisUiMr.length });
+  }
+
+  // Extract all sais_ui-dependent data for the last message
+  const activeFlow = saisUiData.flowType;
+  const handoffProposal = getHandoffProposal(saisUiData.raw);
+  const remediationProposals = getRemediationProposals(saisUiData.raw);
+  const blockers = getBlockers(saisUiData.raw);
+  const multiIntentPayload = getMultiIntentPayload(saisUiData.raw);
+  const clarificationData = getClarification(saisUiData.raw);
+  const buildPlan = getBuildPlan(saisUiData.raw);
+  const buildPlanStatus = getBuildPlanStatus(saisUiData.raw);
+  const buildVerificationResult = getBuildVerificationResult(saisUiData.raw);
+  const confidenceData = getConfidenceData(saisUiData.raw);
+
+  // Disambiguation: prefer sais_ui, fall back to response_metadata
+  const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
+  const pendingDisambiguation =
+    getPendingDisambiguation(saisUiData.raw) ?? (msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null);
+
+  // Submit helpers
+  const { submit: threadSubmit, messages: threadMessages } = thread;
+
+  const handleHandoffConfirm = useCallback(() => {
+    if (!handoffProposal) return;
+    const targetName =
+      FLOW_DISPLAY_NAMES[handoffProposal.target_flow] ||
+      handoffProposal.target_flow;
+    const confirmMsg: Message = {
+      id: uuidv4(),
+      type: "human",
+      content: [
+        { type: "text", text: `Switch to ${targetName}` },
+      ] as Message["content"],
+    };
+    threadSubmit(
+      {
+        messages: [...threadMessages, confirmMsg],
+        handoff_confirmed: true,
+        handoff_target: handoffProposal.target_flow,
+      } as Record<string, unknown> as any,
+      { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
+    );
+    setHandoffDismissed(true);
+  }, [handoffProposal, threadSubmit, threadMessages]);
+
+  const handleClarificationSelect = useCallback(
+    (value: string) => {
+      const clarifyMsg: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: [{ type: "text", text: value }] as Message["content"],
+      };
+      threadSubmit(
+        { messages: [...threadMessages, clarifyMsg] } as Record<string, unknown> as any,
+        { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
+      );
+    },
+    [threadSubmit, threadMessages],
+  );
+
+  const handleDisambiguationSelect = useCallback(
+    (entityName: string, action: string, nodeId?: string) => {
+      const text = action === "skip" ? "None of these match what I meant" : action;
+      const contentBlocks: Array<Record<string, unknown>> = [{ type: "text", text }];
+      if (nodeId) {
+        contentBlocks.push({ type: "entity_selection", node_id: nodeId });
+      }
+      const disambigMsg: Message = {
+        id: uuidv4(),
+        type: "human",
+        content: contentBlocks as Message["content"],
+      };
+      threadSubmit(
+        { messages: [...threadMessages, disambigMsg] } as Record<string, unknown> as any,
+        { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
+      );
+    },
+    [threadSubmit, threadMessages],
+  );
+
+  return (
+    <>
+      {/* Flow badge above message content */}
+      {activeFlow && (
+        <div className="mb-1">
+          <FlowBadge flowType={activeFlow} />
+        </div>
+      )}
+
+      {/* Multi-intent decomposition */}
+      {multiIntentPayload && (
+        <MultiIntentResult payload={multiIntentPayload} />
+      )}
+
+      {/* Disambiguation card -- ambiguous entity matches */}
+      {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
+        <DisambiguationCard
+          payload={pendingDisambiguation}
+          onSelect={handleDisambiguationSelect}
+        />
+      )}
+
+      {/* Synthesis indicator - show when streaming but no content yet */}
+      {isLoading && contentString.length === 0 && !pendingDisambiguation && (
+        <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Synthesizing answer...</span>
+        </div>
+      )}
+
+      {/* AI text content - show alongside metadata grids */}
+      {contentString.length > 0
+        && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
+        <div className="py-1" data-testid="ai-message-content">
+          <MarkdownText>{contentString}</MarkdownText>
+        </div>
+      )}
+
+      {/* Render QueryResults for metadata responses */}
+      {metadataSections.map((section) => (
+        section.items.length > 0 && (
+          <details
+            className="mt-4"
+            key={section.entity_type}
+            open={true}
+            data-testid={`entity-grid-section-${section.entity_type}`}
+          >
+            {metadataSections.length > 1 && (
+              <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
+                {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
+              </summary>
+            )}
+            <QueryResults
+              evidence={section.items.map((item, idx) => ({
+                id: String(item.id || item.canonical_key || `item-${idx}`),
+                entity_type: section.entity_type,
+                ...item,
+              }))}
+              entityType={section.entity_type}
+              totalCount={section.total}
+              isLoading={isLoading}
+            />
+          </details>
+        )
+      ))}
+
+      {/* Confidence badge */}
+      <ConfidenceBadge
+        saisUiConfidence={confidenceData}
+        content={contentString}
+      />
+
+      {/* Build plan display */}
+      {buildPlan && buildPlanStatus === "proposed" && (
+        <div className="mt-3">
+          <BuildPlanDisplay plan={buildPlan} />
+        </div>
+      )}
+
+      {/* Build execution progress indicator */}
+      {buildPlanStatus === "executing" && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400"></div>
+            <span className="text-sm text-blue-800 dark:text-blue-200">
+              Executing build plan...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Build verification result */}
+      {buildVerificationResult && (
+        <div className="mt-3">
+          <VerificationBadge result={buildVerificationResult} />
+        </div>
+      )}
+
+      {/* Handoff confirmation card */}
+      {handoffProposal && !handoffProposal.confirmed && (
+        <HandoffConfirmationCard
+          handoff={handoffProposal}
+          currentFlow={activeFlow}
+          onConfirm={handleHandoffConfirm}
+          onDismiss={() => setHandoffDismissed(true)}
+          dismissed={handoffDismissed}
+        />
+      )}
+
+      {/* Remediation proposals as DiffCards */}
+      {remediationProposals && remediationProposals.length > 0 && (
+        <div className="mt-3" data-testid="remediation-proposals">
+          <BatchReview
+            batchId={
+              ((saisUiData.raw as Record<string, unknown>)
+                ?.remediation_batch_id as string) ||
+              `msg-${message?.id ?? "unknown"}`
+            }
+            threadId={
+              ((saisUiData.raw as Record<string, unknown>)?.thread_id as string) ||
+              ((saisUiData.raw as Record<string, unknown>)?.case_id as string) ||
+              ""
+            }
+            proposals={remediationProposals}
+            apiBaseUrl={getApiBaseUrl()}
+          />
+        </div>
+      )}
+
+      {/* Blocker messages */}
+      {blockers && blockers.length > 0 && (
+        <div className="mt-3" data-testid="blocker-messages">
+          {blockers.map((blocker, idx) => (
+            <BlockerMessage
+              key={`blocker-${idx}`}
+              blocker={blocker}
+              onAction={(action?: string) => {
+                const text = action || blocker.next_action;
+                if (text) {
+                  if (text.startsWith("grant write")) {
+                    const scopeMatch = text.match(/scope=([^\s]+)/);
+                    const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                    const reasonMatch = text.match(/reason="([\s\S]*)"$/);
+                    const grant: PermissionGrant = {
+                      capability: "WRITE",
+                      scope: scopeMatch?.[1] ?? "once",
+                      granted_at: new Date().toISOString(),
+                      expires_at:
+                        scopeMatch?.[1] === "1h"
+                          ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                          : null,
+                      reason: reasonMatch?.[1] ?? null,
+                      pending_action_id: pendingMatch?.[1] ?? null,
+                    };
+                    addPermissionGrant(grant);
+                  }
+
+                  if (text.startsWith("deny write")) {
+                    const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                    revokePermissionGrant(pendingMatch?.[1] ?? null);
+                  }
+
+                  const actionMsg: Message = {
+                    id: uuidv4(),
+                    type: "human",
+                    content: [{ type: "text", text }] as Message["content"],
+                  };
+                  thread.submit(
+                    { messages: [...thread.messages, actionMsg] } as Record<string, unknown> as any,
+                    { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
+                  );
+                }
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Clarification card */}
+      {clarificationData && (
+        <ClarificationCard
+          data={clarificationData}
+          onSelect={handleClarificationSelect}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * HistoricalMessageContent - Renders content for non-last AI messages.
+ * Does NOT subscribe to useSaisUi() or stream context for sais_ui data,
+ * so it will not re-render when new stream data arrives (UX-05 fix).
+ *
+ * Per-message data (from response_metadata) is still rendered for historical
+ * messages (metadata grids, disambiguation from response_metadata).
+ */
+const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
+  message,
+  isLoading,
+  contentString,
+  msgResponseMeta,
+}: {
+  message: Message | undefined;
+  isLoading: boolean;
+  contentString: string;
+  msgResponseMeta: Record<string, unknown> | undefined;
+}) {
+  // Per-message metadata_results from response_metadata (not from sais_ui)
+  const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
+    ? (msgResponseMeta as Record<string, unknown>).metadata_results
+    : null;
+  const perMsgResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
+    ? (msgMetadataResults as MetadataResults)
+    : null;
+  const metadataSections = perMsgResults ? toSections(perMsgResults) : [];
+
+  // Per-message disambiguation from response_metadata
+  const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
+  const pendingDisambiguation = msgPendingDisambiguation
+    ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation })
+    : null;
+
+  return (
+    <>
+      {/* AI text content */}
+      {contentString.length > 0
+        && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
+        <div className="py-1" data-testid="ai-message-content">
+          <MarkdownText>{contentString}</MarkdownText>
+        </div>
+      )}
+
+      {/* Per-message metadata grids */}
+      {metadataSections.map((section) => (
+        section.items.length > 0 && (
+          <details
+            className="mt-4"
+            key={section.entity_type}
+            open={true}
+            data-testid={`entity-grid-section-${section.entity_type}`}
+          >
+            {metadataSections.length > 1 && (
+              <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
+                {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
+              </summary>
+            )}
+            <QueryResults
+              evidence={section.items.map((item, idx) => ({
+                id: String(item.id || item.canonical_key || `item-${idx}`),
+                entity_type: section.entity_type,
+                ...item,
+              }))}
+              entityType={section.entity_type}
+              totalCount={section.total}
+              isLoading={isLoading}
+            />
+          </details>
+        )
+      ))}
+
+      {/* Confidence badge from content only (no sais_ui) */}
+      <ConfidenceBadge
+        saisUiConfidence={null}
+        content={contentString}
+      />
+    </>
+  );
+}, (prev, next) => {
+  // Custom comparator: only re-render when message content or loading state changes
+  return (
+    prev.message?.id === next.message?.id &&
+    prev.contentString === next.contentString &&
+    prev.isLoading === next.isLoading
+  );
+});
+
 export function AssistantMessage({
   message,
   isLoading,
@@ -379,11 +777,8 @@ export function AssistantMessage({
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
-  const [handoffDismissed, setHandoffDismissed] = useState(false);
 
   const thread = useStreamContext();
-  const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
-  const saisUiData = useSaisUi();
   const isLastMessage =
     thread.messages.length > 0 &&
     thread.messages[thread.messages.length - 1].id === message?.id;
@@ -392,50 +787,6 @@ export function AssistantMessage({
   );
   const meta = message ? thread.getMessagesMetadata(message) : undefined;
   const threadInterrupt = thread.interrupt;
-
-  // Extract metadata_results: prefer per-message response_metadata, fall back to sais_ui for last message
-  const msgResponseMeta = message && "response_metadata" in message
-    ? (message as AIMessage).response_metadata
-    : undefined;
-  const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
-    ? (msgResponseMeta as Record<string, unknown>).metadata_results
-    : null;
-  const perMsgResults = (msgMetadataResults && hasMetadataResults({ metadata_results: msgMetadataResults }))
-    ? (msgMetadataResults as MetadataResults)
-    : null;
-  // Fallback: for the last message, use sais_ui.metadata_results if per-message response_metadata is empty.
-  // This prevents "grid bleed" (older messages showing current grid) while ensuring the latest response
-  // always shows metadata grids even if response_metadata is lost during streaming/serialization.
-  const saisUiMr = isLastMessage && saisUiData.metadataResults.length > 0
-    ? saisUiData.metadataResults
-    : null;
-  const metadataResults = perMsgResults
-    ?? (saisUiMr && hasMetadataResults({ metadata_results: saisUiMr }) ? (saisUiMr as unknown as MetadataResults) : null);
-  const metadataSections = metadataResults ? toSections(metadataResults) : [];
-
-  // Diagnostic: log when fallback is used (remove after debugging)
-  if (isLastMessage && !perMsgResults && saisUiMr) {
-    console.debug("[ai.tsx] Grid fallback: response_metadata empty, using sais_ui.metadata_results",
-      { hasResponseMeta: !!msgResponseMeta, responseMetaKeys: msgResponseMeta ? Object.keys(msgResponseMeta as Record<string, unknown>) : [], saisUiMrCount: saisUiMr.length });
-  }
-
-  // Extract flow information from sais_ui (only for last message to avoid stale badges)
-  const activeFlow = isLastMessage ? saisUiData.flowType : null;
-  const handoffProposal = isLastMessage ? getHandoffProposal(saisUiData.raw) : null;
-  const remediationProposals = isLastMessage ? getRemediationProposals(saisUiData.raw) : null;
-  const blockers = isLastMessage ? getBlockers(saisUiData.raw) : null;
-  const multiIntentPayload = isLastMessage ? getMultiIntentPayload(saisUiData.raw) : null;
-  const clarificationData = isLastMessage ? getClarification(saisUiData.raw) : null;
-  const buildPlan = isLastMessage ? getBuildPlan(saisUiData.raw) : null;
-  const buildPlanStatus = isLastMessage ? getBuildPlanStatus(saisUiData.raw) : null;
-  const buildVerificationResult = isLastMessage ? getBuildVerificationResult(saisUiData.raw) : null;
-  // Disambiguation data: prefer sais_ui for last message, fall back to response_metadata
-  const msgPendingDisambiguation = msgResponseMeta?.pending_disambiguation as PendingDisambiguation | undefined;
-  const pendingDisambiguation = isLastMessage
-    ? getPendingDisambiguation(saisUiData.raw) ?? (msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null)
-    : msgPendingDisambiguation ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation }) : null;
-  // Confidence data: extract from sais_ui for last message (structured source)
-  const confidenceData = isLastMessage ? getConfidenceData(saisUiData.raw) : null;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
   const anthropicStreamedToolCalls = Array.isArray(content)
@@ -455,96 +806,10 @@ export function AssistantMessage({
   const hasAnthropicToolCalls = !!anthropicStreamedToolCalls?.length;
   const isToolResult = message?.type === "tool";
 
-  // Handle handoff confirmation: SDK v1.3.0+ auto-queues submit() calls
-  // when isLoading=true, so we can call submit directly without workarounds.
-  // Use thread.submit and thread.messages individually (stable references)
-  // instead of the full `thread` object which is recreated every render.
-  const { submit: threadSubmit, messages: threadMessages } = thread;
-  const handleHandoffConfirm = useCallback(() => {
-    if (!handoffProposal) return;
-    const targetName =
-      FLOW_DISPLAY_NAMES[handoffProposal.target_flow] ||
-      handoffProposal.target_flow;
-    const confirmMsg: Message = {
-      id: uuidv4(),
-      type: "human",
-      content: [
-        {
-          type: "text",
-          text: `Switch to ${targetName}`,
-        },
-      ] as Message["content"],
-    };
-    threadSubmit(
-      {
-        messages: [...threadMessages, confirmMsg],
-        handoff_confirmed: true,
-        handoff_target: handoffProposal.target_flow,
-      } as Record<string, unknown> as any,
-      {
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
-      },
-    );
-    setHandoffDismissed(true);
-  }, [handoffProposal, threadSubmit, threadMessages]);
-
-  // Handle clarification option selection: send selected value as human message
-  const handleClarificationSelect = useCallback(
-    (value: string) => {
-      const clarifyMsg: Message = {
-        id: uuidv4(),
-        type: "human",
-        content: [{ type: "text", text: value }] as Message["content"],
-      };
-      threadSubmit(
-        {
-          messages: [...threadMessages, clarifyMsg],
-        } as Record<string, unknown> as any,
-        {
-          streamMode: ["values"],
-          streamSubgraphs: true,
-          streamResumable: true,
-        },
-      );
-    },
-    [threadSubmit, threadMessages],
-  );
-
-  // Handle disambiguation selection: send entity action or skip as human message
-  // 14-24: Include node_id as entity_selection content block so backend can pin
-  // the exact entity without re-resolving from scratch.
-  const handleDisambiguationSelect = useCallback(
-    (entityName: string, action: string, nodeId?: string) => {
-      const text =
-        action === "skip"
-          ? "None of these match what I meant"
-          : action;
-      const contentBlocks: Array<Record<string, unknown>> = [
-        { type: "text", text },
-      ];
-      if (nodeId) {
-        contentBlocks.push({ type: "entity_selection", node_id: nodeId });
-      }
-      const disambigMsg: Message = {
-        id: uuidv4(),
-        type: "human",
-        content: contentBlocks as Message["content"],
-      };
-      threadSubmit(
-        {
-          messages: [...threadMessages, disambigMsg],
-        } as Record<string, unknown> as any,
-        {
-          streamMode: ["values"],
-          streamSubgraphs: true,
-          streamResumable: true,
-        },
-      );
-    },
-    [threadSubmit, threadMessages],
-  );
+  // Extract response_metadata for per-message data (metadata grids, disambiguation)
+  const msgResponseMeta = message && "response_metadata" in message
+    ? (message as AIMessage).response_metadata
+    : undefined;
 
   if (isToolResult && hideToolCalls) {
     return null;
@@ -564,198 +829,22 @@ export function AssistantMessage({
           </>
         ) : (
           <>
-            {/* Flow badge above message content */}
-            {activeFlow && (
-              <div className="mb-1">
-                <FlowBadge flowType={activeFlow} />
-              </div>
-            )}
-
-            {/* Multi-intent decomposition */}
-            {multiIntentPayload && (
-              <MultiIntentResult payload={multiIntentPayload} />
-            )}
-
-            {/* Disambiguation card -- ambiguous entity matches */}
-            {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
-              <DisambiguationCard
-                payload={pendingDisambiguation}
-                onSelect={handleDisambiguationSelect}
+            {/* Only the last message renders sais_ui-dependent decorations.
+                Historical messages render content only (no useSaisUi subscription),
+                preventing re-renders when new stream data arrives (UX-05). */}
+            {isLastMessage ? (
+              <LastMessageDecorations
+                message={message}
+                contentString={contentString}
+                isLoading={isLoading}
+                msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
               />
-            )}
-
-            {/* Synthesis indicator (TODO 2) - show when streaming but no content yet */}
-            {isLoading && contentString.length === 0 && !pendingDisambiguation && (
-              <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Synthesizing answer...</span>
-              </div>
-            )}
-
-            {/* AI text content - show alongside metadata grids (TODO 1) */}
-            {contentString.length > 0
-              && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
-              <div className="py-1" data-testid="ai-message-content">
-                <MarkdownText>{contentString}</MarkdownText>
-              </div>
-            )}
-
-            {/* Render QueryResults for metadata responses — one grid per entity type section (TODO 1) */}
-            {metadataSections.map((section) => (
-              section.items.length > 0 && (
-                <details
-                  className="mt-4"
-                  key={section.entity_type}
-                  open={true}
-                  data-testid={`entity-grid-section-${section.entity_type}`}
-                >
-                  {metadataSections.length > 1 && (
-                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
-                      {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
-                    </summary>
-                  )}
-                  <QueryResults
-                    evidence={section.items.map((item, idx) => ({
-                      id: String(item.id || item.canonical_key || `item-${idx}`),
-                      entity_type: section.entity_type,
-                      ...item,
-                    }))}
-                    entityType={section.entity_type}
-                    totalCount={section.total}
-                    isLoading={isLoading}
-                  />
-                </details>
-              )
-            ))}
-
-            {/* Confidence badge: always after all content (text + table) for consistent position */}
-            <ConfidenceBadge
-              saisUiConfidence={confidenceData}
-              content={contentString}
-            />
-
-            {/* Build plan display */}
-            {buildPlan && buildPlanStatus === "proposed" && (
-              <div className="mt-3">
-                <BuildPlanDisplay plan={buildPlan} />
-              </div>
-            )}
-
-            {/* Build execution progress indicator */}
-            {buildPlanStatus === "executing" && (
-              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400"></div>
-                  <span className="text-sm text-blue-800 dark:text-blue-200">
-                    Executing build plan...
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Build verification result */}
-            {buildVerificationResult && (
-              <div className="mt-3">
-                <VerificationBadge result={buildVerificationResult} />
-              </div>
-            )}
-
-            {/* Handoff confirmation card */}
-            {handoffProposal && !handoffProposal.confirmed && (
-              <HandoffConfirmationCard
-                handoff={handoffProposal}
-                currentFlow={activeFlow}
-                onConfirm={handleHandoffConfirm}
-                onDismiss={() => setHandoffDismissed(true)}
-                dismissed={handoffDismissed}
-              />
-            )}
-
-            {/* Remediation proposals as DiffCards */}
-            {remediationProposals && remediationProposals.length > 0 && (
-              <div className="mt-3" data-testid="remediation-proposals">
-                <BatchReview
-                  batchId={
-                    ((saisUiData.raw as Record<string, unknown>)
-                      ?.remediation_batch_id as string) ||
-                    `msg-${message?.id ?? "unknown"}`
-                  }
-                  threadId={
-                    ((saisUiData.raw as Record<string, unknown>)?.thread_id as string) ||
-                    ((saisUiData.raw as Record<string, unknown>)?.case_id as string) ||
-                    ""
-                  }
-                  proposals={remediationProposals}
-                  apiBaseUrl={getApiBaseUrl()}
-                />
-              </div>
-            )}
-
-            {/* Blocker messages */}
-            {blockers && blockers.length > 0 && (
-              <div className="mt-3" data-testid="blocker-messages">
-                {blockers.map((blocker, idx) => (
-                  <BlockerMessage
-                    key={`blocker-${idx}`}
-                    blocker={blocker}
-                    onAction={(action?: string) => {
-                      // Determine the text to submit as human message:
-                      // - LLM_ERROR recovery actions pass explicit action string ("retry", "switch to provider:model")
-                      // - Non-LLM_ERROR blockers use next_action (backward compatible)
-                      const text = action || blocker.next_action;
-                      if (text) {
-                        if (text.startsWith("grant write")) {
-                          const scopeMatch = text.match(/scope=([^\s]+)/);
-                          const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
-                          const reasonMatch = text.match(/reason="([\s\S]*)"$/);
-                          const grant: PermissionGrant = {
-                            capability: "WRITE",
-                            scope: scopeMatch?.[1] ?? "once",
-                            granted_at: new Date().toISOString(),
-                            expires_at:
-                              scopeMatch?.[1] === "1h"
-                                ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
-                                : null,
-                            reason: reasonMatch?.[1] ?? null,
-                            pending_action_id: pendingMatch?.[1] ?? null,
-                          };
-                          addPermissionGrant(grant);
-                        }
-
-                        if (text.startsWith("deny write")) {
-                          const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
-                          revokePermissionGrant(pendingMatch?.[1] ?? null);
-                        }
-
-                        const actionMsg: Message = {
-                          id: uuidv4(),
-                          type: "human",
-                          content: [
-                            { type: "text", text },
-                          ] as Message["content"],
-                        };
-                        thread.submit(
-                          {
-                            messages: [...thread.messages, actionMsg],
-                          } as Record<string, unknown> as any,
-                          {
-                            streamMode: ["values"],
-                            streamSubgraphs: true,
-                            streamResumable: true,
-                          }
-                        );
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Clarification card -- structured query clarification */}
-            {clarificationData && (
-              <ClarificationCard
-                data={clarificationData}
-                onSelect={handleClarificationSelect}
+            ) : (
+              <HistoricalMessageContent
+                message={message}
+                isLoading={isLoading}
+                contentString={contentString}
+                msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
               />
             )}
 
