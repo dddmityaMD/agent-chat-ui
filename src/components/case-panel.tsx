@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import * as Tabs from "@radix-ui/react-tabs";
 import { useQueryState } from "nuqs";
 import { useStreamContext } from "@/providers/Stream";
 import { usePermissionState } from "@/providers/Thread";
@@ -17,13 +18,17 @@ import {
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
-import { Copy, Network } from "lucide-react";
+import { Copy } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ContextPanelSection } from "@/components/context-panel";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { toast } from "sonner";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
+import { TAB_CONFIG, TabTrigger } from "@/components/case-panel/tabs";
+import type { TabValue } from "@/components/case-panel/tabs";
+import { SummaryTab } from "@/components/case-panel/summary-tab";
+import { CostTab } from "@/components/case-panel/cost-tab";
 
 // Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
@@ -45,7 +50,7 @@ interface ThreadMeta {
   last_message_preview: string | null;
 }
 
-interface ThreadSummary {
+export interface ThreadSummary {
   thread: ThreadMeta;
   evidence: Array<Record<string, unknown>>;
   hypotheses: Array<Record<string, unknown>>;
@@ -83,7 +88,7 @@ interface OpenQuestion {
   tool_candidates: string[];
 }
 
-interface Findings {
+export interface Findings {
   root_cause: RootCause | null;
   key_observations: Observation[];
   rejected_hypotheses: any[];
@@ -102,7 +107,6 @@ function computeChecks(
   const ev = (summary?.evidence ?? []) as Array<Record<string, unknown>>;
   const types = new Set(ev.map((e) => String(e.type ?? "")));
 
-  // Define all check types
   const checkTypes: { id: EvidenceType; label: string; evidenceType: string }[] = [
     { id: "sql", label: EVIDENCE_TYPE_LABELS.sql, evidenceType: EVIDENCE_TYPE_MAP.sql },
     { id: "git", label: EVIDENCE_TYPE_LABELS.git, evidenceType: EVIDENCE_TYPE_MAP.git },
@@ -117,7 +121,6 @@ function computeChecks(
     requested: requestedTypes.has(c.id),
   }));
 
-  // Only include as "missing" if both requested AND not found
   const missing = checks.filter((c) => c.requested && !c.ok).map((c) => c.id);
   return { checks, missing };
 }
@@ -184,10 +187,7 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "findings" | "evidence" | "lineage"
-  >("findings");
-  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>("summary");
 
   // Clean slate experience: Track which evidence types user has requested
   const {
@@ -208,11 +208,9 @@ export function CasePanel({ className }: { className?: string }) {
       const s = await fetchThreadSummary(tid, setSessionExpired);
       if (!s) return; // 401 handled -- modal already showing
       setSummary(s);
-      // findings is included in the summary response
       setFindings(s.findings as Findings | null);
       setError(null);
 
-      // Infer requested types from sais_ui intent (if available from stream)
       const currentIntent = saisUiData.raw?.intent;
       if (typeof currentIntent === "string") {
         inferTypesFromIntent(currentIntent);
@@ -227,29 +225,30 @@ export function CasePanel({ className }: { className?: string }) {
   }, [saisUiData.raw, inferTypesFromIntent, setSessionExpired]);
 
   useEffect(() => {
-    // Reset on thread change
     if (!threadId) {
       setSummary(null);
       setFindings(null);
       setError(null);
       resetRequestedTypes();
+      setActiveTab("summary"); // Reset tab on thread clear
       prevThreadIdRef.current = threadId;
       return;
     }
 
-    // Determine whether to fetch: thread changed OR stream just finished
     const threadChanged = threadId !== prevThreadIdRef.current;
     const streamJustFinished = wasStreamingRef.current && !stream.isLoading;
 
-    // Track loading state for next render
     if (stream.isLoading) {
       wasStreamingRef.current = true;
     }
 
-    // Only fetch on thread change or when stream transitions to idle
     if (!threadChanged && !streamJustFinished) {
-      // Initial mount: fetch if we have no summary yet
       if (summary !== null) return;
+    }
+
+    // Reset to summary tab when switching threads
+    if (threadChanged) {
+      setActiveTab("summary");
     }
 
     if (streamJustFinished) {
@@ -264,6 +263,8 @@ export function CasePanel({ className }: { className?: string }) {
 
   useEffect(() => {
     if (casePanelSection !== "permissions") return;
+    // Navigate to summary tab where permissions live, then scroll
+    setActiveTab("summary");
     const section = document.getElementById("permissions-section");
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
     setCasePanelSection(null);
@@ -275,451 +276,269 @@ export function CasePanel({ className }: { className?: string }) {
   );
   const mismatch = useMemo(() => computeMismatch(summary), [summary]);
 
-  const handleCopyThreadId = useCallback(() => {
-    if (!threadId) return;
-    navigator.clipboard.writeText(threadId).then(() => {
-      setCopyFeedback(true);
-      toast.success("Thread ID copied");
-      setTimeout(() => setCopyFeedback(false), 1500);
-    }).catch(() => {
-      toast.error("Failed to copy");
-    });
-  }, [threadId]);
+  // Badge counts (non-zero only)
+  const evidenceCount = (summary?.evidence ?? []).length;
+  const findingsCount = findings
+    ? (findings.key_observations?.length ?? 0) + (findings.root_cause ? 1 : 0)
+    : 0;
+
+  const getBadgeCount = (tabValue: string): number | undefined => {
+    switch (tabValue) {
+      case "evidence": return evidenceCount > 0 ? evidenceCount : undefined;
+      case "findings": return findingsCount > 0 ? findingsCount : undefined;
+      default: return undefined;
+    }
+  };
 
   return (
-    <div className={cn("h-full overflow-y-auto p-4", className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Thread</span>
-            {summary?.thread.is_archived && (
-              <span
-                className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-                data-testid="thread-archived-badge"
-              >
-                Archived
-              </span>
-            )}
-          </div>
-          {/* CASE-02: Copyable full thread UUID */}
-          {threadId ? (
-            <div className="flex items-center gap-1 text-muted-foreground text-xs" data-testid="thread-id-display">
-              <span className="font-mono select-all">{threadId}</span>
-              <button
-                onClick={handleCopyThreadId}
-                className="text-muted-foreground hover:text-foreground"
-                title="Copy thread ID"
-                data-testid="copy-thread-id"
-              >
-                <Copy className={cn("h-3 w-3", copyFeedback && "text-green-600")} />
-              </button>
-            </div>
-          ) : (
-            <div className="text-muted-foreground text-xs">(no thread selected)</div>
-          )}
-        </div>
-        {loading && (
-          <div className="text-muted-foreground text-xs">Loading...</div>
-        )}
-      </div>
-
-      {error && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">
-          {error}
-        </div>
-      )}
-
-      {summary && (
-        <>
-          {/* Readiness Section - Full ReadinessPanel with connector health (EVID-05) */}
-          <div className="mt-4">
-            <ReadinessPanel
-              showParallelExecution={true}
-              enabled={!!summary}
-              className="border-0 shadow-none"
+    <div className={cn("h-full overflow-y-auto", className)}>
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={(v: string) => setActiveTab(v as TabValue)}
+        className="flex h-full flex-col"
+      >
+        {/* Tab bar */}
+        <Tabs.List
+          className="flex shrink-0 gap-0 overflow-x-auto border-b px-2"
+          aria-label="Thread details"
+        >
+          {TAB_CONFIG.map((tab) => (
+            <TabTrigger
+              key={tab.value}
+              config={tab}
+              badgeCount={getBadgeCount(tab.value)}
             />
-          </div>
+          ))}
+        </Tabs.List>
 
-          {/* Evidence Type Checklist - Clean Slate (EVID-06) */}
-          <div className="mt-4 grid gap-2">
-            <div className="text-sm font-semibold">Evidence Status</div>
-            <div className="rounded-md border bg-card p-3">
-              <div className="mt-1 grid gap-1">
-                {checks.map((c) => {
-                  // Clean slate: Only show "Missing" status if user explicitly requested this type
-                  const showMissing = shouldShowMissingWarning(c.id as EvidenceType, c.ok);
-                  const missingMessage = getMissingMessage(c.id as EvidenceType);
-
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span>{c.label}</span>
-                      <span
-                        className={cn(
-                          c.ok && "text-green-700",
-                          showMissing && "text-amber-700",
-                          !c.ok && !showMissing && "text-gray-400",
-                        )}
-                        title={showMissing ? missingMessage || undefined : undefined}
-                      >
-                        {c.ok ? "OK" : showMissing ? "Not found" : "-"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Show subtle message if no evidence types requested yet */}
-              {requestedTypes.size === 0 && (
-                <div className="mt-2 text-xs text-gray-400">
-                  Ask a question to check for relevant evidence
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            id="permissions-section"
-            className="mt-4 grid gap-2"
-            data-testid="permissions-section"
-          >
-            <div className="text-sm font-semibold">Permissions</div>
-            <div className="rounded-md border bg-card p-3">
-              {permissionState.grants.length === 0 ? (
-                <div className="text-muted-foreground text-sm">No active grants</div>
-              ) : (
-                <div className="space-y-2">
-                  {permissionState.grants.map((grant) => (
-                    <div
-                      key={`${grant.pending_action_id ?? "grant"}-${grant.granted_at}`}
-                      className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-medium text-amber-900">
-                            {grant.capability.toUpperCase()} ({grant.scope})
-                          </div>
-                          <div className="text-xs text-amber-800">
-                            Granted: {new Date(grant.granted_at).toLocaleString()}
-                          </div>
-                          {grant.expires_at && (
-                            <div className="text-xs text-amber-800">
-                              Expires: {new Date(grant.expires_at).toLocaleString()}
-                            </div>
-                          )}
-                          {grant.reason && (
-                            <div className="mt-1 text-xs text-amber-800">Reason: {grant.reason}</div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="rounded border border-amber-300 bg-card px-2 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
-                          onClick={() => {
-                            revokePermissionGrant(grant.pending_action_id);
-                            const text = `deny write${grant.pending_action_id ? ` pending_action_id=${grant.pending_action_id}` : ""}`;
-                            stream.submit(
-                              {
-                                messages: [
-                                  ...stream.messages,
-                                  {
-                                    id: uuidv4(),
-                                    type: "human",
-                                    content: [{ type: "text", text }],
-                                  },
-                                ],
-                              } as Record<string, unknown> as any,
-                              {
-                                streamMode: ["values"],
-                                streamSubgraphs: true,
-                                streamResumable: true,
-                              },
-                            );
-                          }}
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mismatch Section */}
-          <div className="mt-4 grid gap-2">
-            <div className="text-sm font-semibold">Mismatch</div>
-            <div className="rounded-md border bg-card p-3">
-              {Object.keys(mismatch).length === 0 ? (
-                <div className="text-muted-foreground text-sm">
-                  No comparison data yet
-                </div>
-              ) : (
-                Object.entries(mismatch).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="text-sm"
-                  >
-                    <span className="capitalize">
-                      {key.replace(/_/g, " ")}:{" "}
-                    </span>
-                    <span className="font-mono">{value ?? "\u2014"}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Agent Context Section (collapsible) */}
-          <ContextPanelSection threadId={threadId} />
-
-          {/* Tab Selector */}
-          <div className="mt-4 flex gap-2 border-b" role="tablist" aria-label="Thread details">
-            <button
-              role="tab"
-              aria-selected={activeTab === "findings"}
-              aria-controls="panel-findings"
-              className={cn(
-                "px-3 py-1 text-sm",
-                activeTab === "findings"
-                  ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => setActiveTab("findings")}
-            >
-              Findings
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === "evidence"}
-              aria-controls="panel-evidence"
-              data-testid="evidence-tab"
-              className={cn(
-                "px-3 py-1 text-sm",
-                activeTab === "evidence"
-                  ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => setActiveTab("evidence")}
-            >
-              Evidence ({(summary.evidence ?? []).length})
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === "lineage"}
-              aria-controls="panel-lineage"
-              data-testid="lineage-tab"
-              className={cn(
-                "flex items-center gap-1 px-3 py-1 text-sm",
-                activeTab === "lineage"
-                  ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => setActiveTab("lineage")}
-            >
-              <Network className="h-3.5 w-3.5" />
-              Lineage
-            </button>
-          </div>
-
-          {/* Findings Tab */}
-          {activeTab === "findings" && (
-            <div id="panel-findings" role="tabpanel" aria-label="Findings" className="mt-3 grid gap-3">
-              {/* Root Cause */}
-              {findings?.root_cause ? (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3">
-                  <div className="text-sm font-semibold text-green-800">
-                    Root Cause
-                  </div>
-                  <div className="mt-1 text-sm">
-                    {findings.root_cause.statement}
-                  </div>
-                  <div className="mt-1 text-xs text-green-700">
-                    Confidence:{" "}
-                    {Math.round(findings.root_cause.confidence * 100)}%
-                  </div>
-                  <LinkedEvidence
-                    evidenceIds={findings.root_cause.evidence_ids}
-                    allEvidence={
-                      (summary.evidence ?? []) as unknown as EvidenceItem[]
-                    }
-                  />
-                </div>
-              ) : (
-                <div className="rounded-md border bg-card p-3">
-                  <div className="text-sm font-semibold">Root Cause</div>
-                  <div className="text-muted-foreground mt-1 text-sm">
-                    Not yet identified
-                  </div>
-                </div>
-              )}
-
-              {/* Key Observations */}
-              {findings?.key_observations &&
-                findings.key_observations.length > 0 && (
-                  <div className="rounded-md border bg-card p-3">
-                    <div className="text-sm font-semibold">
-                      Key Observations
-                    </div>
-                    <ul className="mt-2 space-y-3">
-                      {findings.key_observations.map((obs, i) => (
-                        <li
-                          key={i}
-                          className="text-sm"
-                        >
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground">&#8226;</span>
-                            <div className="flex-1">
-                              <span>{obs.statement}</span>
-                              <span className="text-muted-foreground ml-1 text-xs">
-                                ({Math.round(obs.confidence * 100)}%)
-                              </span>
-                              <LinkedEvidence
-                                evidenceIds={obs.evidence_ids}
-                                allEvidence={
-                                  (summary.evidence ??
-                                    []) as unknown as EvidenceItem[]
-                                }
-                              />
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              {/* Recommended Fix */}
-              {findings?.recommended_fix && (
-                <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-                  <div className="text-sm font-semibold text-blue-800">
-                    Recommended Fix
-                  </div>
-                  <ol className="mt-2 list-inside list-decimal space-y-1">
-                    {findings.recommended_fix.steps.map((step, i) => (
-                      <li
-                        key={i}
-                        className="text-sm"
-                      >
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                  {findings.recommended_fix.risks.length > 0 && (
-                    <div className="mt-2 text-xs text-amber-700">
-                      Risks: {findings.recommended_fix.risks.join(", ")}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Next Tests */}
-              {findings?.recommended_next_tests &&
-                findings.recommended_next_tests.length > 0 && (
-                  <div className="rounded-md border bg-card p-3">
-                    <div className="text-sm font-semibold">Next Steps</div>
-                    <ul className="mt-2 space-y-2">
-                      {findings.recommended_next_tests.map((test, i) => (
-                        <li
-                          key={i}
-                          className="text-sm"
-                        >
-                          <div className="font-medium">{test.test}</div>
-                          <div className="text-muted-foreground text-xs">
-                            {test.why}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              {/* Open Questions */}
-              {findings?.open_questions &&
-                findings.open_questions.length > 0 && (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                    <div className="text-sm font-semibold text-amber-800">
-                      Open Questions
-                    </div>
-                    <ul className="mt-2 space-y-2">
-                      {findings.open_questions.map((q, i) => (
-                        <li
-                          key={i}
-                          className="text-sm"
-                        >
-                          <div className="font-medium">{q.question}</div>
-                          <div className="text-xs text-amber-700">
-                            {q.why_missing}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              {/* No findings yet */}
-              {!findings && (
-                <div className="rounded-md border bg-card p-3">
-                  <div className="text-muted-foreground text-sm">
-                    No findings yet. Start an investigation to generate
-                    findings.
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+        {/* Tab content area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Summary Tab */}
+          <Tabs.Content value="summary" className="p-4">
+            <SummaryTab
+              threadId={threadId}
+              summary={summary}
+              loading={loading}
+              error={error}
+              checks={checks}
+              mismatch={mismatch}
+              requestedTypes={requestedTypes}
+              shouldShowMissingWarning={shouldShowMissingWarning}
+              getMissingMessage={getMissingMessage}
+              permissionState={permissionState}
+              revokePermissionGrant={revokePermissionGrant}
+              stream={stream}
+            />
+          </Tabs.Content>
 
           {/* Evidence Tab */}
-          {activeTab === "evidence" && (
-            <div
-              id="panel-evidence"
-              role="tabpanel"
-              aria-label="Evidence"
-              data-testid="evidence-panel"
-              className="mt-3 space-y-2"
-            >
-              {(summary.evidence ?? []).length === 0 ? (
-                <div className="text-muted-foreground rounded-md border bg-card p-3 text-sm">
-                  No evidence yet.
-                </div>
-              ) : (
-                (summary.evidence ?? []).slice(0, 25).map((e: any, idx: number) => (
-                  <EvidenceViewer
-                    key={String(e.evidence_id ?? e.title ?? `ev-${idx}`)}
-                    evidence={e as EvidenceItem}
-                    defaultExpanded={false}
-                  />
-                ))
-              )}
-            </div>
-          )}
+          <Tabs.Content value="evidence" className="p-4">
+            {summary ? (
+              <div
+                data-testid="evidence-panel"
+                className="space-y-2"
+              >
+                {(summary.evidence ?? []).length === 0 ? (
+                  <div className="text-muted-foreground rounded-md border bg-card p-3 text-sm">
+                    No evidence yet.
+                  </div>
+                ) : (
+                  (summary.evidence ?? []).slice(0, 25).map((e: any, idx: number) => (
+                    <EvidenceViewer
+                      key={String(e.evidence_id ?? e.title ?? `ev-${idx}`)}
+                      evidence={e as EvidenceItem}
+                      defaultExpanded={false}
+                    />
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-sm">No thread selected.</div>
+            )}
+          </Tabs.Content>
+
+          {/* Findings Tab */}
+          <Tabs.Content value="findings" className="p-4">
+            {summary ? (
+              <div className="grid gap-3">
+                {/* Root Cause */}
+                {findings?.root_cause ? (
+                  <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                    <div className="text-sm font-semibold text-green-800">
+                      Root Cause
+                    </div>
+                    <div className="mt-1 text-sm">
+                      {findings.root_cause.statement}
+                    </div>
+                    <div className="mt-1 text-xs text-green-700">
+                      Confidence:{" "}
+                      {Math.round(findings.root_cause.confidence * 100)}%
+                    </div>
+                    <LinkedEvidence
+                      evidenceIds={findings.root_cause.evidence_ids}
+                      allEvidence={
+                        (summary.evidence ?? []) as unknown as EvidenceItem[]
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-md border bg-card p-3">
+                    <div className="text-sm font-semibold">Root Cause</div>
+                    <div className="text-muted-foreground mt-1 text-sm">
+                      Not yet identified
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Observations */}
+                {findings?.key_observations &&
+                  findings.key_observations.length > 0 && (
+                    <div className="rounded-md border bg-card p-3">
+                      <div className="text-sm font-semibold">
+                        Key Observations
+                      </div>
+                      <ul className="mt-2 space-y-3">
+                        {findings.key_observations.map((obs, i) => (
+                          <li
+                            key={i}
+                            className="text-sm"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-muted-foreground">&#8226;</span>
+                              <div className="flex-1">
+                                <span>{obs.statement}</span>
+                                <span className="text-muted-foreground ml-1 text-xs">
+                                  ({Math.round(obs.confidence * 100)}%)
+                                </span>
+                                <LinkedEvidence
+                                  evidenceIds={obs.evidence_ids}
+                                  allEvidence={
+                                    (summary.evidence ??
+                                      []) as unknown as EvidenceItem[]
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {/* Recommended Fix */}
+                {findings?.recommended_fix && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+                    <div className="text-sm font-semibold text-blue-800">
+                      Recommended Fix
+                    </div>
+                    <ol className="mt-2 list-inside list-decimal space-y-1">
+                      {findings.recommended_fix.steps.map((step, i) => (
+                        <li
+                          key={i}
+                          className="text-sm"
+                        >
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                    {findings.recommended_fix.risks.length > 0 && (
+                      <div className="mt-2 text-xs text-amber-700">
+                        Risks: {findings.recommended_fix.risks.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Next Tests */}
+                {findings?.recommended_next_tests &&
+                  findings.recommended_next_tests.length > 0 && (
+                    <div className="rounded-md border bg-card p-3">
+                      <div className="text-sm font-semibold">Next Steps</div>
+                      <ul className="mt-2 space-y-2">
+                        {findings.recommended_next_tests.map((test, i) => (
+                          <li
+                            key={i}
+                            className="text-sm"
+                          >
+                            <div className="font-medium">{test.test}</div>
+                            <div className="text-muted-foreground text-xs">
+                              {test.why}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {/* Open Questions */}
+                {findings?.open_questions &&
+                  findings.open_questions.length > 0 && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                      <div className="text-sm font-semibold text-amber-800">
+                        Open Questions
+                      </div>
+                      <ul className="mt-2 space-y-2">
+                        {findings.open_questions.map((q, i) => (
+                          <li
+                            key={i}
+                            className="text-sm"
+                          >
+                            <div className="font-medium">{q.question}</div>
+                            <div className="text-xs text-amber-700">
+                              {q.why_missing}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {/* No findings yet */}
+                {!findings && (
+                  <div className="rounded-md border bg-card p-3">
+                    <div className="text-muted-foreground text-sm">
+                      No findings yet. Start an investigation to generate
+                      findings.
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-sm">No thread selected.</div>
+            )}
+          </Tabs.Content>
 
           {/* Lineage Tab */}
-          {activeTab === "lineage" && (
-            <div
-              id="panel-lineage"
-              role="tabpanel"
-              aria-label="Lineage"
-              data-testid="lineage-panel"
-              className="mt-3 flex flex-1 flex-col"
-              style={{ minHeight: "400px" }}
-            >
-              <Suspense
-                fallback={
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    Loading lineage graph...
-                  </div>
-                }
+          <Tabs.Content value="lineage" className="p-4">
+            {summary ? (
+              <div
+                data-testid="lineage-panel"
+                className="flex flex-1 flex-col"
+                style={{ minHeight: "400px" }}
               >
-                <LineageGraph
-                  className="h-full min-h-[400px] rounded-md border bg-card"
-                />
-              </Suspense>
-            </div>
-          )}
-        </>
-      )}
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      Loading lineage graph...
+                    </div>
+                  }
+                >
+                  <LineageGraph
+                    className="h-full min-h-[400px] rounded-md border bg-card"
+                  />
+                </Suspense>
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-sm">No thread selected.</div>
+            )}
+          </Tabs.Content>
+
+          {/* Cost Tab */}
+          <Tabs.Content value="cost" className="p-4">
+            <CostTab threadId={threadId ?? undefined} />
+          </Tabs.Content>
+        </div>
+      </Tabs.Root>
     </div>
   );
 }
