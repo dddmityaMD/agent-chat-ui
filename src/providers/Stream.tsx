@@ -57,6 +57,7 @@ async function checkGraphStatus(
 ): Promise<boolean> {
   try {
     const res = await fetch(`${apiUrl}/info`, {
+      credentials: "include",
       ...(apiKey && {
         headers: {
           "X-Api-Key": apiKey,
@@ -70,6 +71,11 @@ async function checkGraphStatus(
     return false;
   }
 }
+
+// Custom fetch wrapper that includes credentials (cookie forwarding)
+const credentialsFetch: typeof fetch = (input, init) => {
+  return fetch(input, { ...init, credentials: "include" });
+};
 
 const StreamSession = ({
   children,
@@ -90,6 +96,7 @@ const StreamSession = ({
     assistantId,
     threadId: threadId ?? null,
     fetchStateHistory: true,
+    callerOptions: { fetch: credentialsFetch },
     // Throttle state updates to prevent Maximum update depth exceeded (React #185)
     // true = macrotask batching (SDK v1.1.0+)
     throttle: true,

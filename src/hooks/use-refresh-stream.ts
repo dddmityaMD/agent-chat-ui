@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { createParser, type EventSourceMessage } from "eventsource-parser";
 
 // Types for refresh job data
-export type RefreshJobStatus = 
+export type RefreshJobStatus =
   | "pending"
   | "running"
   | "done"
@@ -40,7 +41,7 @@ export interface RefreshStatusSummary {
   timestamp: string;
 }
 
-export type ConnectionState = 
+export type ConnectionState =
   | "connecting"
   | "connected"
   | "disconnected"
@@ -55,6 +56,8 @@ export interface UseRefreshStreamOptions {
   onStatusSummary?: (summary: RefreshStatusSummary) => void;
   onError?: (error: Error) => void;
   onConnectionChange?: (state: ConnectionState) => void;
+  /** Called when the SSE stream returns 401 (session expired). */
+  onSessionExpired?: () => void;
 }
 
 export interface UseRefreshStreamReturn {
@@ -104,6 +107,7 @@ export function useRefreshStream(
     onStatusSummary,
     onError,
     onConnectionChange,
+    onSessionExpired,
   } = options;
 
   // State
@@ -114,7 +118,7 @@ export function useRefreshStream(
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
   // Refs
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isManualDisconnect = useRef(false);
 
@@ -123,7 +127,7 @@ export function useRefreshStream(
     const params = new URLSearchParams();
     if (connectorId) params.append("connector_id", connectorId);
     if (connectorType) params.append("connector_type", connectorType);
-    
+
     const queryString = params.toString();
     return `${baseUrl}/connectors/jobs/stream${queryString ? `?${queryString}` : ""}`;
   }, [baseUrl, connectorId, connectorType]);
@@ -146,107 +150,144 @@ export function useRefreshStream(
     [onConnectionChange]
   );
 
+  // Handle a parsed SSE event
+  const handleSSEEvent = useCallback(
+    (event: EventSourceMessage) => {
+      try {
+        const data = JSON.parse(event.data) as SSEEvent;
+
+        switch (data.event) {
+          case "job_update": {
+            const jobUpdate = data as JobUpdateEvent;
+            setJobs((prev) => {
+              const existingIndex = prev.findIndex(
+                (j) => j.job_id === jobUpdate.data.job_id
+              );
+              if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = jobUpdate.data;
+                return updated;
+              }
+              return [jobUpdate.data, ...prev];
+            });
+            onJobUpdate?.(jobUpdate.data);
+            onMessage?.(jobUpdate.data);
+            break;
+          }
+
+          case "status_summary": {
+            const summaryEvent = data as StatusSummaryEvent;
+            setSummary(summaryEvent.data);
+            onStatusSummary?.(summaryEvent.data);
+            onMessage?.(summaryEvent.data);
+            break;
+          }
+
+          case "error": {
+            const errorEvent = data as ErrorEvent;
+            const err = new Error(
+              errorEvent.data.error || "Unknown SSE error"
+            );
+            setError(err);
+            onError?.(err);
+            break;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse SSE message:", e);
+      }
+    },
+    [onMessage, onJobUpdate, onStatusSummary, onError]
+  );
+
   // Disconnect and cleanup
   const disconnect = useCallback(() => {
     isManualDisconnect.current = true;
-    
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-    
+
     updateConnectionState("disconnected");
     setReconnectAttempts(0);
   }, [updateConnectionState]);
 
-  // Connect to SSE endpoint
+  // Connect to SSE endpoint using fetch (not EventSource -- enables credentials: "include")
   const connect = useCallback(() => {
     // Don't reconnect if manually disconnected
     if (isManualDisconnect.current) return;
-    
-    // Close existing connection
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+
+    // Abort existing connection
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
-    
+
     updateConnectionState("connecting");
     setError(null);
-    
+
     const url = getSseUrl();
-    
-    try {
-      const eventSource = new EventSource(url);
-      eventSourceRef.current = eventSource;
-      
-      eventSource.onopen = () => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    (async () => {
+      try {
+        const response = await fetch(url, {
+          credentials: "include",
+          headers: { Accept: "text/event-stream" },
+          signal: controller.signal,
+        });
+
+        // Handle 401 -- session expired
+        if (response.status === 401) {
+          onSessionExpired?.();
+          updateConnectionState("error");
+          return;
+        }
+
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE connection failed: ${response.status}`);
+        }
+
         updateConnectionState("connected");
         setReconnectAttempts(0);
-      };
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as SSEEvent;
-          
-          switch (data.event) {
-            case "job_update": {
-              const jobUpdate = data as JobUpdateEvent;
-              setJobs((prev) => {
-                // Update or add job
-                const existingIndex = prev.findIndex(
-                  (j) => j.job_id === jobUpdate.data.job_id
-                );
-                if (existingIndex >= 0) {
-                  const updated = [...prev];
-                  updated[existingIndex] = jobUpdate.data;
-                  return updated;
-                }
-                return [jobUpdate.data, ...prev];
-              });
-              onJobUpdate?.(jobUpdate.data);
-              onMessage?.(jobUpdate.data);
-              break;
-            }
-            
-            case "status_summary": {
-              const summaryEvent = data as StatusSummaryEvent;
-              setSummary(summaryEvent.data);
-              onStatusSummary?.(summaryEvent.data);
-              onMessage?.(summaryEvent.data);
-              break;
-            }
-            
-            case "error": {
-              const errorEvent = data as ErrorEvent;
-              const err = new Error(
-                errorEvent.data.error || "Unknown SSE error"
-              );
-              setError(err);
-              onError?.(err);
-              break;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse SSE message:", e);
+
+        const parser = createParser({
+          onEvent(event: EventSourceMessage) {
+            handleSSEEvent(event);
+          },
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parser.feed(decoder.decode(value, { stream: true }));
         }
-      };
-      
-      eventSource.onerror = (event) => {
-        console.error("SSE connection error:", event);
-        
-        // Only attempt reconnect if not manually disconnected
+
+        // Stream ended naturally -- attempt reconnect
         if (!isManualDisconnect.current) {
-          eventSource.close();
-          eventSourceRef.current = null;
-          
+          throw new Error("SSE stream ended");
+        }
+      } catch (e) {
+        // Ignore abort errors (expected on disconnect/reconnect)
+        if (e instanceof DOMException && e.name === "AbortError") return;
+
+        if (!isManualDisconnect.current) {
+          console.error("SSE connection error:", e);
+
           if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             updateConnectionState("disconnected");
             const delay = getReconnectDelay();
-            
+
             reconnectTimeoutRef.current = setTimeout(() => {
               setReconnectAttempts((prev) => prev + 1);
               connect();
@@ -260,25 +301,19 @@ export function useRefreshStream(
             onError?.(err);
           }
         }
-      };
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      setError(err);
-      updateConnectionState("error");
-      onError?.(err);
-    }
+      }
+    })();
   }, [
     getSseUrl,
     reconnectAttempts,
     getReconnectDelay,
     updateConnectionState,
-    onMessage,
-    onJobUpdate,
-    onStatusSummary,
+    handleSSEEvent,
     onError,
+    onSessionExpired,
   ]);
 
-  // Manual reconnect — inline cleanup instead of calling disconnect()
+  // Manual reconnect -- inline cleanup instead of calling disconnect()
   // because disconnect() sets isManualDisconnect=true which blocks connect()
   const reconnect = useCallback(() => {
     // Clean up existing connection without setting isManualDisconnect
@@ -286,9 +321,9 @@ export function useRefreshStream(
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
 
     isManualDisconnect.current = false;
@@ -301,7 +336,7 @@ export function useRefreshStream(
   useEffect(() => {
     isManualDisconnect.current = false;
     connect();
-    
+
     return () => {
       disconnect();
     };

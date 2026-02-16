@@ -51,6 +51,7 @@ import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState, useThreads } from "@/providers/Thread";
 import { useSaisUi } from "@/hooks/useSaisUi";
+import { LogoutButton } from "@/components/logout-button";
 
 /**
  * Error boundary that catches render errors in individual messages,
@@ -584,6 +585,7 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                <LogoutButton />
                 <div className="flex items-center">
                   <OpenGitHubRepo />
                 </div>

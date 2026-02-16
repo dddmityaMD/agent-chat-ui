@@ -11,6 +11,7 @@ import {
   SetStateAction,
 } from "react";
 import { extractFlowType, extractHandoffProposal } from "@/hooks/useSaisUi";
+import { useAuth } from "@/providers/Auth";
 
 // ---------------------------------------------------------------------------
 // Flow-related types extracted from sais_ui state
@@ -51,6 +52,7 @@ const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
 export function ThreadProvider({ children }: { children: ReactNode }) {
   // apiUrl and assistantId are kept for other consumers (StreamProvider, etc.)
   // but thread listing now goes through backend /api/threads.
+  const { setSessionExpired } = useAuth();
   const [threads, setThreads] = useState<ThreadWithMeta[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [permissionState, setPermissionState] = useState<PermissionState>({ grants: [] });
@@ -60,14 +62,17 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     const params = new URLSearchParams();
     if (includeArchived) params.set("include_archived", "true");
     try {
-      const res = await fetch(`${baseUrl}/api/threads?${params}`);
+      const res = await fetch(`${baseUrl}/api/threads?${params}`, {
+        credentials: "include",
+      });
+      if (res.status === 401) { setSessionExpired(true); return []; }
       if (!res.ok) return [];
       return (await res.json()) as ThreadWithMeta[];
     } catch (err) {
       console.error("Failed to fetch threads:", err);
       return [];
     }
-  }, []);
+  }, [setSessionExpired]);
 
   const registerThread = useCallback(async (
     threadId: string,
@@ -83,14 +88,16 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        credentials: "include",
       });
+      if (res.status === 401) { setSessionExpired(true); return null; }
       if (!res.ok) return null;
       return (await res.json()) as ThreadWithMeta;
     } catch (err) {
       console.error("Failed to register thread:", err);
       return null;
     }
-  }, []);
+  }, [setSessionExpired]);
 
   const updateThread = useCallback(async (
     threadId: string,
@@ -98,11 +105,13 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   ): Promise<void> => {
     const baseUrl = getApiBaseUrl();
     try {
-      await fetch(`${baseUrl}/api/threads/${threadId}`, {
+      const res = await fetch(`${baseUrl}/api/threads/${threadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
+        credentials: "include",
       });
+      if (res.status === 401) { setSessionExpired(true); return; }
       // Optimistically update local state so header and sidebar stay in sync
       setThreads((prev) =>
         prev.map((t) =>
@@ -112,18 +121,20 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Failed to update thread:", err);
     }
-  }, []);
+  }, [setSessionExpired]);
 
   const archiveThread = useCallback(async (threadId: string): Promise<void> => {
     const baseUrl = getApiBaseUrl();
     try {
-      await fetch(`${baseUrl}/api/threads/${threadId}/archive`, {
+      const res = await fetch(`${baseUrl}/api/threads/${threadId}/archive`, {
         method: "POST",
+        credentials: "include",
       });
+      if (res.status === 401) { setSessionExpired(true); return; }
     } catch (err) {
       console.error("Failed to archive thread:", err);
     }
-  }, []);
+  }, [setSessionExpired]);
 
   const addPermissionGrant = useCallback((grant: PermissionGrant) => {
     setPermissionState((prev) => {

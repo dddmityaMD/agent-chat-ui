@@ -62,6 +62,9 @@ importers:
       diff:
         specifier: ^8.0.3
         version: 8.0.3
+      eventsource-parser:
+        specifier: ^3.0.6
+        version: 3.0.6
       framer-motion:
         specifier: ^12.4.9
         version: 12.31.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -3112,6 +3115,10 @@ packages:
 
   eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
+
+  eventsource-parser@3.0.6:
+    resolution: {integrity: sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg==}
+    engines: {node: '>=18.0.0'}
 
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
@@ -8562,6 +8569,8 @@ snapshots:
   eventemitter3@4.0.7: {}
 
   eventemitter3@5.0.4: {}
+
+  eventsource-parser@3.0.6: {}
 
   execa@5.1.1:
     dependencies:
