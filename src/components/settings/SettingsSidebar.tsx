@@ -1,0 +1,110 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const navItems = [
+  {
+    label: "Connectors",
+    href: "/settings/connectors",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+        <path d="M3 12A9 3 0 0 0 21 12" />
+      </svg>
+    ),
+  },
+  {
+    label: "LLM Config",
+    href: "/settings/llm",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" />
+        <path d="M15 2v2" />
+        <path d="M15 20v2" />
+        <path d="M2 15h2" />
+        <path d="M2 9h2" />
+        <path d="M20 15h2" />
+        <path d="M20 9h2" />
+        <path d="M9 2v2" />
+        <path d="M9 20v2" />
+      </svg>
+    ),
+  },
+];
+
+export function SettingsSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="flex h-full w-60 flex-col border-r border-border/40 bg-background">
+      <div className="flex items-center gap-2 px-4 py-4">
+        <Link
+          href="/"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          Back to Chat
+        </Link>
+      </div>
+
+      <div className="px-4 pb-3">
+        <h2 className="text-sm font-semibold text-foreground">Settings</h2>
+      </div>
+
+      <nav className="flex flex-col gap-0.5 px-2">
+        {navItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                isActive
+                  ? "border-l-2 border-primary bg-primary/5 font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
