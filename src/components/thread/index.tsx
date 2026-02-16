@@ -519,6 +519,7 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-3">
+                <LogoutButton />
                 <HealthDot />
                 <OpenGitHubRepo />
               </div>
