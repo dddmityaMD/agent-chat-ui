@@ -20,6 +20,7 @@ import {
   LoaderCircle,
   PanelRightOpen,
   PanelRightClose,
+  Square,
   SquarePen,
   XIcon,
   Plus,
@@ -53,6 +54,7 @@ import { usePermissionState, useThreads } from "@/providers/Thread";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { LogoutButton } from "@/components/logout-button";
 import { SettingsButton } from "@/components/settings-button";
+import { EmptyState } from "./empty-state";
 
 /**
  * Error boundary that catches render errors in individual messages,
@@ -116,14 +118,17 @@ function ScrollToBottom(props: { className?: string }) {
 
   if (isAtBottom) return null;
   return (
-    <Button
-      variant="outline"
-      className={props.className}
+    <button
+      type="button"
+      className={cn(
+        "flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-md transition-all hover:bg-accent",
+        props.className,
+      )}
       onClick={() => scrollToBottom()}
+      aria-label="Scroll to bottom"
     >
       <ArrowDown className="h-4 w-4" />
-      <span>Scroll to bottom</span>
-    </Button>
+    </button>
   );
 }
 
@@ -679,11 +684,14 @@ export function Thread() {
               footer={
                 <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
                   {!chatStarted && (
-                    <div className="flex items-center gap-3">
-                      <LangGraphLogoSVG className="h-8 flex-shrink-0" />
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        Agent Chat
-                      </h1>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <LangGraphLogoSVG className="h-8 flex-shrink-0" />
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                          Agent Chat
+                        </h1>
+                      </div>
+                      <EmptyState onSelect={setInput} />
                     </div>
                   )}
 
@@ -764,11 +772,15 @@ export function Thread() {
                         {stream.isLoading ? (
                           <Button
                             key="stop"
-                            onClick={() => stream.stop()}
+                            onClick={() => {
+                              stream.stop();
+                              toast("Generation stopped", { duration: 1500 });
+                            }}
                             className="ml-auto"
+                            variant="destructive"
                           >
-                            <LoaderCircle className="h-4 w-4 animate-spin" />
-                            Cancel
+                            <Square className="h-4 w-4" />
+                            Stop
                           </Button>
                         ) : (
                           <Button
