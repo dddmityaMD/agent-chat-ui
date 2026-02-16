@@ -24,6 +24,7 @@ import { ArrowRight } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
+import { useAuth } from "./Auth";
 import { toast } from "sonner";
 
 export type StateType = {
@@ -90,6 +91,7 @@ const StreamSession = ({
 }) => {
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads, registerThread } = useThreads();
+  const { setSessionExpired } = useAuth();
   const streamValue = useStream<StateType, BagType>({
     apiUrl,
     apiKey: apiKey ?? undefined,
@@ -118,6 +120,12 @@ const StreamSession = ({
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : String(error);
+      // Session expired -- trigger re-auth modal instead of error toast.
+      // LangGraph SDK surfaces HTTP errors as Error objects with status in message.
+      if (msg.includes("401") || msg.includes("Unauthorized")) {
+        setSessionExpired(true);
+        return;
+      }
       // Thread state lost after server restart (in-memory storage)
       if (msg.includes("500") || msg.includes("404") || msg.includes("config")) {
         toast.error("Thread history unavailable", {
