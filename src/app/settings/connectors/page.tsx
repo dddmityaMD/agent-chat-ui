@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ConnectorList } from "@/components/settings/ConnectorList";
 import { ConnectorDetail } from "@/components/settings/ConnectorDetail";
@@ -12,6 +12,20 @@ import {
 export type DetailMode = "view" | "edit" | "create";
 
 export default function ConnectorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        </div>
+      }
+    >
+      <ConnectorsPageContent />
+    </Suspense>
+  );
+}
+
+function ConnectorsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedParam = searchParams.get("selected");
