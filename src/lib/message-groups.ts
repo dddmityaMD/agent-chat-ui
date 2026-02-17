@@ -1,0 +1,416 @@
+/**
+ * Message grouping and stage derivation for the thought process pane (UAT-4).
+ *
+ * SAIS uses a LangGraph node-based architecture (not LangChain tool-calling),
+ * so every turn produces exactly one AIMessage. Stages are derived from the
+ * deterministic graph flow: ground_entities → intent_router → [flow] → respond.
+ *
+ * Filtering strategy (metadata-driven, no content inspection):
+ *
+ * Final AI messages are identified by `response_metadata.active_flow`, which
+ * is set exclusively by `build_respond_payload()` in the respond node.
+ * Intermediate node outputs (from intent_router, evidence_agent, etc.) that
+ * surface via `streamSubgraphs` during streaming never carry this marker.
+ *
+ * During streaming:
+ *   - Messages WITH `response_metadata.active_flow` → confirmed final → render
+ *   - Messages BEFORE the last human message → historical (always final) → render
+ *   - Messages AFTER last human WITHOUT metadata → intermediate streaming → skip
+ *
+ * When not streaming (loading thread history):
+ *   - All messages are from persisted checkpoints → all final → render
+ *
+ * The flow type comes from:
+ * - sais_ui.active_flow (last message, via useSaisUi)
+ * - response_metadata.active_flow (historical messages)
+ */
+
+import type { Message, AIMessage } from "@langchain/langgraph-sdk";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ThoughtStage {
+  /** Unique ID for this stage */
+  id: string;
+  /** Human-readable label (e.g. "Querying catalog") */
+  label: string;
+  /** Optional detail text derived from streaming state (e.g. "Found: sales, orders") */
+  detail?: string;
+}
+
+export interface MessageGroup {
+  /** The message to render */
+  message: Message;
+  /** Derived thought stages for this message (empty for human messages) */
+  stages: ThoughtStage[];
+  /** The next human message after this one (for disambiguation selection tracking) */
+  nextHumanMessage?: Message;
+}
+
+export interface GroupMessagesOptions {
+  /**
+   * Whether the agent is currently streaming a response.
+   * When true, AI messages after the last human message that lack
+   * `response_metadata.active_flow` are treated as intermediate
+   * subgraph outputs and filtered out.
+   */
+  isStreaming?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Stage derivation from flow type
+// ---------------------------------------------------------------------------
+
+/** Standard stages that always run before any flow. */
+const PRE_FLOW_STAGES: ThoughtStage[] = [
+  { id: "resolve", label: "Resolving entities" },
+  { id: "intent", label: "Understanding intent" },
+];
+
+/** The final stage that always runs. */
+const RESPOND_STAGE: ThoughtStage = { id: "respond", label: "Composing response" };
+
+/** Flow-specific stages based on active_flow. */
+const FLOW_STAGES: Record<string, ThoughtStage[]> = {
+  catalog: [{ id: "flow-catalog", label: "Querying catalog" }],
+  investigation: [
+    { id: "flow-evidence", label: "Collecting evidence" },
+    { id: "flow-synthesis", label: "Analyzing findings" },
+  ],
+  build: [{ id: "flow-build", label: "Planning build" }],
+  remediation: [{ id: "flow-remediation", label: "Preparing remediation" }],
+  ops: [{ id: "flow-ops", label: "Processing operation" }],
+};
+
+/**
+ * Derive thought stages for an AI message based on the flow type.
+ *
+ * Every SAIS response goes through:
+ *   ground_entities → intent_router → [flow subgraph] → respond
+ *
+ * This function maps that architecture to user-visible stages.
+ */
+export function deriveStagesFromFlow(flowType: string | null | undefined): ThoughtStage[] {
+  const flowSpecific = (flowType && FLOW_STAGES[flowType]) || [
+    { id: "flow-generic", label: "Processing" },
+  ];
+
+  return [...PRE_FLOW_STAGES, ...flowSpecific, RESPOND_STAGE];
+}
+
+// ---------------------------------------------------------------------------
+// Stage detail derivation from streaming state
+// ---------------------------------------------------------------------------
+
+/**
+ * Deterministic intent→flow mapping matching backend flow_router.
+ * Used during streaming to derive the correct flow stages before
+ * flow_router sets active_flow (which arrives too late for fast flows).
+ */
+const INTENT_TO_FLOW: Record<string, string> = {
+  investigate: "investigation",
+  ask_question: "investigation",
+  ask_metadata: "catalog",
+  ask_status: "catalog",
+  recommend_next: "catalog",
+  general: "catalog",
+  build: "build",
+  refresh: "ops",
+  close_case: "ops",
+};
+
+/** Infer flow type from classified intent (available before flow_router runs). */
+export function inferFlowFromIntent(intent: string | undefined): string | null {
+  if (!intent) return null;
+  return INTENT_TO_FLOW[intent] ?? null;
+}
+
+/** Human-readable intent labels for display in the thought pane. */
+const INTENT_LABELS: Record<string, string> = {
+  investigate: "Investigation",
+  ask_question: "Data question",
+  ask_metadata: "Catalog query",
+  ask_status: "Status check",
+  recommend_next: "Recommendation",
+  general: "General",
+  build: "Build request",
+  refresh: "Refresh",
+  close_case: "Close case",
+};
+
+/**
+ * Streaming state values used to derive stage details.
+ * Mirrors a subset of backend AgentState fields available via stream.values.
+ */
+export interface StreamingStateValues {
+  turn_id?: string;
+  resolved_entities?: Record<string, { name?: string; entity_type?: string }>;
+  intent?: string;
+  intent_confidence?: number;
+  active_flow?: string;
+  evidence_result?: {
+    evidence?: Array<{ type?: string; title?: string }>;
+    still_missing?: string[];
+    metadata_results?: Array<Record<string, unknown>>;
+    catalog_count?: { count?: number; entity_type?: string };
+  };
+  findings?: {
+    root_cause?: { statement?: string; confidence?: number };
+  };
+}
+
+/**
+ * Derive stage detail strings from the current streaming state.
+ * Returns a map of stage ID → detail text.
+ *
+ * Called during streaming to populate the thought pane with
+ * contextual information as each graph node completes.
+ */
+export function deriveStageDetails(
+  values: StreamingStateValues,
+): Record<string, string> {
+  const details: Record<string, string> = {};
+
+  // Resolve stage: show entity names found
+  const entities = values.resolved_entities;
+  if (entities && typeof entities === "object") {
+    const names = Object.values(entities)
+      .map((e) => e?.name)
+      .filter(Boolean);
+    if (names.length > 0) {
+      const display = names.length <= 3
+        ? names.join(", ")
+        : `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
+      details.resolve = `Found: ${display}`;
+    }
+  }
+
+  // Intent stage: show classified intent + confidence
+  if (values.intent) {
+    const label = INTENT_LABELS[values.intent] || values.intent;
+    const conf = values.intent_confidence;
+    if (conf && conf > 0) {
+      details.intent = `${label} (${Math.round(conf * 100)}%)`;
+    } else {
+      details.intent = label;
+    }
+  }
+
+  // Evidence stage (investigation flow): show evidence count + types
+  const evidenceResult = values.evidence_result;
+  if (evidenceResult?.evidence && evidenceResult.evidence.length > 0) {
+    const types = [...new Set(
+      evidenceResult.evidence.map((e) => e.type).filter(Boolean),
+    )];
+    const count = evidenceResult.evidence.length;
+    details["flow-evidence"] = `${count} piece${count !== 1 ? "s" : ""}: ${types.join(", ")}`;
+  }
+
+  // Catalog flow: show metadata result count
+  if (evidenceResult?.catalog_count) {
+    const cc = evidenceResult.catalog_count;
+    if (cc.count != null && cc.count > 0) {
+      const typeLabel = cc.entity_type || "items";
+      details["flow-catalog"] = `${cc.count} ${typeLabel} found`;
+    }
+  } else if (evidenceResult?.metadata_results && evidenceResult.metadata_results.length > 0) {
+    const count = evidenceResult.metadata_results.length;
+    details["flow-catalog"] = `${count} result${count !== 1 ? "s" : ""} found`;
+  }
+
+  // Synthesis stage (investigation flow): show root cause confidence
+  const findings = values.findings;
+  if (findings?.root_cause) {
+    const conf = findings.root_cause.confidence;
+    if (conf && conf > 0) {
+      details["flow-synthesis"] = `Root cause identified (${Math.round(conf * 100)}%)`;
+    } else if (findings.root_cause.statement) {
+      details["flow-synthesis"] = "Root cause identified";
+    }
+  }
+
+  return details;
+}
+
+/**
+ * Compute the minimum number of stages that should be revealed based on
+ * actual streaming state data. This makes the progressive reveal data-driven:
+ * when the backend populates a field (e.g. intent after intent_router completes),
+ * the corresponding stage is immediately shown as completed.
+ *
+ * Returns the count of stages that should be revealed (1-based, like revealedCount).
+ * The last revealed stage is "in progress", previous ones are "completed".
+ */
+export function computeDataDrivenReveal(
+  values: StreamingStateValues,
+  stages: ThoughtStage[],
+): number {
+  // Walk through stages and check if their data is available.
+  // A stage's data being present means the corresponding graph node has completed,
+  // so we should reveal UP TO the next stage (current completed + next in-progress).
+  let lastCompletedIdx = -1;
+
+  for (let i = 0; i < stages.length; i++) {
+    const id = stages[i].id;
+    if (id === "resolve" && values.resolved_entities !== undefined) {
+      lastCompletedIdx = i;
+    } else if (id === "intent" && values.intent !== undefined) {
+      lastCompletedIdx = i;
+    } else if (id.startsWith("flow-") && values.active_flow !== undefined) {
+      if (values.evidence_result !== undefined || values.findings !== undefined) {
+        lastCompletedIdx = i;
+      } else {
+        return i + 1;
+      }
+    }
+  }
+
+  if (lastCompletedIdx >= 0) {
+    // Reveal completed stages + next one as in-progress
+    return Math.min(lastCompletedIdx + 2, stages.length);
+  }
+
+  return 0; // No data yet — let timer handle initial reveal
+}
+
+/**
+ * Apply detail strings to a stages array, returning new stage objects
+ * with `detail` populated where available.
+ */
+export function applyStageDetails(
+  stages: ThoughtStage[],
+  details: Record<string, string>,
+): ThoughtStage[] {
+  if (Object.keys(details).length === 0) return stages;
+  return stages.map((stage) => {
+    const detail = details[stage.id];
+    return detail ? { ...stage, detail } : stage;
+  });
+}
+
+/**
+ * Extract the active flow from a message's response_metadata.
+ * Used for historical messages where sais_ui is not available.
+ */
+export function extractFlowFromResponseMeta(
+  message: Message | undefined,
+): string | null {
+  if (!message || message.type !== "ai") return null;
+  const meta = "response_metadata" in message
+    ? (message as AIMessage).response_metadata
+    : undefined;
+  if (!meta || typeof meta !== "object") return null;
+  const flow = (meta as Record<string, unknown>).active_flow;
+  return typeof flow === "string" && flow.length > 0 ? flow : null;
+}
+
+// ---------------------------------------------------------------------------
+// Message grouping (for nextHumanMessage tracking)
+// ---------------------------------------------------------------------------
+
+function getContentString(content: Message["content"]): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c: Record<string, unknown>) => c.type === "text")
+      .map((c: Record<string, unknown>) => (c as { text: string }).text || "")
+      .join("");
+  }
+  return "";
+}
+
+/**
+ * Build MessageGroups from a flat message list.
+ *
+ * Uses metadata-driven filtering (no content inspection):
+ *
+ * 1. AI messages with `response_metadata.active_flow` are always shown
+ *    (confirmed final from `build_respond_payload()`).
+ * 2. AI messages BEFORE the last human message are always shown
+ *    (historical context from prior turns — always final).
+ * 3. AI messages AFTER the last human message WITHOUT `active_flow`:
+ *    - During streaming → intermediate subgraph output → skip
+ *    - Not streaming → historical final message (pre-metadata era) → show
+ *
+ * Also filters out:
+ * - Tool-only AI messages (no text content)
+ * - Tool result messages
+ */
+export function groupMessages(
+  messages: Message[],
+  options?: GroupMessagesOptions,
+): MessageGroup[] {
+  const isStreaming = options?.isStreaming ?? false;
+  const groups: MessageGroup[] = [];
+
+  // Find the index of the last human message — everything before it is
+  // historical context from prior turns (always safe to render).
+  let lastHumanIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].type === "human") {
+      lastHumanIdx = i;
+      break;
+    }
+  }
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+
+    if (msg.type === "human") {
+      groups.push({ message: msg, stages: [] });
+      continue;
+    }
+
+    if (msg.type === "tool") {
+      // Tool result messages are hidden
+      continue;
+    }
+
+    if (msg.type === "ai") {
+      const content = getContentString(msg.content ?? []);
+      if (content.trim().length === 0) {
+        // Tool-only AI messages (no text content) — skip
+        continue;
+      }
+
+      // Primary discriminator: response_metadata.active_flow
+      // Set exclusively by build_respond_payload() in the respond node.
+      const flowType = extractFlowFromResponseMeta(msg);
+
+      if (flowType) {
+        // Confirmed final message via metadata — always render
+        const stages = deriveStagesFromFlow(flowType);
+        groups.push({ message: msg, stages });
+      } else if (i < lastHumanIdx) {
+        // Before the current turn's human message — historical final message
+        // (may predate the active_flow metadata addition)
+        const stages = deriveStagesFromFlow(null);
+        groups.push({ message: msg, stages });
+      } else if (!isStreaming) {
+        // After last human but not streaming — this is the final response
+        // from a completed turn (backward compat for pre-metadata messages)
+        const stages = deriveStagesFromFlow(null);
+        groups.push({ message: msg, stages });
+      }
+      // else: after last human, no active_flow metadata, AND streaming
+      // → intermediate subgraph output (intent router, evidence agent, etc.)
+      // → skip — these are transient artifacts from streamSubgraphs
+    }
+  }
+
+  // Attach nextHumanMessage to each AI group (for disambiguation selection tracking)
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].message.type !== "human") {
+      for (let j = i + 1; j < groups.length; j++) {
+        if (groups[j].message.type === "human") {
+          groups[i].nextHumanMessage = groups[j].message;
+          break;
+        }
+      }
+    }
+  }
+
+  return groups;
+}

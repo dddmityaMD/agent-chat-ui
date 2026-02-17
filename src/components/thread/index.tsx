@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { Component, ReactNode, useEffect, useRef } from "react";
+import { Component, ReactNode, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
@@ -12,6 +12,8 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
+import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, inferFlowFromIntent, type StreamingStateValues } from "@/lib/message-groups";
+import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
 import { LangGraphLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
@@ -253,6 +255,76 @@ function EditableThreadTitle({
   );
 }
 
+/**
+ * Fields used for streaming stage details. Delta comparison is applied to
+ * these to filter out stale checkpoint data from previous turns.
+ */
+const DETAIL_FIELDS = [
+  "resolved_entities",
+  "intent",
+  "intent_confidence",
+  "active_flow",
+  "evidence_result",
+  "findings",
+] as const;
+
+/**
+ * Gate streaming values by turn_id match, then apply baseline-delta comparison
+ * to filter out stale checkpoint fields from previous turns.
+ *
+ * Two-layer filter:
+ * 1. turn_id gate — before the backend stamps this turn's ID, show nothing
+ * 2. baseline delta — when turn_id first matches, snapshot the (stale) checkpoint
+ *    values; only show fields whose deep value changed since that snapshot
+ *
+ * This handles the gap where _touch_thread sets turn_id but resolved_entities,
+ * intent, evidence_result etc. still hold previous-turn data until their
+ * respective nodes run and update them.
+ */
+function useCurrentTurnDelta(
+  streamValues: StreamingStateValues,
+  currentTurnId: string | null,
+): StreamingStateValues {
+  const baselineRef = useRef<Record<string, string> | null>(null);
+  const prevMatchRef = useRef(false);
+
+  const matches = !!currentTurnId && streamValues.turn_id === currentTurnId;
+
+  // On first turn_id match: snapshot stale checkpoint values as baseline
+  if (matches && !prevMatchRef.current) {
+    const snap: Record<string, string> = {};
+    for (const f of DETAIL_FIELDS) {
+      snap[f] = JSON.stringify(streamValues[f]);
+    }
+    baselineRef.current = snap;
+  }
+
+  // When turn ends (no match after previously matching): clear baseline
+  if (!matches && prevMatchRef.current) {
+    baselineRef.current = null;
+  }
+
+  prevMatchRef.current = matches;
+
+  // Before turn_id matches: nothing to show
+  if (!matches) return {};
+
+  // No baseline (first turn, no stale data): return all values
+  if (!baselineRef.current) return streamValues;
+
+  // Delta: only include fields whose deep value changed since baseline
+  const baseline = baselineRef.current;
+  const delta: StreamingStateValues = {};
+
+  for (const f of DETAIL_FIELDS) {
+    if (JSON.stringify(streamValues[f]) !== baseline[f]) {
+      (delta as Record<string, unknown>)[f] = streamValues[f];
+    }
+  }
+
+  return delta;
+}
+
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
@@ -281,11 +353,14 @@ export function Thread() {
   const { permissionState, addPermissionGrant, clearPermissionGrants } = usePermissionState();
   const { threads, updateThread, getThreads, setThreads } = useThreads();
   const currentThread = threads.find((t) => t.thread_id === threadId) ?? null;
-  const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   // Optimistic human message: shown immediately on submit so the loading
   // dots appear below it, not below the previous AI message.  Cleared once
   // the message shows up in stream.messages (by ID match).
   const [pendingHumanMessage, setPendingHumanMessage] = useState<Message | null>(null);
+  // Track the current turn's human message ID for the entire streaming duration.
+  // Unlike pendingHumanMessage (cleared early when the message appears in stream),
+  // this ref persists until streaming ends so the turn marker filter stays active.
+  const currentTurnIdRef = useRef<string | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
   const [casePanelOpen, setCasePanelOpen] = useQueryState(
@@ -297,6 +372,33 @@ export function Thread() {
   const messages = stream.messages;
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
+
+  // Clear turn ID ref only on the streaming→idle transition (not every idle render).
+  // Without this guard, the ref set in handleSubmit would be wiped on the immediate
+  // re-render before isLoading transitions to true.
+  const prevStreamingRef = useRef(false);
+  if (!isLoading && prevStreamingRef.current) {
+    currentTurnIdRef.current = null;
+  }
+  prevStreamingRef.current = isLoading;
+
+  // Filter streaming values: turn_id gate + baseline delta to exclude stale data
+  const rawStreamValues = (stream.values ?? {}) as StreamingStateValues;
+  const currentTurnId = currentTurnIdRef.current;
+  const currentTurnValues = useCurrentTurnDelta(rawStreamValues, currentTurnId);
+
+  // Group messages into renderable units (UAT-4: thought process pane).
+  // Each AI message gets stages derived from the flow type.
+  // During streaming, intermediate subgraph outputs (lacking active_flow
+  // in response_metadata) are filtered out — metadata-driven, no content
+  // inspection.  When not streaming, all AI messages render (backward compat).
+  const messageGroups = useMemo(
+    () => groupMessages(
+      messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
+      { isStreaming: isLoading },
+    ),
+    [messages, isLoading],
+  );
 
   // Sync permission grants from backend sais_ui state to local React state.
   // When a stream completes (isLoading transitions false), reconcile local
@@ -378,25 +480,10 @@ export function Thread() {
     }
   }, [messages, pendingHumanMessage]);
 
-  // TODO: this should be part of the useStream hook
-  const prevMessageLength = useRef(0);
-  useEffect(() => {
-    if (
-      messages.length !== prevMessageLength.current &&
-      messages?.length &&
-      messages[messages.length - 1].type === "ai"
-    ) {
-      setFirstTokenReceived(true);
-    }
-
-    prevMessageLength.current = messages.length;
-  }, [messages]);
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
       return;
-    setFirstTokenReceived(false);
     // Build the message first so we can use it for both optimistic render
     // and the actual submit payload.
     const newHumanMessage: Message = {
@@ -410,6 +497,7 @@ export function Thread() {
 
     // Show the human message immediately so loading dots appear below it.
     setPendingHumanMessage(newHumanMessage);
+    currentTurnIdRef.current = newHumanMessage.id ?? null;
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
 
@@ -446,9 +534,6 @@ export function Thread() {
 
   const handleRegenerate = useCallback(
     (parentCheckpoint: Checkpoint | null | undefined) => {
-      // Do this so the loading state is correct
-      prevMessageLength.current = prevMessageLength.current - 1;
-      setFirstTokenReceived(false);
       stream.submit(undefined, {
         checkpoint: parentCheckpoint,
         streamMode: ["values"],
@@ -482,7 +567,6 @@ export function Thread() {
   const handleRetry = () => {
     const text = getLastUserMessageText();
     if (!text) return;
-    setFirstTokenReceived(false);
 
     const retryMessage: Message = {
       id: uuidv4(),
@@ -490,6 +574,7 @@ export function Thread() {
       content: [{ type: "text", text }] as Message["content"],
     };
     setPendingHumanMessage(retryMessage);
+    currentTurnIdRef.current = retryMessage.id ?? null;
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
     stream.submit(
@@ -703,20 +788,20 @@ export function Thread() {
               contentClassName="pt-8 pb-16 max-w-3xl mx-auto flex flex-col gap-4 w-full"
               content={
                 <>
-                  {messages
-                    .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
-                    .map((message, index) => (
-                      <MessageErrorBoundary key={message.id || `${message.type}-${index}`}>
-                        {message.type === "human" ? (
+                  {messageGroups.map((group, index) => (
+                      <MessageErrorBoundary key={group.message.id || `${group.message.type}-${index}`}>
+                        {group.message.type === "human" ? (
                           <HumanMessage
-                            message={message}
+                            message={group.message}
                             isLoading={isLoading}
                           />
                         ) : (
                           <AssistantMessage
-                            message={message}
+                            message={group.message}
                             isLoading={isLoading}
                             handleRegenerate={handleRegenerate}
+                            stages={group.stages}
+                            nextHumanMessage={group.nextHumanMessage}
                           />
                         )}
                       </MessageErrorBoundary>
@@ -743,9 +828,24 @@ export function Thread() {
                       />
                     </MessageErrorBoundary>
                   )}
-                  {isLoading && !firstTokenReceived && (
-                    <AssistantMessageLoading />
-                  )}
+                  {isLoading && (() => {
+                    // Check if the current turn has a final AI response in messageGroups.
+                    // During streaming, intermediate messages are filtered out, so we need
+                    // to show a streaming indicator until the final response arrives.
+                    const lastGroup = messageGroups[messageGroups.length - 1];
+                    const hasFinalResponse = lastGroup && lastGroup.message.type === "ai";
+                    if (!hasFinalResponse) {
+                      // currentTurnValues: only populated when stream.values.turn_id matches
+                      // the current turn's human message ID. Stale checkpoint data returns {}.
+                      const streamFlow = currentTurnValues.active_flow || inferFlowFromIntent(currentTurnValues.intent) || saisUiData.flowType;
+                      const streamingStages = deriveStagesFromFlow(streamFlow);
+                      const stageDetails = deriveStageDetails(currentTurnValues);
+                      const enrichedStages = applyStageDetails(streamingStages, stageDetails);
+                      const minReveal = computeDataDrivenReveal(currentTurnValues, streamingStages);
+                      return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} />;
+                    }
+                    return null;
+                  })()}
                   {/* Inline error indicator with Retry and Edit & Retry */}
                   {!isLoading && stream.error && (
                     <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
