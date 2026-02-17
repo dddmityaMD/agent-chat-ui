@@ -17,6 +17,8 @@ const mockRefresh = jest.fn().mockResolvedValue(undefined);
 const mockUseReadinessPolling = jest.fn();
 const mockUseParallelExecution = jest.fn();
 
+const mockUseSetupStatus = jest.fn();
+
 jest.mock("@/hooks/useConnectorStatus", () => ({
   useReadinessPolling: (options: unknown) => mockUseReadinessPolling(options),
   useParallelExecution: (options: unknown) => mockUseParallelExecution(options),
@@ -31,6 +33,10 @@ jest.mock("@/hooks/useConnectorStatus", () => ({
   },
   formatLastFetch: (dateString: string | null) =>
     dateString ? "2 minutes ago" : "Never",
+}));
+
+jest.mock("@/hooks/useSetupStatus", () => ({
+  useSetupStatus: (...args: unknown[]) => mockUseSetupStatus(...args),
 }));
 
 // Mock ConnectorStatusCard
@@ -99,6 +105,12 @@ describe("ReadinessPanel", () => {
     mockUseParallelExecution.mockReturnValue({
       jobs: [],
       isExecuting: false,
+    });
+
+    mockUseSetupStatus.mockReturnValue({
+      data: { has_connectors: true, is_ready: true },
+      loading: false,
+      error: null,
     });
   });
 
@@ -296,9 +308,14 @@ describe("ReadinessPanel", () => {
         error: null,
         refresh: mockRefresh,
       });
+      mockUseSetupStatus.mockReturnValue({
+        data: { has_connectors: false, is_ready: false },
+        loading: false,
+        error: null,
+      });
 
       render(<ReadinessPanel />);
-      expect(screen.getByText("No connectors configured")).toBeInTheDocument();
+      expect(screen.getByText("No data sources connected")).toBeInTheDocument();
     });
 
     it("shows loading message when loading with no connectors", () => {
