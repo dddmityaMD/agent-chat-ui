@@ -102,6 +102,8 @@ interface LineageGraphProps {
   isFullscreen?: boolean;
   /** Callback to toggle fullscreen. */
   onToggleFullscreen?: () => void;
+  /** Canonical keys to filter the graph to (show these + their upstream/downstream). */
+  filterEntities?: string[];
 }
 
 // -------------------------------------------------------------------
@@ -379,6 +381,7 @@ function LineageGraphInner({
   impactNodeId,
   isFullscreen,
   onToggleFullscreen,
+  filterEntities,
 }: LineageGraphProps) {
   // State: direction, selected node, layers
   const [direction, setDirection] = useState<Direction>("both");
@@ -393,7 +396,7 @@ function LineageGraphInner({
   const [hideUnaffected, setHideUnaffected] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  const { setViewport } = useReactFlow();
+  const { setViewport, fitView } = useReactFlow();
 
   const {
     nodes: rawNodes,
@@ -526,6 +529,63 @@ function LineageGraphInner({
       })),
     );
   }, [direction, selectedNode, rawEdges, setNodes, setEdges]);
+
+  // -- External entity filter: show matching nodes + upstream/downstream ------
+  // filterEntities contains canonical keys from grounded entities.
+  // When active, BFS from matched nodes to show their full lineage.
+  React.useEffect(() => {
+    if (!filterEntities || filterEntities.length === 0) return;
+    // Don't override manual node selection
+    if (selectedNode) return;
+
+    // Match canonical keys to node IDs
+    const canonicalSet = new Set(filterEntities);
+    const matchedIds: string[] = [];
+    for (const node of rawNodes) {
+      if (node.type === "groupNode") continue;
+      const payload = node.data as unknown as LineageNodePayload;
+      if (payload.canonicalKey && canonicalSet.has(payload.canonicalKey)) {
+        matchedIds.push(node.id);
+      }
+    }
+
+    if (matchedIds.length === 0) return;
+
+    // BFS from all matched nodes in both directions
+    const reachable = new Set<string>(matchedIds);
+    const queue = [...matchedIds];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const e of rawEdges) {
+        if (e.source === current && !reachable.has(e.target)) {
+          reachable.add(e.target);
+          queue.push(e.target);
+        }
+        if (e.target === current && !reachable.has(e.source)) {
+          reachable.add(e.source);
+          queue.push(e.source);
+        }
+      }
+    }
+
+    setNodes((current) =>
+      current.map((n) =>
+        n.type === "groupNode" ? n : { ...n, hidden: !reachable.has(n.id) },
+      ),
+    );
+    setEdges((current) =>
+      current.map((e) => ({
+        ...e,
+        hidden: !reachable.has(e.source) || !reachable.has(e.target),
+      })),
+    );
+
+    // Fit viewport to visible nodes after a frame
+    requestAnimationFrame(() => {
+      fitView({ duration: 300, padding: 0.2 });
+    });
+  }, [filterEntities, selectedNode, rawNodes, rawEdges, setNodes, setEdges, fitView]);
 
   // -- Event handlers -------------------------------------------------------
 

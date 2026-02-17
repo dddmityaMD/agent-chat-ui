@@ -173,7 +173,6 @@ jest.mock("@/components/thread/messages/verification-badge", () => ({
 
 jest.mock("@/components/lineage-link", () => ({
   ViewInLineageButton: () => <div data-testid="lineage-button" />,
-  extractLineageEntities: () => [],
 }));
 
 jest.mock("@/components/thread/messages/tool-calls", () => ({

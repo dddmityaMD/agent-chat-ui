@@ -33,7 +33,7 @@ import { ClarificationCard, getClarification } from "../clarification-card";
 import { DisambiguationCard, getPendingDisambiguation } from "../disambiguation-card";
 import { BuildPlanDisplay } from "./build-plan";
 import { VerificationBadge } from "./verification-badge";
-import { ViewInLineageButton, extractLineageEntities } from "@/components/lineage-link";
+import { ViewInLineageButton } from "@/components/lineage-link";
 import {
   useSaisUi,
   extractHandoffProposal,
@@ -558,8 +558,8 @@ function LastMessageDecorations({
         content={contentString}
       />
 
-      {/* Lineage deep-link button */}
-      <ViewInLineageButton entities={extractLineageEntities(contentString)} />
+      {/* Lineage deep-link button — only for grounded entities */}
+      <ViewInLineageButton entities={saisUiData.groundedEntities} />
 
       {/* Build plan display */}
       {buildPlan && buildPlanStatus === "proposed" && (
@@ -688,12 +688,10 @@ function LastMessageDecorations({
  */
 const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
   message,
-  isLoading,
   contentString,
   msgResponseMeta,
 }: {
   message: Message | undefined;
-  isLoading: boolean;
   contentString: string;
   msgResponseMeta: Record<string, unknown> | undefined;
 }) {
@@ -744,7 +742,7 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
               }))}
               entityType={section.entity_type}
               totalCount={section.total}
-              isLoading={isLoading}
+              isLoading={false}
             />
           </details>
         )
@@ -755,17 +753,14 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
         saisUiConfidence={null}
         content={contentString}
       />
-
-      {/* Lineage deep-link button */}
-      <ViewInLineageButton entities={extractLineageEntities(contentString)} />
     </>
   );
 }, (prev, next) => {
-  // Custom comparator: only re-render when message content or loading state changes
+  // Custom comparator: only re-render when message content changes.
+  // Historical messages are complete — no loading state needed.
   return (
     prev.message?.id === next.message?.id &&
-    prev.contentString === next.contentString &&
-    prev.isLoading === next.isLoading
+    prev.contentString === next.contentString
   );
 });
 
@@ -849,7 +844,6 @@ export function AssistantMessage({
             ) : (
               <HistoricalMessageContent
                 message={message}
-                isLoading={isLoading}
                 contentString={contentString}
                 msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
               />

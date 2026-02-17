@@ -103,6 +103,10 @@ export interface UseSaisUiResult {
   hasPermissionGrants: boolean;
   /** Array of permission grants */
   permissionGrants: SaisUiPermissionGrant[];
+
+  // Grounded entities (resolved this turn)
+  /** Canonical keys + names of grounded entities for lineage filtering */
+  groundedEntities: Array<{ canonical_key: string; name: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +325,14 @@ export function useSaisUi(): UseSaisUiResult {
         ? ((permissions as { grants: SaisUiPermissionGrant[] }).grants)
         : [];
 
+    // Grounded entities for lineage filtering
+    const groundedEntities: Array<{ canonical_key: string; name: string }> =
+      parsed && typeof parsed === "object" && "grounded_entities" in parsed && Array.isArray(parsed.grounded_entities)
+        ? (parsed.grounded_entities as Array<{ canonical_key: string; name: string }>).filter(
+            (e) => typeof e.canonical_key === "string" && e.canonical_key.length > 0,
+          )
+        : [];
+
     return {
       raw: parsed,
       flowType,
@@ -346,6 +358,7 @@ export function useSaisUi(): UseSaisUiResult {
       permissions,
       hasPermissionGrants: permissionGrants.length > 0,
       permissionGrants,
+      groundedEntities,
     };
   }, [rawSaisUi]); // Recompute only when sais_ui reference changes
 }

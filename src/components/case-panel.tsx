@@ -190,14 +190,20 @@ export function CasePanel({ className }: { className?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabValue>("summary");
-  const [lineageFilter, setLineageFilter] = useState<{ entities: string[] } | null>(null);
+  const [lineageFilter, setLineageFilter] = useState<{
+    canonicalKeys: string[];
+    displayNames: string[];
+  } | null>(null);
 
   // Listen for lineage navigation events from AI messages (cross-component communication)
   useEffect(() => {
     function handleLineageNavigate(e: Event) {
       const detail = (e as CustomEvent<LineageNavigateDetail>).detail;
-      if (detail?.entities?.length > 0) {
-        setLineageFilter({ entities: detail.entities });
+      if (detail?.canonicalKeys?.length > 0) {
+        setLineageFilter({
+          canonicalKeys: detail.canonicalKeys,
+          displayNames: detail.displayNames,
+        });
         setActiveTab("lineage");
       }
     }
@@ -535,7 +541,7 @@ export function CasePanel({ className }: { className?: string }) {
                 style={{ minHeight: "400px" }}
               >
                 {/* Lineage filter chip */}
-                {lineageFilter && lineageFilter.entities.length > 0 && (
+                {lineageFilter && lineageFilter.canonicalKeys.length > 0 && (
                   <div
                     className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-950"
                     data-testid="lineage-filter"
@@ -544,7 +550,7 @@ export function CasePanel({ className }: { className?: string }) {
                     <span className="text-xs text-blue-700 dark:text-blue-300">
                       Showing lineage for:{" "}
                       <span className="font-medium">
-                        {lineageFilter.entities.join(", ")}
+                        {lineageFilter.displayNames.join(", ")}
                       </span>
                     </span>
                     <button
@@ -568,6 +574,7 @@ export function CasePanel({ className }: { className?: string }) {
                 >
                   <LineageGraph
                     className="h-full min-h-[400px] rounded-md border bg-card"
+                    filterEntities={lineageFilter?.canonicalKeys}
                   />
                 </Suspense>
               </div>

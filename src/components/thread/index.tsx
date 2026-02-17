@@ -3,7 +3,7 @@ import { Component, ReactNode, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
-import { useState, FormEvent } from "react";
+import { useState, useCallback, FormEvent } from "react";
 import { Button } from "../ui/button";
 import { Checkpoint, Message } from "@langchain/langgraph-sdk";
 import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
@@ -444,19 +444,20 @@ export function Thread() {
     setContentBlocks([]);
   };
 
-  const handleRegenerate = (
-    parentCheckpoint: Checkpoint | null | undefined,
-  ) => {
-    // Do this so the loading state is correct
-    prevMessageLength.current = prevMessageLength.current - 1;
-    setFirstTokenReceived(false);
-    stream.submit(undefined, {
-      checkpoint: parentCheckpoint,
-      streamMode: ["values"],
-      streamSubgraphs: true,
-      streamResumable: true,
-    });
-  };
+  const handleRegenerate = useCallback(
+    (parentCheckpoint: Checkpoint | null | undefined) => {
+      // Do this so the loading state is correct
+      prevMessageLength.current = prevMessageLength.current - 1;
+      setFirstTokenReceived(false);
+      stream.submit(undefined, {
+        checkpoint: parentCheckpoint,
+        streamMode: ["values"],
+        streamSubgraphs: true,
+        streamResumable: true,
+      });
+    },
+    [stream.submit],
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
