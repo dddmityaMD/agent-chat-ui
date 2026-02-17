@@ -289,8 +289,12 @@ export function CasePanel({ className }: { className?: string }) {
     if (casePanelSection !== "permissions") return;
     // Navigate to summary tab where permissions live, then scroll
     setActiveTab("summary");
-    const section = document.getElementById("permissions-section");
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Permissions is inside a <details> — open it before scrolling
+    const section = document.getElementById("permissions-section") as HTMLDetailsElement | null;
+    if (section) {
+      section.open = true;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     setCasePanelSection(null);
   }, [casePanelSection, setCasePanelSection]);
 
@@ -306,10 +310,11 @@ export function CasePanel({ className }: { className?: string }) {
     ? (findings.key_observations?.length ?? 0) + (findings.root_cause ? 1 : 0)
     : 0;
 
+  const investigationCount = evidenceCount + findingsCount;
+
   const getBadgeCount = (tabValue: string): number | undefined => {
     switch (tabValue) {
-      case "evidence": return evidenceCount > 0 ? evidenceCount : undefined;
-      case "findings": return findingsCount > 0 ? findingsCount : undefined;
+      case "investigation": return investigationCount > 0 ? investigationCount : undefined;
       default: return undefined;
     }
   };
@@ -345,7 +350,6 @@ export function CasePanel({ className }: { className?: string }) {
               loading={loading}
               error={error}
               checks={checks}
-              mismatch={mismatch}
               requestedTypes={requestedTypes}
               shouldShowMissingWarning={shouldShowMissingWarning}
               getMissingMessage={getMissingMessage}
@@ -355,177 +359,185 @@ export function CasePanel({ className }: { className?: string }) {
             />
           </Tabs.Content>
 
-          {/* Evidence Tab */}
-          <Tabs.Content value="evidence" className="p-4">
+          {/* Investigation Tab (merged Evidence + Findings + Mismatch) */}
+          <Tabs.Content value="investigation" className="p-4">
             {summary ? (
-              <div
-                data-testid="evidence-panel"
-                className="space-y-2"
-              >
-                {(summary.evidence ?? []).length === 0 ? (
-                  <div className="text-muted-foreground rounded-md border bg-card p-3 text-sm">
-                    No evidence yet.
-                  </div>
-                ) : (
-                  (summary.evidence ?? []).slice(0, 25).map((e: any, idx: number) => (
-                    <EvidenceViewer
-                      key={String(e.evidence_id ?? e.title ?? `ev-${idx}`)}
-                      evidence={e as EvidenceItem}
-                      defaultExpanded={false}
-                    />
-                  ))
-                )}
-              </div>
-            ) : (
-              <div className="text-muted-foreground text-sm">No thread selected.</div>
-            )}
-          </Tabs.Content>
-
-          {/* Findings Tab */}
-          <Tabs.Content value="findings" className="p-4">
-            {summary ? (
-              <div className="grid gap-3">
-                {/* Root Cause */}
-                {findings?.root_cause ? (
-                  <div className="rounded-md border border-green-200 bg-green-50 p-3">
-                    <div className="text-sm font-semibold text-green-800">
-                      Root Cause
-                    </div>
-                    <div className="mt-1 text-sm">
-                      {findings.root_cause.statement}
-                    </div>
-                    <div className="mt-1 text-xs text-green-700">
-                      Confidence:{" "}
-                      {Math.round(findings.root_cause.confidence * 100)}%
-                    </div>
-                    <LinkedEvidence
-                      evidenceIds={findings.root_cause.evidence_ids}
-                      allEvidence={
-                        (summary.evidence ?? []) as unknown as EvidenceItem[]
-                      }
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-md border bg-card p-3">
-                    <div className="text-sm font-semibold">Root Cause</div>
-                    <div className="text-muted-foreground mt-1 text-sm">
-                      Not yet identified
-                    </div>
-                  </div>
-                )}
-
-                {/* Key Observations */}
-                {findings?.key_observations &&
-                  findings.key_observations.length > 0 && (
+              <div className="grid gap-4">
+                {/* Mismatch Section */}
+                {Object.keys(mismatch).length > 0 && (
+                  <div className="grid gap-2">
+                    <div className="text-sm font-semibold">Mismatch</div>
                     <div className="rounded-md border bg-card p-3">
-                      <div className="text-sm font-semibold">
-                        Key Observations
-                      </div>
-                      <ul className="mt-2 space-y-3">
-                        {findings.key_observations.map((obs, i) => (
-                          <li
-                            key={i}
-                            className="text-sm"
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-muted-foreground">&#8226;</span>
-                              <div className="flex-1">
-                                <span>{obs.statement}</span>
-                                <span className="text-muted-foreground ml-1 text-xs">
-                                  ({Math.round(obs.confidence * 100)}%)
-                                </span>
-                                <LinkedEvidence
-                                  evidenceIds={obs.evidence_ids}
-                                  allEvidence={
-                                    (summary.evidence ??
-                                      []) as unknown as EvidenceItem[]
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                {/* Recommended Fix */}
-                {findings?.recommended_fix && (
-                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-                    <div className="text-sm font-semibold text-blue-800">
-                      Recommended Fix
-                    </div>
-                    <ol className="mt-2 list-inside list-decimal space-y-1">
-                      {findings.recommended_fix.steps.map((step, i) => (
-                        <li
-                          key={i}
-                          className="text-sm"
-                        >
-                          {step}
-                        </li>
+                      {Object.entries(mismatch).map(([key, value]) => (
+                        <div key={key} className="text-sm">
+                          <span className="capitalize">
+                            {key.replace(/_/g, " ")}:{" "}
+                          </span>
+                          <span className="font-mono">{value ?? "\u2014"}</span>
+                        </div>
                       ))}
-                    </ol>
-                    {findings.recommended_fix.risks.length > 0 && (
-                      <div className="mt-2 text-xs text-amber-700">
-                        Risks: {findings.recommended_fix.risks.join(", ")}
+                    </div>
+                  </div>
+                )}
+
+                {/* Evidence Section */}
+                <div className="grid gap-2">
+                  <div className="text-sm font-semibold">Evidence</div>
+                  <div
+                    data-testid="evidence-panel"
+                    className="space-y-2"
+                  >
+                    {(summary.evidence ?? []).length === 0 ? (
+                      <div className="text-muted-foreground rounded-md border bg-card p-3 text-sm">
+                        No evidence yet.
+                      </div>
+                    ) : (
+                      (summary.evidence ?? []).slice(0, 25).map((e: any, idx: number) => (
+                        <EvidenceViewer
+                          key={String(e.evidence_id ?? e.title ?? `ev-${idx}`)}
+                          evidence={e as EvidenceItem}
+                          defaultExpanded={false}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Findings Section */}
+                <div className="grid gap-2">
+                  <div className="text-sm font-semibold">Findings</div>
+                  <div className="grid gap-3">
+                    {/* Root Cause */}
+                    {findings?.root_cause ? (
+                      <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                        <div className="text-sm font-semibold text-green-800">
+                          Root Cause
+                        </div>
+                        <div className="mt-1 text-sm">
+                          {findings.root_cause.statement}
+                        </div>
+                        <div className="mt-1 text-xs text-green-700">
+                          Confidence:{" "}
+                          {Math.round(findings.root_cause.confidence * 100)}%
+                        </div>
+                        <LinkedEvidence
+                          evidenceIds={findings.root_cause.evidence_ids}
+                          allEvidence={
+                            (summary.evidence ?? []) as unknown as EvidenceItem[]
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-md border bg-card p-3">
+                        <div className="text-sm font-semibold">Root Cause</div>
+                        <div className="text-muted-foreground mt-1 text-sm">
+                          Not yet identified
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Key Observations */}
+                    {findings?.key_observations &&
+                      findings.key_observations.length > 0 && (
+                        <div className="rounded-md border bg-card p-3">
+                          <div className="text-sm font-semibold">
+                            Key Observations
+                          </div>
+                          <ul className="mt-2 space-y-3">
+                            {findings.key_observations.map((obs, i) => (
+                              <li key={i} className="text-sm">
+                                <div className="flex items-start gap-2">
+                                  <span className="text-muted-foreground">&#8226;</span>
+                                  <div className="flex-1">
+                                    <span>{obs.statement}</span>
+                                    <span className="text-muted-foreground ml-1 text-xs">
+                                      ({Math.round(obs.confidence * 100)}%)
+                                    </span>
+                                    <LinkedEvidence
+                                      evidenceIds={obs.evidence_ids}
+                                      allEvidence={
+                                        (summary.evidence ??
+                                          []) as unknown as EvidenceItem[]
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {/* Recommended Fix */}
+                    {findings?.recommended_fix && (
+                      <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+                        <div className="text-sm font-semibold text-blue-800">
+                          Recommended Fix
+                        </div>
+                        <ol className="mt-2 list-inside list-decimal space-y-1">
+                          {findings.recommended_fix.steps.map((step, i) => (
+                            <li key={i} className="text-sm">
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                        {findings.recommended_fix.risks.length > 0 && (
+                          <div className="mt-2 text-xs text-amber-700">
+                            Risks: {findings.recommended_fix.risks.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Next Tests */}
+                    {findings?.recommended_next_tests &&
+                      findings.recommended_next_tests.length > 0 && (
+                        <div className="rounded-md border bg-card p-3">
+                          <div className="text-sm font-semibold">Next Steps</div>
+                          <ul className="mt-2 space-y-2">
+                            {findings.recommended_next_tests.map((test, i) => (
+                              <li key={i} className="text-sm">
+                                <div className="font-medium">{test.test}</div>
+                                <div className="text-muted-foreground text-xs">
+                                  {test.why}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {/* Open Questions */}
+                    {findings?.open_questions &&
+                      findings.open_questions.length > 0 && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+                          <div className="text-sm font-semibold text-amber-800">
+                            Open Questions
+                          </div>
+                          <ul className="mt-2 space-y-2">
+                            {findings.open_questions.map((q, i) => (
+                              <li key={i} className="text-sm">
+                                <div className="font-medium">{q.question}</div>
+                                <div className="text-xs text-amber-700">
+                                  {q.why_missing}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {/* No findings yet */}
+                    {!findings && (
+                      <div className="rounded-md border bg-card p-3">
+                        <div className="text-muted-foreground text-sm">
+                          No findings yet. Start an investigation to generate
+                          findings.
+                        </div>
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* Next Tests */}
-                {findings?.recommended_next_tests &&
-                  findings.recommended_next_tests.length > 0 && (
-                    <div className="rounded-md border bg-card p-3">
-                      <div className="text-sm font-semibold">Next Steps</div>
-                      <ul className="mt-2 space-y-2">
-                        {findings.recommended_next_tests.map((test, i) => (
-                          <li
-                            key={i}
-                            className="text-sm"
-                          >
-                            <div className="font-medium">{test.test}</div>
-                            <div className="text-muted-foreground text-xs">
-                              {test.why}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                {/* Open Questions */}
-                {findings?.open_questions &&
-                  findings.open_questions.length > 0 && (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                      <div className="text-sm font-semibold text-amber-800">
-                        Open Questions
-                      </div>
-                      <ul className="mt-2 space-y-2">
-                        {findings.open_questions.map((q, i) => (
-                          <li
-                            key={i}
-                            className="text-sm"
-                          >
-                            <div className="font-medium">{q.question}</div>
-                            <div className="text-xs text-amber-700">
-                              {q.why_missing}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                {/* No findings yet */}
-                {!findings && (
-                  <div className="rounded-md border bg-card p-3">
-                    <div className="text-muted-foreground text-sm">
-                      No findings yet. Start an investigation to generate
-                      findings.
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground text-sm">No thread selected.</div>

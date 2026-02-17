@@ -39,7 +39,6 @@ const defaultProps = {
   loading: false,
   error: null,
   checks: [],
-  mismatch: {},
   requestedTypes: new Set() as Set<any>,
   shouldShowMissingWarning: jest.fn(() => false),
   getMissingMessage: jest.fn(() => null),
@@ -168,46 +167,7 @@ describe("SummaryTab", () => {
     expect(screen.getByText("Revoke")).toBeInTheDocument();
   });
 
-  it("renders mismatch section with data", () => {
-    const summary = {
-      thread: {
-        thread_id: "thread-1",
-        workspace_id: null,
-        title: "Test",
-        is_pinned: false,
-        is_archived: false,
-        created_at: "2026-01-01T00:00:00Z",
-        last_activity_at: "2026-01-01T00:00:00Z",
-        last_message_preview: null,
-      },
-    };
-    render(
-      <SummaryTab
-        {...defaultProps}
-        summary={summary as any}
-        mismatch={{ row_count: "100 vs 95" }}
-      />,
-    );
-    expect(screen.getByText(/row count/i)).toBeInTheDocument();
-    expect(screen.getByText("100 vs 95")).toBeInTheDocument();
-  });
-
-  it("renders 'No comparison data yet' when mismatch is empty", () => {
-    const summary = {
-      thread: {
-        thread_id: "thread-1",
-        workspace_id: null,
-        title: "Test",
-        is_pinned: false,
-        is_archived: false,
-        created_at: "2026-01-01T00:00:00Z",
-        last_activity_at: "2026-01-01T00:00:00Z",
-        last_message_preview: null,
-      },
-    };
-    render(<SummaryTab {...defaultProps} summary={summary as any} />);
-    expect(screen.getByText("No comparison data yet")).toBeInTheDocument();
-  });
+  // Mismatch section moved to Investigation tab in case-panel.tsx
 
   it("renders evidence checks list", () => {
     const summary = {

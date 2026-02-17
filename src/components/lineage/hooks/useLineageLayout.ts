@@ -52,7 +52,7 @@ export function getLayoutedNodes(
 
   if (dataNodes.length === 0) return nodes;
 
-  const { rankdir = "LR", nodesep = 60, ranksep = 250 } = options;
+  const { rankdir = "LR", nodesep = 60, ranksep = 100 } = options;
 
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir, nodesep, ranksep });
@@ -171,7 +171,7 @@ export function useLineageLayout(
   options?: LayoutOptions,
 ): Node[] {
   const nodesInitialized = useNodesInitialized();
-  const { getNodes, setNodes, setViewport } = useReactFlow();
+  const { getNodes, setNodes, fitView } = useReactFlow();
   const layoutApplied = useRef(false);
 
   // Count only data nodes (not group overlays) for change detection
@@ -192,20 +192,12 @@ export function useLineageLayout(
     setNodes(positioned);
     layoutApplied.current = true;
 
-    // Center viewport on the top-left region of the graph at zoom=1
-    // so nodes are readable. User can pan/scroll to explore.
-    window.requestAnimationFrame(() => {
-      const dataPositioned = positioned.filter((n) => n.type !== "groupNode");
-      if (dataPositioned.length === 0) return;
-      let minX = Infinity;
-      let minY = Infinity;
-      for (const n of dataPositioned) {
-        minX = Math.min(minX, n.position.x);
-        minY = Math.min(minY, n.position.y);
-      }
-      setViewport({ x: -(minX - 20), y: -(minY - 20), zoom: 1 });
+    // Fit viewport to show all nodes after layout settles
+    const rafId = window.requestAnimationFrame(() => {
+      fitView({ duration: 0, padding: 0.15, includeHiddenNodes: false });
     });
-  }, [nodesInitialized, dataNodeCount, edges, getNodes, setNodes, setViewport, options]);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [nodesInitialized, dataNodeCount, edges, getNodes, setNodes, fitView, options]);
 
   // Reset flag when data node count changes (e.g., new data fetched).
   // Does NOT reset when group overlay nodes are added/removed.

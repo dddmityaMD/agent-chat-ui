@@ -756,11 +756,12 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
     </>
   );
 }, (prev, next) => {
-  // Custom comparator: only re-render when message content changes.
+  // Custom comparator: only re-render when message content or response_metadata changes.
   // Historical messages are complete — no loading state needed.
   return (
     prev.message?.id === next.message?.id &&
-    prev.contentString === next.contentString
+    prev.contentString === next.contentString &&
+    prev.msgResponseMeta === next.msgResponseMeta
   );
 });
 
@@ -849,19 +850,24 @@ export function AssistantMessage({
               />
             )}
 
-            {!hideToolCalls && (
-              <>
-                {(hasToolCalls && toolCallsHaveContents && (
-                  <ToolCalls toolCalls={message.tool_calls} />
-                )) ||
-                  (hasAnthropicToolCalls && (
-                    <ToolCalls toolCalls={anthropicStreamedToolCalls} />
-                  )) ||
-                  (hasToolCalls && (
-                    <ToolCalls toolCalls={message.tool_calls} />
-                  ))}
-              </>
-            )}
+            {!hideToolCalls && (hasToolCalls || hasAnthropicToolCalls) && (() => {
+              const toolCalls = (hasToolCalls && toolCallsHaveContents)
+                ? message.tool_calls
+                : hasAnthropicToolCalls
+                  ? anthropicStreamedToolCalls
+                  : undefined;
+              if (!toolCalls || toolCalls.length === 0) return null;
+              return (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-xs text-muted-foreground">
+                    Internal discussion ({toolCalls.length})
+                  </summary>
+                  <div className="mt-1 space-y-1">
+                    <ToolCalls toolCalls={toolCalls} />
+                  </div>
+                </details>
+              );
+            })()}
 
             {message && (
               <CustomComponent

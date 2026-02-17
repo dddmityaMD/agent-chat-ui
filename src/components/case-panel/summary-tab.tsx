@@ -21,7 +21,6 @@ interface SummaryTabProps {
   loading: boolean;
   error: string | null;
   checks: Array<{ id: string; label: string; ok: boolean; requested: boolean }>;
-  mismatch: Record<string, string>;
   requestedTypes: Set<EvidenceType>;
   shouldShowMissingWarning: (type: EvidenceType, ok: boolean) => boolean;
   getMissingMessage: (type: EvidenceType) => string | null;
@@ -43,7 +42,6 @@ export function SummaryTab({
   loading,
   error,
   checks,
-  mismatch,
   requestedTypes,
   shouldShowMissingWarning,
   getMissingMessage,
@@ -84,6 +82,7 @@ export function SummaryTab({
             <div className="flex items-center gap-1 text-muted-foreground text-xs" data-testid="thread-id-display">
               <span className="font-mono select-all">{threadId}</span>
               <button
+                type="button"
                 onClick={handleCopyThreadId}
                 className="text-muted-foreground hover:text-foreground"
                 title="Copy thread ID"
@@ -119,50 +118,18 @@ export function SummaryTab({
             />
           </div>
 
-          {/* Evidence Type Checklist */}
-          <div className="grid gap-2">
-            <div className="text-sm font-semibold">Evidence Status</div>
-            <div className="rounded-md border bg-card p-3">
-              <div className="mt-1 grid gap-1">
-                {checks.map((c) => {
-                  const showMissing = shouldShowMissingWarning(c.id as EvidenceType, c.ok);
-                  const missingMessage = getMissingMessage(c.id as EvidenceType);
+          {/* Agent Context Section */}
+          <ContextPanelSection threadId={threadId} />
 
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span>{c.label}</span>
-                      <span
-                        className={cn(
-                          c.ok && "text-green-700",
-                          showMissing && "text-amber-700",
-                          !c.ok && !showMissing && "text-gray-400",
-                        )}
-                        title={showMissing ? missingMessage || undefined : undefined}
-                      >
-                        {c.ok ? "OK" : showMissing ? "Not found" : "-"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {requestedTypes.size === 0 && (
-                <div className="mt-2 text-xs text-gray-400">
-                  Ask a question to check for relevant evidence
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Permissions */}
-          <div
+          {/* Permissions (collapsed by default) */}
+          <details
             id="permissions-section"
             className="grid gap-2"
             data-testid="permissions-section"
           >
-            <div className="text-sm font-semibold">Permissions</div>
+            <summary className="cursor-pointer text-sm font-semibold">
+              Permissions
+            </summary>
             <div className="rounded-md border bg-card p-3">
               {permissionState.grants.length === 0 ? (
                 <div className="text-muted-foreground text-sm">No active grants</div>
@@ -223,34 +190,46 @@ export function SummaryTab({
                 </div>
               )}
             </div>
-          </div>
+          </details>
 
-          {/* Mismatch Section */}
-          <div className="grid gap-2">
-            <div className="text-sm font-semibold">Mismatch</div>
+          {/* Evidence Status (collapsed by default) */}
+          <details className="grid gap-2">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Evidence Status
+            </summary>
             <div className="rounded-md border bg-card p-3">
-              {Object.keys(mismatch).length === 0 ? (
-                <div className="text-muted-foreground text-sm">
-                  No comparison data yet
+              <div className="mt-1 grid gap-1">
+                {checks.map((c) => {
+                  const showMissing = shouldShowMissingWarning(c.id as EvidenceType, c.ok);
+                  const missingMessage = getMissingMessage(c.id as EvidenceType);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span>{c.label}</span>
+                      <span
+                        className={cn(
+                          c.ok && "text-green-700",
+                          showMissing && "text-amber-700",
+                          !c.ok && !showMissing && "text-gray-400",
+                        )}
+                        title={showMissing ? missingMessage || undefined : undefined}
+                      >
+                        {c.ok ? "OK" : showMissing ? "Not found" : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {requestedTypes.size === 0 && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Ask a question to check for relevant evidence
                 </div>
-              ) : (
-                Object.entries(mismatch).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="text-sm"
-                  >
-                    <span className="capitalize">
-                      {key.replace(/_/g, " ")}:{" "}
-                    </span>
-                    <span className="font-mono">{value ?? "\u2014"}</span>
-                  </div>
-                ))
               )}
             </div>
-          </div>
-
-          {/* Agent Context Section (collapsible) */}
-          <ContextPanelSection threadId={threadId} />
+          </details>
         </>
       )}
     </div>

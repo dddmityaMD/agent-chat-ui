@@ -581,10 +581,11 @@ function LineageGraphInner({
       })),
     );
 
-    // Fit viewport to visible nodes after a frame
-    requestAnimationFrame(() => {
-      fitView({ duration: 300, padding: 0.2 });
-    });
+    // Wait for layout + render cycle to settle, then fit to visible nodes
+    const tid = setTimeout(() => {
+      fitView({ duration: 300, padding: 0.15, includeHiddenNodes: false });
+    }, 150);
+    return () => clearTimeout(tid);
   }, [filterEntities, selectedNode, rawNodes, rawEdges, setNodes, setEdges, fitView]);
 
   // -- Event handlers -------------------------------------------------------
