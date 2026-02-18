@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { getApiBaseUrl } from "@/lib/api-url";
+import { useAuth } from "@/providers/Auth";
 import { toast } from "sonner";
 import { Plus, Save, Trash2 } from "lucide-react";
 
@@ -29,22 +30,27 @@ function ModelPricesSection() {
   const [prices, setPrices] = useState<ModelPriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { setSessionExpired } = useAuth();
 
   const fetchPrices = useCallback(async () => {
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/cost/prices`, {
         credentials: "include",
       });
+      if (res.status === 401) {
+        setSessionExpired(true);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setPrices(data);
       }
     } catch {
-      // ignore
+      // ignore network errors
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setSessionExpired]);
 
   useEffect(() => {
     fetchPrices();
@@ -219,6 +225,7 @@ function BudgetConfigSection() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { setSessionExpired } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -229,6 +236,10 @@ function BudgetConfigSection() {
     ])
       .then(async ([configRes, budgetRes]) => {
         if (cancelled) return;
+        if (configRes.status === 401 || budgetRes.status === 401) {
+          setSessionExpired(true);
+          return;
+        }
         if (configRes.ok) {
           const c = await configRes.json();
           setConfig(c);
@@ -249,7 +260,7 @@ function BudgetConfigSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setSessionExpired]);
 
   const saveConfig = async () => {
     setSaving(true);

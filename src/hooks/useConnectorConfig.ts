@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getApiBaseUrl } from "@/lib/api-url";
+import { useAuth } from "@/providers/Auth";
 
 // ---------------------------------------------------------------------------
 // Types matching backend ConnectorConfigResponse / TestConnectionResponse / SyncResponse
@@ -57,6 +58,7 @@ export function useConnectorConfig() {
   const [connectors, setConnectors] = useState<ConnectorConfigResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { setSessionExpired } = useAuth();
 
   const base = getApiBaseUrl();
 
@@ -67,6 +69,10 @@ export function useConnectorConfig() {
       const resp = await fetch(`${base}/api/connectors/config`, {
         credentials: "include",
       });
+      if (resp.status === 401) {
+        setSessionExpired(true);
+        return [];
+      }
       if (!resp.ok) {
         throw new Error(`Failed to fetch connectors: ${resp.status}`);
       }

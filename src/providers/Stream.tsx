@@ -32,6 +32,20 @@ export type StateType = {
   ui?: UIMessage[];
   // SAIS panel payload (not LangGraph UI messages)
   sais_ui?: unknown;
+  // --- Streaming progress fields (populated by intermediate graph nodes) ---
+  // These mirror backend AgentState fields and are available via stream.values
+  // during streaming. Used by the thought process pane to show stage details.
+  resolved_entities?: Record<string, { name?: string; entity_type?: string; canonical_key?: string }>;
+  intent?: string;
+  intent_confidence?: number;
+  active_flow?: string;
+  evidence_result?: {
+    evidence?: Array<{ type?: string; title?: string }>;
+    still_missing?: string[];
+    metadata_results?: Array<Record<string, unknown>>;
+    catalog_count?: { count?: number; entity_type?: string };
+  };
+  findings?: { root_cause?: { statement?: string; confidence?: number } };
 };
 
 type BagType = {

@@ -45,6 +45,10 @@ import {
   extractBuildPlanStatus,
   extractBuildVerification
 } from "@/hooks/useSaisUi";
+import type { ThoughtStage } from "@/lib/message-groups";
+import { deriveStagesFromFlow, deriveStageDetails, applyStageDetails } from "@/lib/message-groups";
+import { ThoughtProcessPane } from "@/components/thread/thought-process-pane";
+import { HistoricalDisambiguationCard } from "@/components/thread/historical-disambiguation-card";
 
 // Type for a single metadata section (one entity type)
 interface MetadataSection {
@@ -373,16 +377,19 @@ function HandoffConfirmationCard({
  * By extracting it into a separate component, historical messages avoid this
  * subscription entirely, preventing unnecessary re-renders (UX-05 fix).
  */
+
 function LastMessageDecorations({
   message,
   contentString,
   isLoading,
   msgResponseMeta,
+  stages,
 }: {
   message: Message | undefined;
   contentString: string;
   isLoading: boolean;
   msgResponseMeta: Record<string, unknown> | undefined;
+  stages?: ThoughtStage[];
 }) {
   const saisUiData = useSaisUi();
   const thread = useStreamContext();
@@ -494,6 +501,42 @@ function LastMessageDecorations({
           <FlowBadge flowType={activeFlow} />
         </div>
       )}
+
+      {/* Thought process pane (UAT-4) — stage details are per-message data
+           from response_metadata, not per-thread data from stream.values.
+           Same data source for both last and historical messages. */}
+      {(() => {
+        const effectiveStages = (stages && stages.length > 0)
+          ? stages
+          : deriveStagesFromFlow(activeFlow);
+        if (effectiveStages.length === 0) return null;
+        // Derive details from this message's response_metadata (per-message, not per-thread).
+        // This is the same approach as HistoricalMessageContent — consistent data source.
+        const intentFromMeta = msgResponseMeta?.intent as string | undefined;
+        const confFromMeta = msgResponseMeta?.intent_confidence as number | undefined;
+        const entitiesFromMeta = msgResponseMeta?.resolved_entities as
+          Record<string, { name?: string; entity_type?: string }> | undefined;
+        const catalogCount = metadataSections.length > 0
+          ? {
+              count: metadataSections.reduce((sum, s) => sum + s.total, 0),
+              entity_type: metadataSections.length === 1 ? metadataSections[0].entity_type : "items",
+            }
+          : undefined;
+        const stageDetails = deriveStageDetails({
+          intent: intentFromMeta,
+          intent_confidence: confFromMeta,
+          resolved_entities: entitiesFromMeta,
+          evidence_result: catalogCount ? { catalog_count: catalogCount } : undefined,
+        });
+        const enrichedStages = applyStageDetails(effectiveStages, stageDetails);
+        return (
+          <ThoughtProcessPane
+            stages={enrichedStages}
+            isStreaming={isLoading}
+            startCollapsed={false}
+          />
+        );
+      })()}
 
       {/* Multi-intent decomposition */}
       {multiIntentPayload && (
@@ -690,10 +733,14 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
   message,
   contentString,
   msgResponseMeta,
+  stages,
+  nextHumanMessage,
 }: {
   message: Message | undefined;
   contentString: string;
   msgResponseMeta: Record<string, unknown> | undefined;
+  stages?: ThoughtStage[];
+  nextHumanMessage?: Message;
 }) {
   // Per-message metadata_results from response_metadata (not from sais_ui)
   const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
@@ -712,6 +759,45 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
 
   return (
     <>
+      {/* Thought process pane — collapsed for historical messages (UAT-4).
+           Derive stage details from response_metadata which now includes
+           intent, resolved_entities, and metadata_results (catalog count). */}
+      {stages && stages.length > 0 && (() => {
+        const intentFromMeta = msgResponseMeta?.intent as string | undefined;
+        const confFromMeta = msgResponseMeta?.intent_confidence as number | undefined;
+        const entitiesFromMeta = msgResponseMeta?.resolved_entities as
+          Record<string, { name?: string; entity_type?: string }> | undefined;
+        // Reconstruct catalog count from metadata_results sections in response_metadata
+        const catalogCount = metadataSections.length > 0
+          ? {
+              count: metadataSections.reduce((sum, s) => sum + s.total, 0),
+              entity_type: metadataSections.length === 1 ? metadataSections[0].entity_type : "items",
+            }
+          : undefined;
+        const historyDetails = deriveStageDetails({
+          intent: intentFromMeta,
+          intent_confidence: confFromMeta,
+          resolved_entities: entitiesFromMeta,
+          evidence_result: catalogCount ? { catalog_count: catalogCount } : undefined,
+        });
+        const enrichedStages = applyStageDetails(stages, historyDetails);
+        return (
+          <ThoughtProcessPane
+            stages={enrichedStages}
+            isStreaming={false}
+            startCollapsed
+          />
+        );
+      })()}
+
+      {/* Historical disambiguation card — grayed out with selection highlighted (UAT-4) */}
+      {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
+        <HistoricalDisambiguationCard
+          payload={pendingDisambiguation}
+          nextHumanMessage={nextHumanMessage}
+        />
+      )}
+
       {/* AI text content */}
       {contentString.length > 0
         && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
@@ -756,12 +842,13 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
     </>
   );
 }, (prev, next) => {
-  // Custom comparator: only re-render when message content or response_metadata changes.
-  // Historical messages are complete — no loading state needed.
+  // Custom comparator: only re-render when message content, response_metadata, or stages change.
   return (
     prev.message?.id === next.message?.id &&
     prev.contentString === next.contentString &&
-    prev.msgResponseMeta === next.msgResponseMeta
+    prev.msgResponseMeta === next.msgResponseMeta &&
+    prev.stages === next.stages &&
+    prev.nextHumanMessage?.id === next.nextHumanMessage?.id
   );
 });
 
@@ -769,10 +856,16 @@ export function AssistantMessage({
   message,
   isLoading,
   handleRegenerate,
+  stages,
+  nextHumanMessage,
 }: {
   message: Message | undefined;
   isLoading: boolean;
   handleRegenerate: (parentCheckpoint: Checkpoint | null | undefined) => void;
+  /** Thought stages derived from preceding intermediate messages (UAT-4) */
+  stages?: ThoughtStage[];
+  /** The next human message after this one (for disambiguation selection tracking) */
+  nextHumanMessage?: Message;
 }) {
   const content = message?.content ?? [];
   const contentString = getContentString(content);
@@ -841,16 +934,20 @@ export function AssistantMessage({
                 contentString={contentString}
                 isLoading={isLoading}
                 msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
+                stages={stages}
               />
             ) : (
               <HistoricalMessageContent
                 message={message}
                 contentString={contentString}
                 msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
+                stages={stages}
+                nextHumanMessage={nextHumanMessage}
               />
             )}
 
-            {!hideToolCalls && (hasToolCalls || hasAnthropicToolCalls) && (() => {
+            {/* Tool calls: show inline only when no stages are available (fallback) */}
+            {!(stages && stages.length > 0) && !hideToolCalls && (hasToolCalls || hasAnthropicToolCalls) && (() => {
               const toolCalls = (hasToolCalls && toolCallsHaveContents)
                 ? message.tool_calls
                 : hasAnthropicToolCalls
