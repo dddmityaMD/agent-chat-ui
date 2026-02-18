@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { useAuth } from "@/providers/Auth";
 
@@ -83,13 +83,13 @@ function PluginsPageContent() {
     };
   }, [setSessionExpired]);
 
-  const toggleError = (name: string) => {
+  const toggleError = useCallback((name: string) => {
     setExpandedErrors((prev) => {
       const next = new Set(prev);
       next.has(name) ? next.delete(name) : next.add(name);
       return next;
     });
-  };
+  }, []);
 
   // Loading state
   if (loading) {
