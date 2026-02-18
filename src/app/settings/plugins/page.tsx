@@ -53,6 +53,7 @@ function PluginsPageContent() {
   const { setSessionExpired } = useAuth();
   const [pluginData, setPluginData] = useState<PluginListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -63,12 +64,17 @@ function PluginsPageContent() {
           setSessionExpired(true);
           return null;
         }
-        return r.ok ? r.json() : null;
+        if (!r.ok) {
+          throw new Error(`Server returned ${r.status}`);
+        }
+        return r.json();
       })
       .then((data) => {
         if (!cancelled && data) setPluginData(data);
       })
-      .catch(() => {})
+      .catch((err) => {
+        if (!cancelled) setFetchError(err?.message || "Failed to load plugins");
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -90,6 +96,26 @@ function PluginsPageContent() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (fetchError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage loaded connector plugins
+          </p>
+        </div>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm font-medium text-destructive">
+            Failed to load plugin data
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{fetchError}</p>
+        </div>
       </div>
     );
   }
@@ -175,7 +201,7 @@ function PluginsPageContent() {
               {/* Status badge */}
               <div className="flex-shrink-0">
                 {plugin.status === "loaded" ? (
-                  <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                     Loaded
                   </span>
                 ) : (
