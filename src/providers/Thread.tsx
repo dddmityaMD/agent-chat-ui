@@ -24,12 +24,21 @@ export interface HandoffInfo {
   confirmed: boolean;
 }
 
+/** Flow transition metadata from sais_ui.flow_transition. */
+export interface FlowTransition {
+  from: string;
+  to: string;
+  context_carried: string[];
+}
+
 /** Convenience type for active flow state. */
 export interface FlowInfo {
   /** Currently active flow name (catalog | investigation | remediation | ops) or null. */
   activeFlow: string | null;
   /** Pending handoff proposal, if any. */
   handoff: HandoffInfo | null;
+  /** Flow transition metadata, if a transition just occurred. */
+  flowTransition: FlowTransition | null;
 }
 
 interface ThreadContextType {
@@ -230,7 +239,7 @@ export function usePermissionState() {
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function extractFlowInfo(saisUi: unknown): FlowInfo {
-  const empty: FlowInfo = { activeFlow: null, handoff: null };
+  const empty: FlowInfo = { activeFlow: null, handoff: null, flowTransition: null };
   if (!saisUi || typeof saisUi !== "object") return empty;
 
   const activeFlow = extractFlowType(saisUi);
@@ -248,5 +257,22 @@ export function extractFlowInfo(saisUi: unknown): FlowInfo {
     }
   }
 
-  return { activeFlow, handoff };
+  // Extract flow transition metadata (INTEL-06)
+  let flowTransition: FlowTransition | null = null;
+  const ui = saisUi as Record<string, unknown>;
+  const ft = ui.flow_transition;
+  if (ft && typeof ft === "object") {
+    const t = ft as Record<string, unknown>;
+    if (typeof t.from === "string" && typeof t.to === "string") {
+      flowTransition = {
+        from: t.from,
+        to: t.to,
+        context_carried: Array.isArray(t.context_carried)
+          ? (t.context_carried as string[])
+          : [],
+      };
+    }
+  }
+
+  return { activeFlow, handoff, flowTransition };
 }
