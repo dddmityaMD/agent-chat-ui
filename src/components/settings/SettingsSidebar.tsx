@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Users } from "lucide-react";
+import { useAuth } from "@/providers/Auth";
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   {
     label: "Connectors",
     href: "/settings/connectors",
@@ -95,10 +104,21 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    label: "Users",
+    href: "/settings/users",
+    icon: <Users className="h-4 w-4" />,
+    adminOnly: true,
+  },
 ];
 
 export function SettingsSidebar() {
   const pathname = usePathname();
+  const { isAdmin } = useAuth();
+
+  const visibleItems = navItems.filter(
+    (item) => !item.adminOnly || isAdmin,
+  );
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-border/40 bg-background">
@@ -129,7 +149,7 @@ export function SettingsSidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link
