@@ -5,7 +5,16 @@ import type { NextRequest } from "next/server";
 // Inline the cookie name constant instead.
 
 const PUBLIC_PATHS = ["/login"];
-const PUBLIC_PREFIXES = ["/api/auth", "/_next/static", "/_next/image", "/favicon.ico"];
+const PUBLIC_PREFIXES = [
+  "/api/auth",
+  "/_next/static",
+  "/_next/image",
+  "/favicon.ico",
+  // OAuth paths that pass through to backend (via Caddy /api strip or direct)
+  "/auth/callback",
+  "/auth/login",
+  "/auth/providers",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

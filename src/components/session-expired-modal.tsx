@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,52 +8,29 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
-import { Label } from "@/components/ui/label";
 
 interface SessionExpiredModalProps {
   open: boolean;
-  onReauth: () => void;
-  savedUsername: string | null;
+  onReauth?: () => void;
+  savedUsername?: string | null;
 }
 
+/**
+ * Simplified session expired modal. Since OAuth re-auth requires a full page
+ * redirect (not inline form), this just shows a message and a redirect button.
+ *
+ * Note: The AuthProvider now handles session expiry via direct redirect to
+ * /login?expired=true, so this modal is kept only as a fallback.
+ */
 export function SessionExpiredModal({
   open,
   onReauth,
-  savedUsername,
 }: SessionExpiredModalProps) {
-  const [username, setUsername] = useState(savedUsername ?? "");
-  const [token, setToken] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), token }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Login failed" }));
-        setError(data.error || "Login failed");
-        return;
-      }
-
-      // Success -- clear form and close modal
-      setToken("");
-      setError(null);
+  const handleLogin = () => {
+    if (onReauth) {
       onReauth();
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
+    } else {
+      window.location.href = "/login?expired=true";
     }
   };
 
@@ -62,51 +38,19 @@ export function SessionExpiredModal({
     <Dialog open={open}>
       <DialogContent
         className="sm:max-w-md"
-        // Prevent closing via escape or outside click -- user must re-authenticate
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
-        // Hide close button by not rendering DialogClose
       >
         <DialogHeader>
           <DialogTitle>Session Expired</DialogTitle>
           <DialogDescription>
-            Your session has expired. Enter your token to continue where you left
-            off.
+            Your session has expired. Please sign in again to continue.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="reauth-username">Display name</Label>
-            <Input
-              id="reauth-username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Your name"
-              required
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="reauth-token">Token</Label>
-            <PasswordInput
-              id="reauth-token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Enter your token"
-              required
-              autoFocus
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
-
-          <Button type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Continue session"}
-          </Button>
-        </form>
+        <Button onClick={handleLogin} className="w-full">
+          Log in again
+        </Button>
       </DialogContent>
     </Dialog>
   );
