@@ -12,7 +12,9 @@ import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
 import React, { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
+import { isSaisInterruptSchema } from "@/hooks/useInterruptApproval";
 import { ThreadView } from "../agent-inbox";
+import { InterruptApproval } from "../interrupt-approval";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
@@ -284,24 +286,30 @@ function Interrupt({
   isLastMessage,
   hasNoAIOrToolMessages,
 }: InterruptProps) {
+  if (!(isLastMessage || hasNoAIOrToolMessages)) return null;
+  if (!interrupt) return null;
+
+  // Agent inbox HITL interrupts (action_requests + review_configs)
+  if (isAgentInboxInterruptSchema(interrupt)) {
+    return <ThreadView interrupt={interrupt} />;
+  }
+
+  // Extract interrupt value for SAIS-specific handling
+  const interruptValue = Array.isArray(interrupt)
+    ? interrupt[0]?.value
+    : (interrupt as any)?.value ?? interrupt;
+
+  // SAIS interrupt types (plan_approval, gate_confirmation, pipeline_resumption)
+  if (isSaisInterruptSchema(interruptValue)) {
+    return <InterruptApproval interruptValue={interruptValue} />;
+  }
+
+  // Fallback: generic JSON view
   const fallbackValue = Array.isArray(interrupt)
     ? (interrupt as Record<string, any>[])
     : (((interrupt as { value?: unknown } | undefined)?.value ??
         interrupt) as Record<string, any>);
-
-  return (
-    <>
-      {isAgentInboxInterruptSchema(interrupt) &&
-        (isLastMessage || hasNoAIOrToolMessages) && (
-          <ThreadView interrupt={interrupt} />
-        )}
-      {interrupt &&
-      !isAgentInboxInterruptSchema(interrupt) &&
-      (isLastMessage || hasNoAIOrToolMessages) ? (
-        <GenericInterruptView interrupt={fallbackValue} />
-      ) : null}
-    </>
-  );
+  return <GenericInterruptView interrupt={fallbackValue} />;
 }
 
 /**
