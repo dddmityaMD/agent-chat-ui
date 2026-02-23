@@ -46,6 +46,23 @@ export type StateType = {
     catalog_count?: { count?: number; entity_type?: string };
   };
   findings?: { root_cause?: { statement?: string; confidence?: number } };
+  // RPABV research/validate progress (Phase 23.1.1-07)
+  sais_ui?: {
+    active_flow?: string;
+    rpabv_stage?: string;
+    research_progress?: {
+      iteration?: number;
+      max_iterations?: number;
+      status?: string;
+      context_found?: { models?: number; sources?: number; evidence?: number };
+      verdict?: { sufficient?: boolean; confidence?: number; gaps?: string[] };
+    };
+    validation_progress?: {
+      steps_checked?: number;
+      warnings?: number;
+      status?: string;
+    };
+  };
 };
 
 type BagType = {

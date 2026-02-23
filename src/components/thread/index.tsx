@@ -266,6 +266,7 @@ const DETAIL_FIELDS = [
   "active_flow",
   "evidence_result",
   "findings",
+  "sais_ui",
 ] as const;
 
 /**
