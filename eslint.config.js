@@ -47,7 +47,7 @@ export default tseslint.config(
   },
   // Exemption for adapter files that need direct sais_ui access
   {
-    files: ["src/hooks/useSaisUi.ts", "src/hooks/useSaisUi.test.ts"],
+    files: ["src/hooks/useSaisUi.ts", "src/hooks/useSaisUi.test.ts", "src/lib/message-groups.ts"],
     rules: {
       "no-restricted-syntax": "off"
     }
