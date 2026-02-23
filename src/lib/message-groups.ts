@@ -330,8 +330,8 @@ export function computeDataDrivenReveal(
       } else {
         return i + 1; // eval in progress
       }
-    } else if (id === "flow-build-plan" && values.sais_ui?.rpabv_stage === "plan") {
-      if (values.sais_ui?.rpabv_stage === "validate") {
+    } else if (id === "flow-build-plan" && (values.sais_ui?.rpabv_stage === "plan" || values.sais_ui?.rpabv_stage === "validate")) {
+      if (values.sais_ui.rpabv_stage === "validate") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // plan in progress
