@@ -9,6 +9,15 @@ export interface SaisInterruptValue {
   message: string;
   plan?: Record<string, any>;
   rpabv_level?: number;
+  rpabv_progress?: {
+    level: number;
+    stage: string;
+    step_index: number | null;
+    total_steps: number | null;
+    completed_steps: number[];
+    failed_step: number | null;
+  };
+  rpabv_status?: string;
   intent?: string;
   entities?: string[];
   step_index?: number;

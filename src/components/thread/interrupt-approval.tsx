@@ -3,6 +3,71 @@ import { MarkdownText } from "./markdown-text";
 import { useInterruptApproval, SaisInterruptValue } from "@/hooks/useInterruptApproval";
 import { Check, X, MessageSquare } from "lucide-react";
 
+const RPABV_STAGES = [
+  { key: "research", letter: "R", label: "Research" },
+  { key: "plan", letter: "P", label: "Plan" },
+  { key: "approve", letter: "A", label: "Approve" },
+  { key: "build", letter: "B", label: "Build" },
+  { key: "verify", letter: "V", label: "Verify" },
+] as const;
+
+function RPABVStepper({
+  progress,
+  status,
+}: {
+  progress: NonNullable<SaisInterruptValue["rpabv_progress"]>;
+  status?: string;
+}) {
+  const currentIdx = RPABV_STAGES.findIndex((s) => s.key === progress.stage);
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center gap-1.5">
+        {RPABV_STAGES.map((stage, idx) => {
+          const isActive = idx === currentIdx;
+          const isCompleted = idx < currentIdx;
+
+          return (
+            <div key={stage.key} className="flex items-center gap-1.5">
+              {idx > 0 && (
+                <div
+                  className={`h-0.5 w-3 ${
+                    isCompleted
+                      ? "bg-blue-200 dark:bg-blue-700"
+                      : "bg-gray-200 dark:bg-gray-700"
+                  }`}
+                />
+              )}
+              <div
+                title={stage.label}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : isCompleted
+                      ? "bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+                }`}
+              >
+                {stage.letter}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {status && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {status}
+        </p>
+      )}
+      {progress.step_index !== null && progress.total_steps !== null && (
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          Step {progress.step_index + 1} of {progress.total_steps}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface InterruptApprovalProps {
   interruptValue: SaisInterruptValue;
 }
@@ -56,6 +121,14 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
           {title}
         </h3>
       </div>
+
+      {/* RPABV stage stepper (plan_approval only) */}
+      {isPlanApproval && interruptValue.rpabv_progress && (
+        <RPABVStepper
+          progress={interruptValue.rpabv_progress}
+          status={interruptValue.rpabv_status}
+        />
+      )}
 
       {/* Render the interrupt message as markdown */}
       <div className="mb-4 rounded-md bg-white/80 p-3 dark:bg-gray-900/50">
