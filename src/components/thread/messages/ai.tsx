@@ -295,9 +295,10 @@ function Interrupt({
   }
 
   // Extract interrupt value for SAIS-specific handling
+  // LangGraph may wrap in {value: ...} or provide directly in array
   const interruptValue = Array.isArray(interrupt)
-    ? interrupt[0]?.value
-    : (interrupt as any)?.value ?? interrupt;
+    ? (interrupt[0]?.value ?? interrupt[0])
+    : ((interrupt as any)?.value ?? interrupt);
 
   // SAIS interrupt types (plan_approval, gate_confirmation, pipeline_resumption)
   if (isSaisInterruptSchema(interruptValue)) {

@@ -26,9 +26,18 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
   const isPlanApproval = interruptValue.type === "plan_approval";
   const isGateConfirmation = interruptValue.type === "gate_confirmation";
 
-  // Title based on interrupt type
+  // Title based on interrupt type and RPABV level
+  // RPABVLevel enum is 1-based: DESIGN=1, PLAN=2, EXECUTE=3
+  const levelLabels: Record<number, string> = {
+    1: "Pipeline Design",
+    2: "Implementation Plan",
+    3: "Step Execution",
+  };
+  const rpabvLevel = interruptValue.rpabv_level ?? 1;
+  const levelLabel = levelLabels[rpabvLevel] ?? `L${rpabvLevel}`;
+
   const title = isPlanApproval
-    ? `Build Plan Review (L${(interruptValue.rpabv_level ?? 0) + 1})`
+    ? `${levelLabel} Review (L${rpabvLevel})`
     : isGateConfirmation
       ? "Action Confirmation"
       : "Pipeline Resumption";
