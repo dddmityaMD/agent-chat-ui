@@ -25,6 +25,7 @@ import { TAB_CONFIG, TabTrigger } from "@/components/case-panel/tabs";
 import type { TabValue } from "@/components/case-panel/tabs";
 import { SummaryTab } from "@/components/case-panel/summary-tab";
 import { CostTab } from "@/components/case-panel/cost-tab";
+import { BuildTab } from "@/components/case-panel/build-tab";
 import { LINEAGE_NAVIGATE_EVENT } from "@/components/lineage-link";
 import type { LineageNavigateDetail } from "@/components/lineage-link";
 
@@ -32,6 +33,13 @@ import type { LineageNavigateDetail } from "@/components/lineage-link";
 const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
 
 type Check = { id: string; label: string; ok: boolean; requested: boolean };
+
+/** Safely extract an array from a passthrough sais_ui field */
+function extractArray(obj: unknown, key: string): unknown[] {
+  if (!obj || typeof obj !== "object") return [];
+  const val = (obj as Record<string, unknown>)[key];
+  return Array.isArray(val) ? val : [];
+}
 
 // ---------------------------------------------------------------------------
 // Thread Summary types (local to this component, matches backend ThreadSummaryOut)
@@ -185,7 +193,7 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const VALID_TABS: readonly TabValue[] = ["summary", "investigation", "lineage", "cost"] as const;
+  const VALID_TABS: readonly TabValue[] = ["summary", "investigation", "lineage", "cost", "build"] as const;
   const [activeTab, setActiveTabState] = useState<TabValue>("summary");
   // Read the deep-link tab from URL once (client-only, captured at module eval time)
   const deepLinkTabRef = useRef<TabValue | null>(null);
@@ -368,7 +376,13 @@ export function CasePanel({ className }: { className?: string }) {
           className="flex shrink-0 gap-0 overflow-x-auto border-b px-2"
           aria-label="Thread details"
         >
-          {TAB_CONFIG.map((tab) => (
+          {TAB_CONFIG.filter((tab) => {
+            // Build tab only visible when build flow is active or has build data
+            if (tab.value === "build") {
+              return saisUiData.isBuild || extractArray(saisUiData.raw, "stage_definitions").length > 0;
+            }
+            return true;
+          }).map((tab) => (
             <TabTrigger
               key={tab.value}
               config={tab}
@@ -583,6 +597,11 @@ export function CasePanel({ className }: { className?: string }) {
             ) : (
               <div className="text-muted-foreground text-sm">No thread selected.</div>
             )}
+          </Tabs.Content>
+
+          {/* Build Tab */}
+          <Tabs.Content value="build" className="p-0">
+            <BuildTab threadId={threadId} />
           </Tabs.Content>
 
           {/* Lineage Tab */}

@@ -7,6 +7,7 @@ import {
   FileSearch,
   GitBranch,
   DollarSign,
+  Hammer,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
 // Tab configuration
 // ---------------------------------------------------------------------------
 
-export type TabValue = "summary" | "investigation" | "lineage" | "cost";
+export type TabValue = "summary" | "investigation" | "lineage" | "cost" | "build";
 
 export interface TabConfig {
   value: TabValue;
@@ -26,6 +27,7 @@ export interface TabConfig {
 export const TAB_CONFIG: TabConfig[] = [
   { value: "summary", label: "Summary", icon: LayoutDashboard },
   { value: "investigation", label: "Investigation", icon: FileSearch },
+  { value: "build", label: "Build", icon: Hammer },
   { value: "lineage", label: "Lineage", icon: GitBranch },
   { value: "cost", label: "Cost", icon: DollarSign },
 ];
