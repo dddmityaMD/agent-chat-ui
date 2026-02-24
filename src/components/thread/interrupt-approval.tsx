@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "./markdown-text";
-import { useInterruptApproval, SaisInterruptValue } from "@/hooks/useInterruptApproval";
-import { Check, X, MessageSquare } from "lucide-react";
+import { useInterruptApproval, SaisInterruptValue, SaisInterruptArtifact } from "@/hooks/useInterruptApproval";
+import { Check, X, MessageSquare, Database, FileCode, CheckCircle, Info } from "lucide-react";
 
 const RPABV_STAGES = [
   { key: "research", letter: "R", label: "Research" },
@@ -68,14 +68,83 @@ function RPABVStepper({
   );
 }
 
+/** Icon mapping for artifact types */
+function ArtifactIcon({ type }: { type: string }) {
+  switch (type) {
+    case "schema_discovered":
+    case "schema":
+      return <Database className="h-3.5 w-3.5 text-blue-500 shrink-0" />;
+    case "models_found":
+    case "conventions":
+    case "source_code":
+      return <FileCode className="h-3.5 w-3.5 text-purple-500 shrink-0" />;
+    case "dbt_run_output":
+    case "test_results":
+    case "verification":
+      return <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />;
+    default:
+      return <Info className="h-3.5 w-3.5 text-gray-500 shrink-0" />;
+  }
+}
+
+/** Renders a list of artifacts as compact cards with collapsible item lists */
+function ArtifactSection({ artifacts }: { artifacts: SaisInterruptArtifact[] }) {
+  if (artifacts.length === 0) return null;
+
+  return (
+    <div className="mb-3">
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 select-none">
+          Artifacts ({artifacts.length})
+        </summary>
+        <div className="space-y-2">
+          {artifacts.map((artifact, idx) => (
+            <div
+              key={idx}
+              className="flex items-start gap-2 rounded-md border border-gray-200 bg-white/60 p-2 dark:border-gray-700 dark:bg-gray-800/60"
+            >
+              <ArtifactIcon type={artifact.type} />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                  {artifact.label}
+                </p>
+                {artifact.summary && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {artifact.summary}
+                  </p>
+                )}
+                {artifact.items && artifact.items.length > 0 && (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs text-blue-600 dark:text-blue-400 select-none">
+                      {artifact.items.length} item{artifact.items.length !== 1 ? "s" : ""}
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 pl-2 text-xs text-gray-600 dark:text-gray-400">
+                      {artifact.items.map((item, itemIdx) => (
+                        <li key={itemIdx} className="truncate">
+                          {typeof item === "string" ? item : JSON.stringify(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 interface InterruptApprovalProps {
   interruptValue: SaisInterruptValue;
 }
 
 /**
- * Shared approval/rejection UI for SAIS interrupt types.
- * Renders the interrupt message (markdown) and approve/reject buttons.
- * Handles both plan_approval and gate_confirmation -- distinguished by type field.
+ * Shared approval/rejection UI for all SAIS interrupt types.
+ * Renders the interrupt message (markdown), optional artifacts, and approve/reject buttons.
+ * Handles plan_approval, research_approval, verify_approval, gate_confirmation,
+ * and pipeline_resumption -- distinguished by type field with gate-specific labels.
  */
 export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
   const {
@@ -88,8 +157,13 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
     handleReject,
   } = useInterruptApproval();
 
-  const isPlanApproval = interruptValue.type === "plan_approval";
-  const isGateConfirmation = interruptValue.type === "gate_confirmation";
+  const interruptType = interruptValue.type;
+  const isPlanApproval = interruptType === "plan_approval";
+  const isResearchApproval = interruptType === "research_approval";
+  const isVerifyApproval = interruptType === "verify_approval";
+  const isGateConfirmation = interruptType === "gate_confirmation";
+  const showRpabvStepper = isPlanApproval || isResearchApproval || isVerifyApproval;
+  const showFeedbackOnReject = isPlanApproval || isResearchApproval || isVerifyApproval;
 
   // Title based on interrupt type and RPABV level
   // RPABVLevel enum is 1-based: DESIGN=1, PLAN=2, EXECUTE=3
@@ -101,15 +175,32 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
   const rpabvLevel = interruptValue.rpabv_level ?? 1;
   const levelLabel = levelLabels[rpabvLevel] ?? `L${rpabvLevel}`;
 
-  const title = isPlanApproval
-    ? `${levelLabel} Review (L${rpabvLevel})`
-    : isGateConfirmation
-      ? "Action Confirmation"
-      : "Pipeline Resumption";
+  const titleMap: Record<string, string> = {
+    plan_approval: `${levelLabel} Review (L${rpabvLevel})`,
+    research_approval: "Review Research Results",
+    verify_approval: "Review Verification Results",
+    gate_confirmation: "Action Confirmation",
+    pipeline_resumption: "Pipeline Resumption",
+  };
+  const title = titleMap[interruptType] ?? "Approval Required";
 
-  // Button labels
-  const approveLabel = isPlanApproval ? "Approve Plan" : isGateConfirmation ? "Proceed" : "Continue";
-  const rejectLabel = isPlanApproval ? "Reject & Revise" : "Cancel";
+  // Button labels per gate type
+  const approveLabelMap: Record<string, string> = {
+    plan_approval: "Approve Plan",
+    research_approval: "Proceed to Plan",
+    verify_approval: "Accept Results",
+    gate_confirmation: "Proceed",
+    pipeline_resumption: "Continue",
+  };
+  const rejectLabelMap: Record<string, string> = {
+    plan_approval: "Reject & Revise",
+    research_approval: "Re-collect",
+    verify_approval: "Request Changes",
+    gate_confirmation: "Cancel",
+    pipeline_resumption: "Cancel",
+  };
+  const approveLabel = approveLabelMap[interruptType] ?? "Approve";
+  const rejectLabel = rejectLabelMap[interruptType] ?? "Reject";
 
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/50">
@@ -122,12 +213,17 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
         </h3>
       </div>
 
-      {/* RPABV stage stepper (plan_approval only) */}
-      {isPlanApproval && interruptValue.rpabv_progress && (
+      {/* RPABV stage stepper (plan_approval, research_approval, verify_approval) */}
+      {showRpabvStepper && interruptValue.rpabv_progress && (
         <RPABVStepper
           progress={interruptValue.rpabv_progress}
           status={interruptValue.rpabv_status}
         />
+      )}
+
+      {/* Artifacts section (research/verify/any gate with artifacts) */}
+      {interruptValue.artifacts && interruptValue.artifacts.length > 0 && (
+        <ArtifactSection artifacts={interruptValue.artifacts} />
       )}
 
       {/* Render the interrupt message as markdown */}
@@ -186,8 +282,8 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
             size="sm"
             variant="outline"
             onClick={() => {
-              if (isPlanApproval) {
-                // Show feedback input for plan rejections
+              if (showFeedbackOnReject) {
+                // Show feedback input for plan/research/verify rejections
                 setShowFeedback(true);
               } else {
                 // Direct rejection for gate confirmations
