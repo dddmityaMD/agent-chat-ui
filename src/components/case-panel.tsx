@@ -263,6 +263,10 @@ export function CasePanel({ className }: { className?: string }) {
   const wasStreamingRef = useRef(false);
   const prevThreadIdRef = useRef(threadId);
 
+  // Ref for saisUiData.raw to avoid doFetch identity churn on every stream update
+  const saisUiRawRef = useRef(saisUiData.raw);
+  saisUiRawRef.current = saisUiData.raw;
+
   const doFetch = useCallback(async (tid: string) => {
     setLoading(true);
     try {
@@ -272,7 +276,7 @@ export function CasePanel({ className }: { className?: string }) {
       setFindings(s.findings as Findings | null);
       setError(null);
 
-      const currentIntent = saisUiData.raw?.intent;
+      const currentIntent = saisUiRawRef.current?.intent;
       if (typeof currentIntent === "string") {
         inferTypesFromIntent(currentIntent);
       }
@@ -283,7 +287,7 @@ export function CasePanel({ className }: { className?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [saisUiData.raw, inferTypesFromIntent, setSessionExpired]);
+  }, [inferTypesFromIntent, setSessionExpired]);
 
   useEffect(() => {
     if (!threadId) {

@@ -4,6 +4,7 @@ import React, {
   ReactNode,
   useState,
   useEffect,
+  useRef,
 } from "react";
 import { useStream } from "@langchain/langgraph-sdk/react";
 import type { UseStream } from "@langchain/langgraph-sdk/react";
@@ -121,6 +122,14 @@ const StreamSession = ({
   const [threadId, setThreadId] = useQueryState("threadId");
   const { getThreads, setThreads, registerThread } = useThreads();
   const { setSessionExpired } = useAuth();
+
+  // Track current threadId to guard against async race conditions in onThreadId.
+  // When a new thread is created, registerThread is async. If the user switches
+  // threads before it resolves, the stale .then(() => setThreadId(oldId)) would
+  // overwrite the user's selection. The ref lets us check before setting.
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
+
   const streamValue = useStream<StateType, BagType>({
     apiUrl,
     apiKey: apiKey ?? undefined,
@@ -143,11 +152,18 @@ const StreamSession = ({
       // Register the thread in backend metadata BEFORE setting threadId in state.
       // This prevents a race condition where CasePanel detects the threadId change
       // and fetches /api/threads/{id}/summary before registration completes (UX-06).
+      // Guard: only setThreadId if user hasn't navigated away during async registration.
       registerThread(id)
-        .then(() => setThreadId(id))
+        .then(() => {
+          if (threadIdRef.current === null || threadIdRef.current === id) {
+            setThreadId(id);
+          }
+        })
         .catch((err) => {
           console.error("Thread registration failed, setting threadId anyway:", err);
-          setThreadId(id);
+          if (threadIdRef.current === null || threadIdRef.current === id) {
+            setThreadId(id);
+          }
         });
       // Refetch threads list when thread ID changes.
       // Wait for some seconds before fetching so we're able to get the new thread that was created.
