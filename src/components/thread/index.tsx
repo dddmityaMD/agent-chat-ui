@@ -370,9 +370,24 @@ export function Thread() {
   );
 
   const stream = useStreamContext();
-  const messages = stream.messages;
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
+
+  // Cache messages to prevent disappearing history during subgraph streaming.
+  // LangGraph SDK replaces entire state on subgraph `values` events, which can
+  // temporarily wipe parent-level messages. We detect this (messages shrinking
+  // during streaming) and merge with the cache to preserve chat history.
+  const messagesRef = useRef<Message[]>([]);
+  let messages: Message[];
+  if (isLoading && stream.messages.length < messagesRef.current.length) {
+    // Subgraph event wiped messages — use cache, append any new ones
+    const cachedIds = new Set(messagesRef.current.map((m) => m.id));
+    const newMsgs = stream.messages.filter((m) => !cachedIds.has(m.id));
+    messages = [...messagesRef.current, ...newMsgs];
+  } else {
+    messages = stream.messages;
+    messagesRef.current = stream.messages;
+  }
 
   // Clear turn ID ref only on the streaming→idle transition (not every idle render).
   // Without this guard, the ref set in handleSubmit would be wiped on the immediate
@@ -380,6 +395,7 @@ export function Thread() {
   const prevStreamingRef = useRef(false);
   if (!isLoading && prevStreamingRef.current) {
     currentTurnIdRef.current = null;
+    messagesRef.current = stream.messages; // Sync cache with final state
   }
   prevStreamingRef.current = isLoading;
 
@@ -803,6 +819,7 @@ export function Thread() {
                             handleRegenerate={handleRegenerate}
                             stages={group.stages}
                             nextHumanMessage={group.nextHumanMessage}
+                            streamingValues={isLoading && index === messageGroups.length - 1 ? currentTurnValues : undefined}
                           />
                         )}
                       </MessageErrorBoundary>

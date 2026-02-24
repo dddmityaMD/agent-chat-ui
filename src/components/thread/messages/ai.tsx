@@ -47,8 +47,8 @@ import {
   extractBuildPlanStatus,
   extractBuildVerification
 } from "@/hooks/useSaisUi";
-import type { ThoughtStage } from "@/lib/message-groups";
-import { deriveStagesFromFlow, deriveStageDetails, applyStageDetails } from "@/lib/message-groups";
+import type { ThoughtStage, StreamingStateValues } from "@/lib/message-groups";
+import { deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDynamicStageReveal, computeDataDrivenReveal } from "@/lib/message-groups";
 import { ThoughtProcessPane } from "@/components/thread/thought-process-pane";
 import { HistoricalDisambiguationCard } from "@/components/thread/historical-disambiguation-card";
 
@@ -421,12 +421,15 @@ function LastMessageDecorations({
   isLoading,
   msgResponseMeta,
   stages,
+  streamingValues,
 }: {
   message: Message | undefined;
   contentString: string;
   isLoading: boolean;
   msgResponseMeta: Record<string, unknown> | undefined;
   stages?: ThoughtStage[];
+  /** Live streaming state — used for progressive stage reveal during streaming */
+  streamingValues?: StreamingStateValues;
 }) {
   const saisUiData = useSaisUi();
   const thread = useStreamContext();
@@ -547,30 +550,44 @@ function LastMessageDecorations({
           ? stages
           : deriveStagesFromFlow(activeFlow, saisUiData.raw as Record<string, unknown> | null);
         if (effectiveStages.length === 0) return null;
-        // Derive details from this message's response_metadata (per-message, not per-thread).
-        // This is the same approach as HistoricalMessageContent — consistent data source.
-        const intentFromMeta = msgResponseMeta?.intent as string | undefined;
-        const confFromMeta = msgResponseMeta?.intent_confidence as number | undefined;
-        const entitiesFromMeta = msgResponseMeta?.resolved_entities as
-          Record<string, { name?: string; entity_type?: string }> | undefined;
-        const catalogCount = metadataSections.length > 0
-          ? {
-              count: metadataSections.reduce((sum, s) => sum + s.total, 0),
-              entity_type: metadataSections.length === 1 ? metadataSections[0].entity_type : "items",
-            }
-          : undefined;
-        const stageDetails = deriveStageDetails({
-          intent: intentFromMeta,
-          intent_confidence: confFromMeta,
-          resolved_entities: entitiesFromMeta,
-          evidence_result: catalogCount ? { catalog_count: catalogCount } : undefined,
-        });
+
+        // During streaming, use live streaming state for details and progressive reveal.
+        // After streaming, fall back to per-message response_metadata (historical data).
+        let stageDetails: Record<string, string>;
+        let minReveal = 0;
+
+        if (isLoading && streamingValues) {
+          stageDetails = deriveStageDetails(streamingValues);
+          const streamSaisUi = (streamingValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
+          const dynamicReveal = computeDynamicStageReveal(streamSaisUi, effectiveStages);
+          const staticReveal = computeDataDrivenReveal(streamingValues, effectiveStages);
+          minReveal = Math.max(dynamicReveal, staticReveal);
+        } else {
+          const intentFromMeta = msgResponseMeta?.intent as string | undefined;
+          const confFromMeta = msgResponseMeta?.intent_confidence as number | undefined;
+          const entitiesFromMeta = msgResponseMeta?.resolved_entities as
+            Record<string, { name?: string; entity_type?: string }> | undefined;
+          const catalogCount = metadataSections.length > 0
+            ? {
+                count: metadataSections.reduce((sum, s) => sum + s.total, 0),
+                entity_type: metadataSections.length === 1 ? metadataSections[0].entity_type : "items",
+              }
+            : undefined;
+          stageDetails = deriveStageDetails({
+            intent: intentFromMeta,
+            intent_confidence: confFromMeta,
+            resolved_entities: entitiesFromMeta,
+            evidence_result: catalogCount ? { catalog_count: catalogCount } : undefined,
+          });
+        }
+
         const enrichedStages = applyStageDetails(effectiveStages, stageDetails);
         return (
           <ThoughtProcessPane
             stages={enrichedStages}
             isStreaming={isLoading}
             startCollapsed={false}
+            minRevealCount={minReveal}
           />
         );
       })()}
@@ -922,6 +939,7 @@ export function AssistantMessage({
   handleRegenerate,
   stages,
   nextHumanMessage,
+  streamingValues,
 }: {
   message: Message | undefined;
   isLoading: boolean;
@@ -930,6 +948,8 @@ export function AssistantMessage({
   stages?: ThoughtStage[];
   /** The next human message after this one (for disambiguation selection tracking) */
   nextHumanMessage?: Message;
+  /** Live streaming state values — only passed to the last message during streaming */
+  streamingValues?: StreamingStateValues;
 }) {
   const content = message?.content ?? [];
   const contentString = getContentString(content);
@@ -999,6 +1019,7 @@ export function AssistantMessage({
                 isLoading={isLoading}
                 msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
                 stages={stages}
+                streamingValues={streamingValues}
               />
             ) : (
               <HistoricalMessageContent
