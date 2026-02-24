@@ -30,8 +30,6 @@ import { toast } from "sonner";
 export type StateType = {
   messages: Message[];
   ui?: UIMessage[];
-  // SAIS panel payload (not LangGraph UI messages)
-  sais_ui?: unknown;
   // --- Streaming progress fields (populated by intermediate graph nodes) ---
   // These mirror backend AgentState fields and are available via stream.values
   // during streaming. Used by the thought process pane to show stage details.

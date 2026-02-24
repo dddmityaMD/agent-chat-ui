@@ -69,6 +69,7 @@ export function CostTab({ threadId }: CostTabProps) {
       credentials: "include",
     })
       .then((res) => {
+        if (res.status === 404) return null;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })

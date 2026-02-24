@@ -50,6 +50,9 @@ export function useInterruptApproval() {
       setLoading(true);
       thread.submit({}, {
         command: { resume: { approved: true } },
+        streamMode: ["values"],
+        streamSubgraphs: true,
+        streamResumable: true,
       });
       toast("Approved", { description: "Proceeding with the action.", duration: 3000 });
     } catch (error) {
@@ -69,6 +72,9 @@ export function useInterruptApproval() {
       }
       thread.submit({}, {
         command: { resume: resumeValue },
+        streamMode: ["values"],
+        streamSubgraphs: true,
+        streamResumable: true,
       });
       toast("Rejected", { description: "Action cancelled.", duration: 3000 });
       setFeedbackText("");

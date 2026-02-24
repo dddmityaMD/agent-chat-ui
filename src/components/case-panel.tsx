@@ -189,7 +189,42 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabValue>("summary");
+  const VALID_TABS: readonly TabValue[] = ["summary", "investigation", "lineage", "cost"] as const;
+  const [activeTab, setActiveTabState] = useState<TabValue>("summary");
+  // Read the deep-link tab from URL once (client-only, captured at module eval time)
+  const deepLinkTabRef = useRef<TabValue | null>(null);
+  const deepLinkConsumed = useRef(false);
+
+  const setActiveTab = useCallback((tab: string | null) => {
+    const value = tab ?? "summary";
+    const valid = VALID_TABS.includes(value as TabValue) ? (value as TabValue) : "summary";
+    setActiveTabState(valid);
+    // Sync to URL
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (valid === "summary") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", valid);
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  // On mount, capture URL tab and apply it after hydration effects settle
+  useEffect(() => {
+    if (deepLinkConsumed.current) return;
+    deepLinkConsumed.current = true;
+    const raw = new URLSearchParams(window.location.search).get("tab");
+    if (raw && VALID_TABS.includes(raw as TabValue)) {
+      deepLinkTabRef.current = raw as TabValue;
+      // Apply after all synchronous effects + nuqs hydration have settled
+      requestAnimationFrame(() => {
+        setActiveTabState(raw as TabValue);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [lineageFilter, setLineageFilter] = useState<{
     canonicalKeys: string[];
     displayNames: string[];
@@ -252,8 +287,11 @@ export function CasePanel({ className }: { className?: string }) {
       setFindings(null);
       setError(null);
       resetRequestedTypes();
-      setActiveTab("summary"); // Reset tab on thread clear
-      setLineageFilter(null); // Clear lineage filter on thread clear
+      // Only reset tab when clearing a real thread, not on SSR→hydration
+      if (prevThreadIdRef.current !== null) {
+        setActiveTab(null);
+      }
+      setLineageFilter(null);
       prevThreadIdRef.current = threadId;
       return;
     }
@@ -270,8 +308,11 @@ export function CasePanel({ className }: { className?: string }) {
     }
 
     // Reset to summary tab and clear lineage filter when switching threads
+    // Skip reset on SSR→hydration (null→real threadId) to preserve deep-linked tab
     if (threadChanged) {
-      setActiveTab("summary");
+      if (prevThreadIdRef.current !== null) {
+        setActiveTab(null);
+      }
       setLineageFilter(null);
     }
 
@@ -288,7 +329,7 @@ export function CasePanel({ className }: { className?: string }) {
   useEffect(() => {
     if (casePanelSection !== "permissions") return;
     // Navigate to summary tab where permissions live, then scroll
-    setActiveTab("summary");
+    setActiveTab(null);
     // Permissions is inside a <details> — open it before scrolling
     const section = document.getElementById("permissions-section") as HTMLDetailsElement | null;
     if (section) {
@@ -323,7 +364,7 @@ export function CasePanel({ className }: { className?: string }) {
     <div className={cn("h-full overflow-y-auto", className)}>
       <Tabs.Root
         value={activeTab}
-        onValueChange={(v: string) => setActiveTab(v as TabValue)}
+        onValueChange={(v: string) => setActiveTab(v)}
         className="flex h-full flex-col"
       >
         {/* Tab bar */}
