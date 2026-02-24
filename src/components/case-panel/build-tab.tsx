@@ -261,12 +261,20 @@ function StepGroupHeader({
 // Decisions Section (Permissions audit trail)
 // ---------------------------------------------------------------------------
 
+/** Color mapping for gate type badges in the decisions audit trail */
 const GATE_TYPE_COLORS: Record<string, string> = {
   research: "bg-violet-100 text-violet-700",
   plan: "bg-blue-100 text-blue-700",
+  build: "bg-orange-100 text-orange-700",
   verify: "bg-amber-100 text-amber-700",
 };
 
+/**
+ * Permissions audit trail - chronological log of all user decisions during
+ * the RPABV pipeline. Each entry shows timestamp, gate type, user action,
+ * and optional feedback. Reads from sais_ui.rpabv_decisions which is
+ * populated by interrupt gate resume handlers in build_flow.py (Plan 02).
+ */
 function DecisionsSection({ decisions }: { decisions: RpabvDecision[] }) {
   if (decisions.length === 0) {
     return (
@@ -292,54 +300,70 @@ function DecisionsSection({ decisions }: { decisions: RpabvDecision[] }) {
       </div>
       <div className="mt-2 space-y-2">
         {decisions.map((decision, i) => (
-          <div
-            key={`decision-${i}`}
-            className="flex items-start gap-2 text-xs"
-          >
-            {/* Action icon */}
-            {decision.action === "approved" ? (
-              <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
-            ) : (
-              <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-500" />
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {/* Step context for L3 */}
-                {decision.step_index != null && (
-                  <span className="text-muted-foreground">
-                    Step {decision.step_index + 1}
-                  </span>
-                )}
-
-                {/* Gate type badge */}
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                    GATE_TYPE_COLORS[decision.gate_type] ||
-                      "bg-gray-100 text-gray-700",
-                  )}
-                >
-                  {decision.gate_type.charAt(0).toUpperCase() +
-                    decision.gate_type.slice(1)}
-                </span>
-
-                {/* Timestamp */}
-                <span className="flex items-center gap-0.5 text-muted-foreground/70">
-                  <Clock className="h-2.5 w-2.5" />
-                  {formatRelativeTime(decision.timestamp)}
-                </span>
-              </div>
-
-              {/* Feedback */}
-              {decision.feedback && (
-                <div className="mt-0.5 text-muted-foreground/80 italic">
-                  &ldquo;{decision.feedback}&rdquo;
-                </div>
-              )}
-            </div>
-          </div>
+          <DecisionEntry key={`decision-${i}`} decision={decision} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Single decision entry in the audit trail */
+function DecisionEntry({ decision }: { decision: RpabvDecision }) {
+  return (
+    <div className="flex items-start gap-2 text-xs">
+      {/* Action icon */}
+      {decision.action === "approved" ? (
+        <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
+      ) : (
+        <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-500" />
+      )}
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Step context for L3 */}
+          {decision.step_index != null && (
+            <span className="text-muted-foreground font-medium">
+              Step {decision.step_index + 1}
+            </span>
+          )}
+
+          {/* Gate type badge */}
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+              GATE_TYPE_COLORS[decision.gate_type] ||
+                "bg-gray-100 text-gray-700",
+            )}
+          >
+            {decision.gate_type.charAt(0).toUpperCase() +
+              decision.gate_type.slice(1)}
+          </span>
+
+          {/* Action text */}
+          <span
+            className={cn(
+              "font-medium",
+              decision.action === "approved"
+                ? "text-emerald-600"
+                : "text-red-600",
+            )}
+          >
+            {decision.action}
+          </span>
+
+          {/* Timestamp */}
+          <span className="flex items-center gap-0.5 text-muted-foreground/70">
+            <Clock className="h-2.5 w-2.5" />
+            {formatRelativeTime(decision.timestamp)}
+          </span>
+        </div>
+
+        {/* Feedback */}
+        {decision.feedback && (
+          <div className="mt-0.5 text-muted-foreground/80 italic">
+            &ldquo;{decision.feedback}&rdquo;
+          </div>
+        )}
       </div>
     </div>
   );
