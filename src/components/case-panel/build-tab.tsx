@@ -108,10 +108,16 @@ function getStageStatus(
   stageIndex: number,
   currentStageId: string | null,
   stages: StageDefinition[],
+  flowFinished?: boolean,
 ): "completed" | "active" | "pending" {
   if (!currentStageId) return "pending";
   const currentIdx = stages.findIndex((s) => s.id === currentStageId);
   if (currentIdx < 0) return "pending";
+  // When the flow is finished (completed/failed), all stages up to and
+  // including the current one are completed — no "active" spinner.
+  if (flowFinished) {
+    return stageIndex <= currentIdx ? "completed" : "pending";
+  }
   if (stageIndex < currentIdx) return "completed";
   if (stageIndex === currentIdx) return "active";
   return "pending";
@@ -380,6 +386,9 @@ export function BuildTab({ threadId }: { threadId?: string | null }) {
   // Read stage definitions from sais_ui
   const stageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
   const currentStage = extractString(raw, "rpabv_stage");
+  const buildPlanStatus = extractString(raw, "build_plan_status");
+  // When build is completed/failed, all stages are done — don't leave last stage as "active"
+  const flowFinished = buildPlanStatus === "completed" || buildPlanStatus === "failed";
   const rpabvArtifacts = extractObject(raw, "rpabv_artifacts");
   const rpabvProgress = extractObject(raw, "rpabv_progress");
   const rpabvDecisions = extractArray(raw, "rpabv_decisions") as RpabvDecision[];
@@ -432,7 +441,7 @@ export function BuildTab({ threadId }: { threadId?: string | null }) {
           <StageTimelineEntry
             key={stage.id}
             stage={stage}
-            status={getStageStatus(stage.id, idx, currentStage, stageDefs)}
+            status={getStageStatus(stage.id, idx, currentStage, stageDefs, flowFinished)}
             artifacts={getStageArtifacts(stage.id)}
             isLast={idx === stageDefs.length - 1}
           />

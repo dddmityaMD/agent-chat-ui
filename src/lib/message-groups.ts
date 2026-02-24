@@ -64,6 +64,14 @@ export interface GroupMessagesOptions {
    * historical messages use per-message response_metadata.
    */
   saisUi?: Record<string, unknown> | null;
+  /**
+   * Message IDs that existed before the current streaming session started.
+   * When provided during streaming, messages with these IDs are always
+   * rendered (never filtered as intermediate subgraph outputs).
+   * Solves G7': after interrupt resume, no new human message is added,
+   * so all prior AI responses would otherwise be filtered.
+   */
+  preStreamIds?: Set<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -534,6 +542,7 @@ export function groupMessages(
 ): MessageGroup[] {
   const isStreaming = options?.isStreaming ?? false;
   const saisUi = options?.saisUi ?? null;
+  const preStreamIds = options?.preStreamIds;
   const groups: MessageGroup[] = [];
 
   // Find the index of the last human message — everything before it is
@@ -588,6 +597,13 @@ export function groupMessages(
         // After last human but not streaming — this is the final response
         // from a completed turn (backward compat for pre-metadata messages)
         const stages = deriveStagesFromFlow(null, uiForStages);
+        groups.push({ message: msg, stages });
+      } else if (msg.id && preStreamIds?.has(msg.id)) {
+        // Message existed before streaming started (e.g. completed gate
+        // response from prior interrupt).  Always render — it's not an
+        // intermediate subgraph output even though it lacks active_flow
+        // metadata and is after lastHumanIdx.
+        const stages = deriveStagesFromFlow(null);
         groups.push({ message: msg, stages });
       }
       // else: after last human, no active_flow metadata, AND streaming

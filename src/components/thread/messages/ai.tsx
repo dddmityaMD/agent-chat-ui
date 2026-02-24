@@ -556,11 +556,19 @@ function LastMessageDecorations({
         let stageDetails: Record<string, string>;
         let minReveal = 0;
 
-        if (isLoading && streamingValues) {
-          stageDetails = deriveStageDetails(streamingValues);
-          const streamSaisUi = (streamingValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
-          const dynamicReveal = computeDynamicStageReveal(streamSaisUi, effectiveStages);
-          const staticReveal = computeDataDrivenReveal(streamingValues, effectiveStages);
+        if (isLoading) {
+          // Use turn-gated values for detail fields when available,
+          // but always use saisUiData.raw for dynamic stage reveal.
+          // During interrupt resume, currentTurnIdRef isn't set (approval
+          // bypasses handleSubmit), so streamingValues may be empty — but
+          // saisUiData.raw is always updated by the SDK from values events.
+          const hasStreamData = streamingValues && Object.keys(streamingValues).length > 0;
+          stageDetails = hasStreamData ? deriveStageDetails(streamingValues) : {};
+          const latestSaisUi = saisUiData.raw as Record<string, unknown> | undefined;
+          const dynamicReveal = computeDynamicStageReveal(latestSaisUi, effectiveStages);
+          const staticReveal = hasStreamData
+            ? computeDataDrivenReveal(streamingValues, effectiveStages)
+            : 0;
           minReveal = Math.max(dynamicReveal, staticReveal);
         } else {
           const intentFromMeta = msgResponseMeta?.intent as string | undefined;

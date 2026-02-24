@@ -389,13 +389,24 @@ export function Thread() {
     messagesRef.current = stream.messages;
   }
 
+  // Track message IDs that existed before the current streaming session.
+  // After interrupt resume, no new human message is added, so all prior AI
+  // responses look like "current turn" and get filtered by groupMessages.
+  // Pre-stream IDs tell groupMessages to always render those messages.
+  const preStreamIdsRef = useRef<Set<string>>(new Set());
+
   // Clear turn ID ref only on the streaming→idle transition (not every idle render).
   // Without this guard, the ref set in handleSubmit would be wiped on the immediate
   // re-render before isLoading transitions to true.
   const prevStreamingRef = useRef(false);
+  if (isLoading && !prevStreamingRef.current) {
+    // Streaming just started — snapshot existing message IDs
+    preStreamIdsRef.current = new Set(stream.messages.map((m) => m.id).filter((id): id is string => !!id));
+  }
   if (!isLoading && prevStreamingRef.current) {
     currentTurnIdRef.current = null;
     messagesRef.current = stream.messages; // Sync cache with final state
+    preStreamIdsRef.current = new Set(); // Clear pre-stream tracking
   }
   prevStreamingRef.current = isLoading;
 
@@ -412,7 +423,11 @@ export function Thread() {
   const messageGroups = useMemo(
     () => groupMessages(
       messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
-      { isStreaming: isLoading, saisUi: saisUiData.raw as Record<string, unknown> | null },
+      {
+        isStreaming: isLoading,
+        saisUi: saisUiData.raw as Record<string, unknown> | null,
+        preStreamIds: isLoading ? preStreamIdsRef.current : undefined,
+      },
     ),
     [messages, isLoading, saisUiData.raw],
   );
