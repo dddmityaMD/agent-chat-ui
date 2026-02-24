@@ -66,6 +66,10 @@ export function useInterruptApproval() {
         streamMode: ["values"],
         streamSubgraphs: true,
         streamResumable: true,
+        optimisticValues: (prev) => ({
+          ...prev,
+          messages: prev.messages ?? [],
+        }),
       });
       toast("Approved", { description: "Proceeding with the action.", duration: 3000 });
     } catch (error) {
@@ -88,6 +92,10 @@ export function useInterruptApproval() {
         streamMode: ["values"],
         streamSubgraphs: true,
         streamResumable: true,
+        optimisticValues: (prev) => ({
+          ...prev,
+          messages: prev.messages ?? [],
+        }),
       });
       toast("Rejected", { description: "Action cancelled.", duration: 3000 });
       setFeedbackText("");

@@ -68,6 +68,35 @@ function RPABVStepper({
   );
 }
 
+/** Format a single artifact item for display */
+function formatArtifactItem(item: unknown): string {
+  if (typeof item === "string") {
+    // Strip Python enum prefixes like "VerificationStatus.VERIFIED_FIXED"
+    const enumMatch =
+      typeof item === "string" && item.match(/^[A-Za-z]+\.([A-Z_]+)$/);
+    if (enumMatch) {
+      return enumMatch[1].replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+    }
+    return item;
+  }
+  if (item && typeof item === "object") {
+    const obj = item as Record<string, unknown>;
+    // dbt model objects: show name + type
+    if (obj.name) {
+      const parts = [String(obj.name)];
+      if (obj.type) parts.push(`(${obj.type})`);
+      if (obj.path) parts.push(`— ${obj.path}`);
+      return parts.join(" ");
+    }
+    // Generic: show key=value pairs
+    return Object.entries(obj)
+      .filter(([, v]) => v != null && v !== "")
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+  }
+  return String(item);
+}
+
 /** Icon mapping for artifact types */
 function ArtifactIcon({ type }: { type: string }) {
   switch (type) {
@@ -121,7 +150,7 @@ function ArtifactSection({ artifacts }: { artifacts: SaisInterruptArtifact[] }) 
                     <ul className="mt-1 space-y-0.5 pl-2 text-xs text-gray-600 dark:text-gray-400">
                       {artifact.items.map((item, itemIdx) => (
                         <li key={itemIdx} className="truncate">
-                          {typeof item === "string" ? item : JSON.stringify(item)}
+                          {formatArtifactItem(item)}
                         </li>
                       ))}
                     </ul>
