@@ -57,6 +57,13 @@ export interface GroupMessagesOptions {
    * subgraph outputs and filtered out.
    */
   isStreaming?: boolean;
+  /**
+   * Current sais_ui state. When provided, enables dynamic stage
+   * derivation from `stage_definitions` declared by the active flow.
+   * Applied to the LAST AI message group (current turn) only —
+   * historical messages use per-message response_metadata.
+   */
+  saisUi?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -532,6 +539,7 @@ export function groupMessages(
   options?: GroupMessagesOptions,
 ): MessageGroup[] {
   const isStreaming = options?.isStreaming ?? false;
+  const saisUi = options?.saisUi ?? null;
   const groups: MessageGroup[] = [];
 
   // Find the index of the last human message — everything before it is
@@ -568,9 +576,14 @@ export function groupMessages(
       // Set exclusively by build_respond_payload() in the respond node.
       const flowType = extractFlowFromResponseMeta(msg);
 
+      // Use saisUi for dynamic stages on the LAST AI message (current turn).
+      // Historical messages rely on their own response_metadata.
+      const isLastAi = i >= lastHumanIdx;
+      const uiForStages = isLastAi ? saisUi : null;
+
       if (flowType) {
         // Confirmed final message via metadata — always render
-        const stages = deriveStagesFromFlow(flowType);
+        const stages = deriveStagesFromFlow(flowType, uiForStages);
         groups.push({ message: msg, stages });
       } else if (i < lastHumanIdx) {
         // Before the current turn's human message — historical final message
@@ -580,7 +593,7 @@ export function groupMessages(
       } else if (!isStreaming) {
         // After last human but not streaming — this is the final response
         // from a completed turn (backward compat for pre-metadata messages)
-        const stages = deriveStagesFromFlow(null);
+        const stages = deriveStagesFromFlow(null, uiForStages);
         groups.push({ message: msg, stages });
       }
       // else: after last human, no active_flow metadata, AND streaming

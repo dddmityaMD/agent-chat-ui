@@ -396,9 +396,9 @@ export function Thread() {
   const messageGroups = useMemo(
     () => groupMessages(
       messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
-      { isStreaming: isLoading },
+      { isStreaming: isLoading, saisUi: saisUiData.raw as Record<string, unknown> | null },
     ),
-    [messages, isLoading],
+    [messages, isLoading, saisUiData.raw],
   );
 
   // Sync permission grants from backend sais_ui state to local React state.
@@ -839,7 +839,11 @@ export function Thread() {
                       // currentTurnValues: only populated when stream.values.turn_id matches
                       // the current turn's human message ID. Stale checkpoint data returns {}.
                       const streamFlow = currentTurnValues.active_flow || inferFlowFromIntent(currentTurnValues.intent) || saisUiData.flowType;
-                      const streamSaisUi = currentTurnValues.sais_ui as Record<string, unknown> | undefined;
+                      // Fall back to saisUiData.raw so stage_definitions from the
+                      // build flow are available even before the delta filter
+                      // includes sais_ui (e.g. when stage_definitions hasn't changed
+                      // since the baseline snapshot).
+                      const streamSaisUi = (currentTurnValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
                       const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
                       const stageDetails = deriveStageDetails(currentTurnValues);
                       const enrichedStages = applyStageDetails(streamingStages, stageDetails);
