@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "./markdown-text";
 import { useInterruptApproval, SaisInterruptValue, SaisInterruptArtifact } from "@/hooks/useInterruptApproval";
-import { Check, X, MessageSquare, Database, FileCode, CheckCircle, Info } from "lucide-react";
+import { Check, X, MessageSquare, Database, FileCode, CheckCircle, Info, CheckCircle2, XCircle } from "lucide-react";
 
 const RPABV_STAGES = [
   { key: "research", letter: "R", label: "Research" },
@@ -167,6 +167,12 @@ function ArtifactSection({ artifacts }: { artifacts: SaisInterruptArtifact[] }) 
 
 interface InterruptApprovalProps {
   interruptValue: SaisInterruptValue;
+  /** When true, renders as a historical read-only card with decision badge instead of buttons */
+  isReadOnly?: boolean;
+  /** The decision that was made ("approved" or "rejected") — only used when isReadOnly */
+  decision?: "approved" | "rejected";
+  /** User feedback text if rejected — only used when isReadOnly */
+  feedback?: string | null;
 }
 
 /**
@@ -174,8 +180,11 @@ interface InterruptApprovalProps {
  * Renders the interrupt message (markdown), optional artifacts, and approve/reject buttons.
  * Handles plan_approval, research_approval, verify_approval, gate_confirmation,
  * and pipeline_resumption -- distinguished by type field with gate-specific labels.
+ *
+ * When isReadOnly=true, renders as a historical decision record with a badge
+ * showing what was decided, instead of interactive buttons.
  */
-export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
+export function InterruptApproval({ interruptValue, isReadOnly, decision, feedback: readOnlyFeedback }: InterruptApprovalProps) {
   const {
     loading,
     feedbackText,
@@ -260,8 +269,30 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
         <MarkdownText>{interruptValue.message}</MarkdownText>
       </div>
 
+      {/* Read-only decision badge (historical cards) */}
+      {isReadOnly && decision && (
+        <div className="flex items-center gap-2">
+          {decision === "approved" ? (
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Approved
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800 dark:bg-red-900/50 dark:text-red-300">
+              <XCircle className="h-3.5 w-3.5" />
+              Rejected
+            </div>
+          )}
+          {readOnlyFeedback && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+              {readOnlyFeedback}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Feedback input (shown on reject for plan_approval) */}
-      {showFeedback && (
+      {!isReadOnly && showFeedback && (
         <div className="mb-3">
           <textarea
             value={feedbackText}
@@ -296,7 +327,7 @@ export function InterruptApproval({ interruptValue }: InterruptApprovalProps) {
       )}
 
       {/* Action buttons */}
-      {!showFeedback && (
+      {!isReadOnly && !showFeedback && (
         <div className="flex items-center gap-2">
           <Button
             size="sm"

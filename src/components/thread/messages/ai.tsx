@@ -12,7 +12,7 @@ import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
 import React, { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
-import { isSaisInterruptSchema } from "@/hooks/useInterruptApproval";
+import { isSaisInterruptSchema, SaisInterruptValue } from "@/hooks/useInterruptApproval";
 import { ThreadView } from "../agent-inbox";
 import { InterruptApproval } from "../interrupt-approval";
 import { useQueryState, parseAsBoolean } from "nuqs";
@@ -51,6 +51,34 @@ import type { ThoughtStage } from "@/lib/message-groups";
 import { deriveStagesFromFlow, deriveStageDetails, applyStageDetails } from "@/lib/message-groups";
 import { ThoughtProcessPane } from "@/components/thread/thought-process-pane";
 import { HistoricalDisambiguationCard } from "@/components/thread/historical-disambiguation-card";
+
+// Type for interrupt decision records stored in response_metadata
+interface InterruptDecisionRecord {
+  type: string;
+  message: string;
+  decision: "approved" | "rejected";
+  feedback?: string | null;
+  artifacts?: any[];
+  rpabv_level?: number;
+  rpabv_progress?: any;
+  rpabv_status?: string;
+  plan?: any;
+  intent?: string;
+  entities?: string[];
+  step_index?: number;
+  total_steps?: number;
+}
+
+/** Extract an interrupt decision record from response_metadata, if present */
+function getInterruptDecision(meta: Record<string, unknown> | undefined): InterruptDecisionRecord | null {
+  if (!meta || typeof meta !== "object") return null;
+  const decision = meta.interrupt_decision;
+  if (!decision || typeof decision !== "object") return null;
+  const d = decision as Record<string, unknown>;
+  if (typeof d.type !== "string" || typeof d.message !== "string" || typeof d.decision !== "string") return null;
+  if (d.decision !== "approved" && d.decision !== "rejected") return null;
+  return d as unknown as InterruptDecisionRecord;
+}
 
 // Type for a single metadata section (one entity type)
 interface MetadataSection {
@@ -560,6 +588,20 @@ function LastMessageDecorations({
         />
       )}
 
+      {/* Interrupt decision card (read-only) — rare for last message but possible after resume */}
+      {(() => {
+        const interruptDecision = getInterruptDecision(msgResponseMeta);
+        if (!interruptDecision) return null;
+        return (
+          <InterruptApproval
+            interruptValue={interruptDecision as unknown as SaisInterruptValue}
+            isReadOnly
+            decision={interruptDecision.decision}
+            feedback={interruptDecision.feedback}
+          />
+        );
+      })()}
+
       {/* Synthesis indicator - show when streaming but no content yet */}
       {isLoading && contentString.length === 0 && !pendingDisambiguation && (
         <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
@@ -568,8 +610,8 @@ function LastMessageDecorations({
         </div>
       )}
 
-      {/* AI text content - show alongside metadata grids */}
-      {contentString.length > 0
+      {/* AI text content - show alongside metadata grids; hide text for decision records */}
+      {contentString.length > 0 && !getInterruptDecision(msgResponseMeta)
         && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
         <div className="py-1" data-testid="ai-message-content">
           <MarkdownText>{contentString}</MarkdownText>
@@ -766,6 +808,9 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
     ? getPendingDisambiguation({ pending_disambiguation: msgPendingDisambiguation })
     : null;
 
+  // Interrupt decision record (historical gate cards)
+  const interruptDecision = getInterruptDecision(msgResponseMeta);
+
   return (
     <>
       {/* Thought process pane — collapsed for historical messages (UAT-4).
@@ -799,6 +844,16 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
         );
       })()}
 
+      {/* Historical interrupt decision card (read-only) */}
+      {interruptDecision && (
+        <InterruptApproval
+          interruptValue={interruptDecision as unknown as SaisInterruptValue}
+          isReadOnly
+          decision={interruptDecision.decision}
+          feedback={interruptDecision.feedback}
+        />
+      )}
+
       {/* Historical disambiguation card — grayed out with selection highlighted (UAT-4) */}
       {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
         <HistoricalDisambiguationCard
@@ -807,8 +862,8 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
         />
       )}
 
-      {/* AI text content */}
-      {contentString.length > 0
+      {/* AI text content — skip if this message is purely a decision record */}
+      {contentString.length > 0 && !interruptDecision
         && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
         <div className="py-1" data-testid="ai-message-content">
           <MarkdownText>{contentString}</MarkdownText>
