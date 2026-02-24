@@ -17,12 +17,8 @@ import {
   EVIDENCE_TYPE_LABELS,
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
-import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
-import { Copy, X, Filter } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
-import { ContextPanelSection } from "@/components/context-panel";
+import { X, Filter, ChevronDown, ChevronRight } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-url";
-import { toast } from "sonner";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
 import { TAB_CONFIG, TabTrigger } from "@/components/case-panel/tabs";
@@ -390,20 +386,24 @@ export function CasePanel({ className }: { className?: string }) {
               summary={summary}
               loading={loading}
               error={error}
-              checks={checks}
-              requestedTypes={requestedTypes}
-              shouldShowMissingWarning={shouldShowMissingWarning}
-              getMissingMessage={getMissingMessage}
               permissionState={permissionState}
               revokePermissionGrant={revokePermissionGrant}
               stream={stream}
             />
           </Tabs.Content>
 
-          {/* Investigation Tab (merged Evidence + Findings + Mismatch) */}
+          {/* Investigation Tab (merged Evidence + Findings + Mismatch + Evidence Status) */}
           <Tabs.Content value="investigation" className="p-4">
             {summary ? (
               <div className="grid gap-4">
+                {/* Evidence Status -- grouped by source */}
+                <EvidenceStatusSection
+                  checks={checks}
+                  requestedTypes={requestedTypes}
+                  shouldShowMissingWarning={shouldShowMissingWarning}
+                  getMissingMessage={getMissingMessage}
+                />
+
                 {/* Mismatch Section */}
                 {Object.keys(mismatch).length > 0 && (
                   <div className="grid gap-2">
@@ -642,6 +642,143 @@ export function CasePanel({ className }: { className?: string }) {
           </Tabs.Content>
         </div>
       </Tabs.Root>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Evidence Status Section (moved from Summary tab to Investigation tab)
+// ---------------------------------------------------------------------------
+
+/** Source groups for evidence status display */
+const SOURCE_GROUPS: Array<{ label: string; types: string[] }> = [
+  { label: "Warehouse", types: ["sql"] },
+  { label: "dbt", types: ["dbt"] },
+  { label: "Metabase", types: ["metabase"] },
+  { label: "Git", types: ["git"] },
+];
+
+function EvidenceStatusSection({
+  checks,
+  requestedTypes,
+  shouldShowMissingWarning,
+  getMissingMessage,
+}: {
+  checks: Check[];
+  requestedTypes: Set<EvidenceType>;
+  shouldShowMissingWarning: (type: EvidenceType, ok: boolean) => boolean;
+  getMissingMessage: (type: EvidenceType) => string | null;
+}) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  };
+
+  // Group checks by source
+  const grouped = SOURCE_GROUPS.map((group) => {
+    const items = checks.filter((c) => group.types.includes(c.id));
+    return { ...group, items };
+  }).filter((g) => g.items.length > 0);
+
+  if (grouped.length === 0 && requestedTypes.size === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2">
+      <div className="text-sm font-semibold">Evidence Status</div>
+      <div className="rounded-md border bg-card p-3">
+        {grouped.length === 0 ? (
+          <div className="text-xs text-muted-foreground">
+            Ask a question to check for relevant evidence
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {grouped.map((group) => {
+              const isExpanded = expandedGroups.has(group.label);
+              const okCount = group.items.filter((c) => c.ok).length;
+              const totalCount = group.items.length;
+
+              return (
+                <div key={group.label}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-sm"
+                    onClick={() => toggleGroup(group.label)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown className="size-3.5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="size-3.5 text-muted-foreground" />
+                      )}
+                      <span className="font-medium">{group.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({okCount}/{totalCount})
+                      </span>
+                    </div>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        okCount === totalCount
+                          ? "bg-green-100 text-green-700"
+                          : okCount > 0
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-gray-100 text-gray-500",
+                      )}
+                    >
+                      {okCount === totalCount ? "OK" : okCount > 0 ? "Partial" : "Pending"}
+                    </span>
+                  </button>
+                  {isExpanded && (
+                    <div className="ml-5 mt-1 flex flex-col gap-1">
+                      {group.items.map((c) => {
+                        const showMissing = shouldShowMissingWarning(
+                          c.id as EvidenceType,
+                          c.ok,
+                        );
+                        const missingMessage = getMissingMessage(c.id as EvidenceType);
+
+                        return (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="text-muted-foreground">{c.label}</span>
+                            <span
+                              className={cn(
+                                c.ok && "text-green-700",
+                                showMissing && "text-amber-700",
+                                !c.ok && !showMissing && "text-gray-400",
+                              )}
+                              title={
+                                showMissing
+                                  ? missingMessage || undefined
+                                  : undefined
+                              }
+                            >
+                              {c.ok ? "OK" : showMissing ? "Not found" : "-"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -8,7 +8,6 @@ import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 import { ContextPanelSection } from "@/components/context-panel";
 import { toast } from "sonner";
 import type { ThreadSummary } from "@/components/case-panel";
-import type { EvidenceType } from "@/hooks/useCaseEvidenceState";
 import type { PermissionState } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -20,10 +19,6 @@ interface SummaryTabProps {
   summary: ThreadSummary | null;
   loading: boolean;
   error: string | null;
-  checks: Array<{ id: string; label: string; ok: boolean; requested: boolean }>;
-  requestedTypes: Set<EvidenceType>;
-  shouldShowMissingWarning: (type: EvidenceType, ok: boolean) => boolean;
-  getMissingMessage: (type: EvidenceType) => string | null;
   permissionState: PermissionState;
   revokePermissionGrant: (pendingActionId: string | null) => void;
   stream: {
@@ -41,10 +36,6 @@ export function SummaryTab({
   summary,
   loading,
   error,
-  checks,
-  requestedTypes,
-  shouldShowMissingWarning,
-  getMissingMessage,
   permissionState,
   revokePermissionGrant,
   stream,
@@ -192,44 +183,6 @@ export function SummaryTab({
             </div>
           </details>
 
-          {/* Evidence Status (collapsed by default) */}
-          <details className="grid gap-2">
-            <summary className="cursor-pointer text-sm font-semibold">
-              Evidence Status
-            </summary>
-            <div className="rounded-md border bg-card p-3">
-              <div className="mt-1 grid gap-1">
-                {checks.map((c) => {
-                  const showMissing = shouldShowMissingWarning(c.id as EvidenceType, c.ok);
-                  const missingMessage = getMissingMessage(c.id as EvidenceType);
-
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span>{c.label}</span>
-                      <span
-                        className={cn(
-                          c.ok && "text-green-700",
-                          showMissing && "text-amber-700",
-                          !c.ok && !showMissing && "text-gray-400",
-                        )}
-                        title={showMissing ? missingMessage || undefined : undefined}
-                      >
-                        {c.ok ? "OK" : showMissing ? "Not found" : "-"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {requestedTypes.size === 0 && (
-                <div className="mt-2 text-xs text-gray-400">
-                  Ask a question to check for relevant evidence
-                </div>
-              )}
-            </div>
-          </details>
         </>
       )}
     </div>

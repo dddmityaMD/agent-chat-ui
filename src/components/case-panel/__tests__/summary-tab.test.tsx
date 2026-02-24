@@ -2,6 +2,7 @@
  * Tests for SummaryTab component.
  *
  * Phase 19 - TEST-04: Frontend component test coverage.
+ * Updated Phase 23.3 - Evidence Status moved to Investigation tab.
  */
 import React from "react";
 import { render, screen } from "@testing-library/react";
@@ -38,10 +39,6 @@ const defaultProps = {
   summary: null,
   loading: false,
   error: null,
-  checks: [],
-  requestedTypes: new Set() as Set<any>,
-  shouldShowMissingWarning: jest.fn(() => false),
-  getMissingMessage: jest.fn(() => null),
   permissionState: { grants: [] },
   revokePermissionGrant: jest.fn(),
   stream: { messages: [], submit: jest.fn() },
@@ -72,8 +69,24 @@ describe("SummaryTab", () => {
   it("does not render sections when summary is null", () => {
     render(<SummaryTab {...defaultProps} summary={null} />);
     expect(screen.queryByTestId("readiness-panel")).not.toBeInTheDocument();
-    expect(screen.queryByText("Evidence Status")).not.toBeInTheDocument();
     expect(screen.queryByTestId("permissions-section")).not.toBeInTheDocument();
+  });
+
+  it("does not render Evidence Status (moved to Investigation tab)", () => {
+    const summary = {
+      thread: {
+        thread_id: "thread-1",
+        workspace_id: null,
+        title: "Test",
+        is_pinned: false,
+        is_archived: false,
+        created_at: "2026-01-01T00:00:00Z",
+        last_activity_at: "2026-01-01T00:00:00Z",
+        last_message_preview: null,
+      },
+    };
+    render(<SummaryTab {...defaultProps} summary={summary as any} />);
+    expect(screen.queryByText("Evidence Status")).not.toBeInTheDocument();
   });
 
   it("renders sections when summary is provided", () => {
@@ -91,7 +104,6 @@ describe("SummaryTab", () => {
     };
     render(<SummaryTab {...defaultProps} summary={summary as any} />);
     expect(screen.getByTestId("readiness-panel")).toBeInTheDocument();
-    expect(screen.getByText("Evidence Status")).toBeInTheDocument();
     expect(screen.getByTestId("permissions-section")).toBeInTheDocument();
   });
 
@@ -165,30 +177,5 @@ describe("SummaryTab", () => {
     expect(screen.getByText("WRITE (once)")).toBeInTheDocument();
     expect(screen.getByText("Reason: Test reason")).toBeInTheDocument();
     expect(screen.getByText("Revoke")).toBeInTheDocument();
-  });
-
-  // Mismatch section moved to Investigation tab in case-panel.tsx
-
-  it("renders evidence checks list", () => {
-    const summary = {
-      thread: {
-        thread_id: "thread-1",
-        workspace_id: null,
-        title: "Test",
-        is_pinned: false,
-        is_archived: false,
-        created_at: "2026-01-01T00:00:00Z",
-        last_activity_at: "2026-01-01T00:00:00Z",
-        last_message_preview: null,
-      },
-    };
-    const checks = [
-      { id: "sql_metadata", label: "SQL Metadata", ok: true, requested: true },
-      { id: "git_history", label: "Git History", ok: false, requested: false },
-    ];
-    render(<SummaryTab {...defaultProps} summary={summary as any} checks={checks} />);
-    expect(screen.getByText("SQL Metadata")).toBeInTheDocument();
-    expect(screen.getByText("Git History")).toBeInTheDocument();
-    expect(screen.getByText("OK")).toBeInTheDocument();
   });
 });
