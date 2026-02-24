@@ -319,28 +319,31 @@ export function deriveStageDetails(
   }
 
   // Evidence stage (investigation flow): show evidence count + types
+  // Stage ID "collecting" matches backend StageDefinition in investigation_flow.py
   const evidenceResult = values.evidence_result;
   if (evidenceResult?.evidence && evidenceResult.evidence.length > 0) {
     const types = [...new Set(
       evidenceResult.evidence.map((e) => e.type).filter(Boolean),
     )];
     const count = evidenceResult.evidence.length;
-    details["flow-evidence"] = `${count} piece${count !== 1 ? "s" : ""}: ${types.join(", ")}`;
+    details.collecting = `${count} piece${count !== 1 ? "s" : ""}: ${types.join(", ")}`;
   }
 
   // Catalog flow: show metadata result count
+  // Stage ID "scanning" matches backend StageDefinition in catalog_flow.py
   if (evidenceResult?.catalog_count) {
     const cc = evidenceResult.catalog_count;
     if (cc.count != null && cc.count > 0) {
       const typeLabel = cc.entity_type || "items";
-      details["flow-catalog"] = `${cc.count} ${typeLabel} found`;
+      details.scanning = `${cc.count} ${typeLabel} found`;
     }
   } else if (evidenceResult?.metadata_results && evidenceResult.metadata_results.length > 0) {
     const count = evidenceResult.metadata_results.length;
-    details["flow-catalog"] = `${count} result${count !== 1 ? "s" : ""} found`;
+    details.scanning = `${count} result${count !== 1 ? "s" : ""} found`;
   }
 
-  // Build flow stages: research, eval, plan, validate
+  // Build flow stages — IDs match backend StageDefinitions in build_flow.py:
+  // research, plan, approve, build, verify
   const saisUi = values.sais_ui;
   if (saisUi?.research_progress) {
     const rp = saisUi.research_progress;
@@ -351,7 +354,7 @@ export function deriveStageDetails(
       if (cf.sources) parts.push(`${cf.sources} sources`);
       if (cf.evidence) parts.push(`${cf.evidence} evidence`);
       if (parts.length > 0) {
-        details["flow-build-research"] = `Found ${parts.join(", ")}`;
+        details.research = `Found ${parts.join(", ")}`;
       }
     }
     if (rp.status === "evaluating" && rp.verdict) {
@@ -360,7 +363,8 @@ export function deriveStageDetails(
       const iterLabel = rp.iteration != null && rp.max_iterations
         ? `${rp.iteration + 1}/${rp.max_iterations}`
         : "";
-      details["flow-build-eval"] = [iterLabel, confPct ? `confidence ${confPct}` : ""]
+      // Eval is part of the research stage
+      details.research = [iterLabel, confPct ? `confidence ${confPct}` : ""]
         .filter(Boolean)
         .join(" — ") || "Evaluating";
     }
@@ -368,25 +372,26 @@ export function deriveStageDetails(
   if (saisUi?.rpabv_stage === "plan") {
     const level = (values as Record<string, unknown>).rpabv_level;
     if (typeof level === "number" && level > 0) {
-      details["flow-build-plan"] = `L${level} execution plan`;
+      details.plan = `L${level} execution plan`;
     }
   }
   if (saisUi?.validation_progress) {
     const vp = saisUi.validation_progress;
     if (vp.steps_checked != null) {
       const warnLabel = vp.warnings ? ` (${vp.warnings} warnings)` : "";
-      details["flow-build-validate"] = `Checked ${vp.steps_checked} steps${warnLabel}`;
+      details.verify = `Checked ${vp.steps_checked} steps${warnLabel}`;
     }
   }
 
   // Synthesis stage (investigation flow): show root cause confidence
+  // Stage ID "synthesizing" matches backend StageDefinition in investigation_flow.py
   const findings = values.findings;
   if (findings?.root_cause) {
     const conf = findings.root_cause.confidence;
     if (conf && conf > 0) {
-      details["flow-synthesis"] = `Root cause identified (${Math.round(conf * 100)}%)`;
+      details.synthesizing = `Root cause identified (${Math.round(conf * 100)}%)`;
     } else if (findings.root_cause.statement) {
-      details["flow-synthesis"] = "Root cause identified";
+      details.synthesizing = "Root cause identified";
     }
   }
 
@@ -417,27 +422,33 @@ export function computeDataDrivenReveal(
       lastCompletedIdx = i;
     } else if (id === "intent" && values.intent !== undefined) {
       lastCompletedIdx = i;
-    } else if (id === "flow-build-research" && values.sais_ui?.research_progress !== undefined) {
+    } else if (id === "research" && values.sais_ui?.research_progress !== undefined) {
       if (values.sais_ui.research_progress.status === "evaluating") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // research in progress
       }
-    } else if (id === "flow-build-eval" && values.sais_ui?.research_progress?.status === "evaluating") {
-      if (values.sais_ui?.rpabv_stage === "plan" || values.sais_ui?.rpabv_stage === "validate") {
-        lastCompletedIdx = i;
-      } else {
-        return i + 1; // eval in progress
-      }
-    } else if (id === "flow-build-plan" && (values.sais_ui?.rpabv_stage === "plan" || values.sais_ui?.rpabv_stage === "validate")) {
-      if (values.sais_ui.rpabv_stage === "validate") {
+    } else if (id === "plan" && (values.sais_ui?.rpabv_stage === "plan" || values.sais_ui?.rpabv_stage === "approve" || values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
+      if (values.sais_ui.rpabv_stage !== "plan") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // plan in progress
       }
-    } else if (id === "flow-build-validate" && values.sais_ui?.rpabv_stage === "validate") {
+    } else if (id === "approve" && (values.sais_ui?.rpabv_stage === "approve" || values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
+      if (values.sais_ui.rpabv_stage !== "approve") {
+        lastCompletedIdx = i;
+      } else {
+        return i + 1; // approve in progress
+      }
+    } else if (id === "build" && (values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
+      if (values.sais_ui.rpabv_stage === "verify") {
+        lastCompletedIdx = i;
+      } else {
+        return i + 1; // build in progress
+      }
+    } else if (id === "verify" && values.sais_ui?.rpabv_stage === "verify") {
       lastCompletedIdx = i;
-    } else if (id.startsWith("flow-") && values.active_flow !== undefined) {
+    } else if (values.active_flow !== undefined && !["resolve", "intent", "respond"].includes(id)) {
       if (values.evidence_result !== undefined || values.findings !== undefined) {
         lastCompletedIdx = i;
       } else {
