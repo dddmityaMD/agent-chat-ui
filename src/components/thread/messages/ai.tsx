@@ -517,7 +517,7 @@ function LastMessageDecorations({
       {(() => {
         const effectiveStages = (stages && stages.length > 0)
           ? stages
-          : deriveStagesFromFlow(activeFlow);
+          : deriveStagesFromFlow(activeFlow, saisUiData.raw as Record<string, unknown> | null);
         if (effectiveStages.length === 0) return null;
         // Derive details from this message's response_metadata (per-message, not per-thread).
         // This is the same approach as HistoricalMessageContent — consistent data source.

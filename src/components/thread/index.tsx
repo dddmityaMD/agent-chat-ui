@@ -12,7 +12,7 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
-import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, inferFlowFromIntent, type StreamingStateValues } from "@/lib/message-groups";
+import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, computeDynamicStageReveal, inferFlowFromIntent, type StreamingStateValues } from "@/lib/message-groups";
 import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
 import { LangGraphLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
@@ -839,10 +839,13 @@ export function Thread() {
                       // currentTurnValues: only populated when stream.values.turn_id matches
                       // the current turn's human message ID. Stale checkpoint data returns {}.
                       const streamFlow = currentTurnValues.active_flow || inferFlowFromIntent(currentTurnValues.intent) || saisUiData.flowType;
-                      const streamingStages = deriveStagesFromFlow(streamFlow);
+                      const streamSaisUi = currentTurnValues.sais_ui as Record<string, unknown> | undefined;
+                      const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
                       const stageDetails = deriveStageDetails(currentTurnValues);
                       const enrichedStages = applyStageDetails(streamingStages, stageDetails);
-                      const minReveal = computeDataDrivenReveal(currentTurnValues, streamingStages);
+                      const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
+                      const staticReveal = computeDataDrivenReveal(currentTurnValues, streamingStages);
+                      const minReveal = Math.max(dynamicReveal, staticReveal);
                       return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} />;
                     }
                     return null;

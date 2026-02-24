@@ -72,7 +72,7 @@ const PRE_FLOW_STAGES: ThoughtStage[] = [
 /** The final stage that always runs. */
 const RESPOND_STAGE: ThoughtStage = { id: "respond", label: "Composing response" };
 
-/** Flow-specific stages based on active_flow. */
+// Fallback for threads without stage_definitions -- Phase 23.3 dynamic stages take priority
 const FLOW_STAGES: Record<string, ThoughtStage[]> = {
   catalog: [{ id: "flow-catalog", label: "Querying catalog" }],
   investigation: [
@@ -89,6 +89,103 @@ const FLOW_STAGES: Record<string, ThoughtStage[]> = {
   ops: [{ id: "flow-ops", label: "Processing operation" }],
 };
 
+// ---------------------------------------------------------------------------
+// Dynamic stage derivation from sais_ui.stage_definitions
+// ---------------------------------------------------------------------------
+
+/** A stage definition as declared by the backend flow via sais_ui.stage_definitions */
+export interface StageDefinitionFromBackend {
+  id: string;
+  label: string;
+  data_key: string;
+}
+
+/**
+ * Derive ThoughtStage[] from sais_ui.stage_definitions (dynamic, flow-declared).
+ *
+ * Each flow declares its own stages via stage_definitions in sais_ui.
+ * The current stage value is read from sais_ui[data_key] and used to determine
+ * completed/active/pending status (handled by the consumer).
+ *
+ * Returns null if stage_definitions is not present (fallback to static FLOW_STAGES).
+ */
+export function deriveStagesFromSaisUi(
+  saisUi: Record<string, unknown> | null | undefined,
+): ThoughtStage[] | null {
+  if (!saisUi || typeof saisUi !== "object") return null;
+  const stageDefs = saisUi.stage_definitions;
+  if (!Array.isArray(stageDefs) || stageDefs.length === 0) return null;
+
+  // Validate shape
+  const valid = stageDefs.every(
+    (s: unknown) =>
+      s &&
+      typeof s === "object" &&
+      typeof (s as StageDefinitionFromBackend).id === "string" &&
+      typeof (s as StageDefinitionFromBackend).label === "string",
+  );
+  if (!valid) return null;
+
+  const defs = stageDefs as StageDefinitionFromBackend[];
+
+  // Read current stage value from the data_key (all defs share the same data_key typically)
+  const currentStageValue = defs[0]?.data_key
+    ? (saisUi[defs[0].data_key] as string | undefined)
+    : undefined;
+
+  // Find the index of the current stage
+  const currentIdx = currentStageValue
+    ? defs.findIndex((d) => d.id === currentStageValue)
+    : -1;
+
+  return defs.map((def, idx) => {
+    // Read subtitle from sais_ui (e.g., rpabv_stage_subtitle)
+    const subtitleKey = `${def.data_key}_subtitle`;
+    const subtitle = saisUi[subtitleKey];
+    const detail = typeof subtitle === "string" && subtitle.length > 0 ? subtitle : undefined;
+
+    return {
+      id: def.id,
+      label: def.label,
+      detail,
+      // Store status info for consumers
+      _stageIndex: idx,
+      _currentIndex: currentIdx,
+    } as ThoughtStage;
+  });
+}
+
+/**
+ * Compute the dynamic stage index from sais_ui for data-driven reveal.
+ * Returns the index of the current active stage (0-based), or -1 if unknown.
+ */
+export function computeDynamicStageReveal(
+  saisUi: Record<string, unknown> | null | undefined,
+  stages: ThoughtStage[],
+): number {
+  if (!saisUi || stages.length === 0) return 0;
+  const stageDefs = saisUi.stage_definitions;
+  if (!Array.isArray(stageDefs) || stageDefs.length === 0) return 0;
+
+  const defs = stageDefs as StageDefinitionFromBackend[];
+  const currentStageValue = defs[0]?.data_key
+    ? (saisUi[defs[0].data_key] as string | undefined)
+    : undefined;
+
+  if (!currentStageValue) return 0;
+
+  // Find the current stage in the full stages array (includes PRE_FLOW + dynamic + RESPOND)
+  // Dynamic stages start after PRE_FLOW_STAGES
+  const dynamicStartIdx = PRE_FLOW_STAGES.length;
+  const currentDynIdx = defs.findIndex((d) => d.id === currentStageValue);
+  if (currentDynIdx >= 0) {
+    // Reveal up to: all pre-flow + completed dynamic stages + current active
+    return dynamicStartIdx + currentDynIdx + 1;
+  }
+
+  return 0;
+}
+
 /**
  * Derive thought stages for an AI message based on the flow type.
  *
@@ -96,8 +193,20 @@ const FLOW_STAGES: Record<string, ThoughtStage[]> = {
  *   ground_entities → intent_router → [flow subgraph] → respond
  *
  * This function maps that architecture to user-visible stages.
+ * If saisUi contains stage_definitions (Phase 23.3), uses dynamic stages.
+ * Otherwise falls back to static FLOW_STAGES.
  */
-export function deriveStagesFromFlow(flowType: string | null | undefined): ThoughtStage[] {
+export function deriveStagesFromFlow(
+  flowType: string | null | undefined,
+  saisUi?: Record<string, unknown> | null,
+): ThoughtStage[] {
+  // Try dynamic stages from sais_ui.stage_definitions first
+  const dynamicStages = deriveStagesFromSaisUi(saisUi);
+  if (dynamicStages) {
+    return [...PRE_FLOW_STAGES, ...dynamicStages, RESPOND_STAGE];
+  }
+
+  // Fallback to static flow stages
   const flowSpecific = (flowType && FLOW_STAGES[flowType]) || [
     { id: "flow-generic", label: "Processing" },
   ];

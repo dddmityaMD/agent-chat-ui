@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Check, Loader2, Brain } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check, Loader2, Brain, Circle } from 'lucide-react';
 import type { ThoughtStage } from '@/lib/message-groups';
 import { cn } from '@/lib/utils';
 
@@ -22,8 +22,10 @@ function StageRow({
     <div className="flex items-center gap-2 py-0.5">
       {status === 'in-progress' ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
-      ) : (
+      ) : status === 'completed' ? (
         <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+      ) : (
+        <Circle className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
       )}
       <span
         className={cn(
@@ -192,6 +194,38 @@ function useMinSpinStatuses(
 }
 
 // ---------------------------------------------------------------------------
+// Collapsed summary derivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a one-line summary from completed stages.
+ * Shows flow type + stage count + key details when available.
+ */
+function deriveCollapsedSummary(stages: ThoughtStage[]): string {
+  // Count flow-specific stages (exclude pre-flow resolve/intent and respond)
+  const flowStages = stages.filter(
+    (s) => s.id !== 'resolve' && s.id !== 'intent' && s.id !== 'respond',
+  );
+  const stageCount = flowStages.length;
+
+  // Collect detail strings for informative summary
+  const details = stages
+    .filter((s) => s.detail)
+    .map((s) => s.detail!)
+    .slice(0, 2); // At most 2 details
+
+  if (stageCount === 0) {
+    return `Complete: ${stages.length} steps`;
+  }
+
+  const parts = [`${stageCount} stages complete`];
+  if (details.length > 0) {
+    parts.push(details.join(', '));
+  }
+  return parts.join(' — ');
+}
+
+// ---------------------------------------------------------------------------
 // ThoughtProcessPane
 // ---------------------------------------------------------------------------
 
@@ -212,14 +246,15 @@ interface ThoughtProcessPaneProps {
 /**
  * Collapsible pane showing the agent's processing stages.
  *
- * Design decisions (from UAT-4):
+ * Design decisions (from UAT-4 + Phase 23.3):
  * - Universal: shown on every AI response for a standardized professional feel
  * - During streaming: stages reveal progressively to reflect graph execution
  * - Each stage spins for a minimum time before completing (deliberate feel)
- * - Detail text appears immediately when available (even while spinning)
- * - Auto-collapse pane after response completes
+ * - Detail text (live subtitles) appears immediately when available
+ * - When all stages complete: collapses to informative one-line summary
+ * - User can expand collapsed summary to see full stage list
  * - Historical messages: show collapsed pane, don't hide
- * - Stages derived from the deterministic graph architecture
+ * - Stages derived from flow-declared stage_definitions (dynamic) or graph architecture (static)
  */
 export function ThoughtProcessPane({
   stages,
@@ -248,9 +283,15 @@ export function ThoughtProcessPane({
 
   if (stages.length === 0) return null;
 
+  // When not streaming, collapse to one-line summary (user can expand)
+  const allComplete = !isStreaming;
+  const summaryText = allComplete
+    ? deriveCollapsedSummary(stages)
+    : 'Thinking...';
+
   const statusText = isStreaming
     ? 'Thinking...'
-    : `${stages.length} step${stages.length !== 1 ? 's' : ''}`;
+    : summaryText;
 
   return (
     <div
@@ -268,9 +309,16 @@ export function ThoughtProcessPane({
           <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
         )}
         <Brain className="h-3 w-3 flex-shrink-0" />
-        <span>{statusText}</span>
+        {allComplete && !isOpen ? (
+          <span className="truncate">{summaryText}</span>
+        ) : (
+          <span>{isStreaming ? 'Thinking...' : `${stages.length} steps`}</span>
+        )}
         {isStreaming && (
           <Loader2 className="ml-auto h-3 w-3 animate-spin text-blue-500" />
+        )}
+        {allComplete && (
+          <Check className="ml-auto h-3 w-3 text-emerald-500 flex-shrink-0" />
         )}
       </button>
 
