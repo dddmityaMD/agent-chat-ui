@@ -80,21 +80,8 @@ const PRE_FLOW_STAGES: ThoughtStage[] = [
 const RESPOND_STAGE: ThoughtStage = { id: "respond", label: "Composing response" };
 
 // Fallback for threads without stage_definitions -- Phase 23.3 dynamic stages take priority
-const FLOW_STAGES: Record<string, ThoughtStage[]> = {
-  catalog: [{ id: "flow-catalog", label: "Querying catalog" }],
-  investigation: [
-    { id: "flow-evidence", label: "Collecting evidence" },
-    { id: "flow-synthesis", label: "Analyzing findings" },
-  ],
-  build: [
-    { id: "flow-build-research", label: "Researching context" },
-    { id: "flow-build-eval", label: "Evaluating sufficiency" },
-    { id: "flow-build-plan", label: "Generating plan" },
-    { id: "flow-build-validate", label: "Validating plan" },
-  ],
-  remediation: [{ id: "flow-remediation", label: "Preparing remediation" }],
-  ops: [{ id: "flow-ops", label: "Processing operation" }],
-};
+// Flow-specific stages are now delivered dynamically via sais_ui.stage_definitions
+// from the backend flow registry. No hardcoded stage lists needed.
 
 // ---------------------------------------------------------------------------
 // Dynamic stage derivation from sais_ui.stage_definitions
@@ -213,12 +200,8 @@ export function deriveStagesFromFlow(
     return [...PRE_FLOW_STAGES, ...dynamicStages, RESPOND_STAGE];
   }
 
-  // Fallback to static flow stages
-  const flowSpecific = (flowType && FLOW_STAGES[flowType]) || [
-    { id: "flow-generic", label: "Processing" },
-  ];
-
-  return [...PRE_FLOW_STAGES, ...flowSpecific, RESPOND_STAGE];
+  // Fallback: generic single stage (dynamic stages not yet received from backend)
+  return [...PRE_FLOW_STAGES, { id: "flow-processing", label: "Processing" }, RESPOND_STAGE];
 }
 
 // ---------------------------------------------------------------------------
