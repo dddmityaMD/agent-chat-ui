@@ -2,12 +2,25 @@ import { useStreamContext } from "@/providers/Stream";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export type SaisInterruptType = "plan_approval" | "gate_confirmation" | "pipeline_resumption";
+export type SaisInterruptType =
+  | "plan_approval"
+  | "gate_confirmation"
+  | "pipeline_resumption"
+  | "research_approval"
+  | "verify_approval";
+
+export interface SaisInterruptArtifact {
+  type: string;         // e.g., "models_found", "schema_discovered", "dbt_run_output"
+  label: string;        // Human-readable label
+  items?: any[];        // Optional list of items
+  summary?: string;     // Optional summary text
+}
 
 export interface SaisInterruptValue {
   type: SaisInterruptType;
   message: string;
   plan?: Record<string, any>;
+  artifacts?: SaisInterruptArtifact[];  // Gate-specific artifacts (research, verify)
   rpabv_level?: number;
   rpabv_progress?: {
     level: number;
@@ -26,7 +39,7 @@ export interface SaisInterruptValue {
 
 /**
  * Type guard: checks if an interrupt value is a SAIS-specific interrupt
- * (plan_approval, gate_confirmation, pipeline_resumption).
+ * (plan_approval, gate_confirmation, pipeline_resumption, research_approval, verify_approval).
  * Returns false for HITLRequest-shaped interrupts (those go to agent-inbox).
  */
 export function isSaisInterruptSchema(value: unknown): value is SaisInterruptValue {
@@ -34,7 +47,7 @@ export function isSaisInterruptSchema(value: unknown): value is SaisInterruptVal
   const v = value as Record<string, unknown>;
   return (
     typeof v.type === "string" &&
-    ["plan_approval", "gate_confirmation", "pipeline_resumption"].includes(v.type) &&
+    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval"].includes(v.type) &&
     typeof v.message === "string"
   );
 }
