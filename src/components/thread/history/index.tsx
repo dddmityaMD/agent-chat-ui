@@ -241,6 +241,13 @@ function ThreadList({
             onClick={() => {
               onThreadClick?.(t.thread_id);
               if (t.thread_id !== threadId) {
+                // Immediately update URL — nuqs throttle queue can lose
+                // updates when external history.replaceState calls trigger
+                // queue resets before the scheduled flush fires.
+                const url = new URL(window.location.href);
+                url.searchParams.set("threadId", t.thread_id);
+                window.history.replaceState(null, "", url.toString());
+                // Sync nuqs React state (emitter notifies all hooks)
                 setThreadId(t.thread_id);
               }
             }}
@@ -312,6 +319,11 @@ export default function ThreadHistory() {
 
   // Handlers
   const handleNewThread = useCallback(() => {
+    // Immediately clear threadId from URL — same nuqs race condition
+    // workaround as thread switching (see ThreadList onClick).
+    const url = new URL(window.location.href);
+    url.searchParams.delete("threadId");
+    window.history.replaceState(null, "", url.toString());
     setThreadId(null);
   }, [setThreadId]);
 
