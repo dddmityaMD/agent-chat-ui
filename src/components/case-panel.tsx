@@ -18,6 +18,7 @@ import {
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
 import { X, Filter, ChevronDown, ChevronRight } from "lucide-react";
+import type { BlockData } from "@/lib/blocks/types";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
@@ -361,6 +362,19 @@ export function CasePanel({ className }: { className?: string }) {
 
   const investigationCount = evidenceCount + findingsCount;
 
+  // Detect block-based build data (interrupt_card blocks in messages)
+  const hasBuildBlocks = useMemo(() => {
+    for (const msg of stream.messages) {
+      if (msg.type !== "ai") continue;
+      const meta = msg.response_metadata as Record<string, unknown> | undefined;
+      const blocks = meta?.blocks as BlockData[] | undefined;
+      if (Array.isArray(blocks) && blocks.some((b) => b.type === "interrupt_card")) {
+        return true;
+      }
+    }
+    return false;
+  }, [stream.messages]);
+
   const getBadgeCount = (tabValue: string): number | undefined => {
     switch (tabValue) {
       case "investigation": return investigationCount > 0 ? investigationCount : undefined;
@@ -383,7 +397,7 @@ export function CasePanel({ className }: { className?: string }) {
           {TAB_CONFIG.filter((tab) => {
             // Build tab only visible when build flow is active or has build data
             if (tab.value === "build") {
-              return saisUiData.isBuild || extractArray(saisUiData.raw, "stage_definitions").length > 0;
+              return saisUiData.isBuild || extractArray(saisUiData.raw, "stage_definitions").length > 0 || hasBuildBlocks;
             }
             return true;
           }).map((tab) => (
