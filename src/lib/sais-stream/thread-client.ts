@@ -125,7 +125,7 @@ export class SaisThreadClient {
     signal?: AbortSignal,
   ): Promise<Message[]> {
     const response = await this.fetchImpl(
-      `${this.apiUrl}/threads/${threadId}/state?t=${Date.now()}`,
+      `${this.apiUrl}/threads/${threadId}/state?t=${Date.now()}&subgraphs=true`,
       {
         method: "GET",
         credentials: "include",
@@ -138,7 +138,24 @@ export class SaisThreadClient {
     }
 
     const state: ThreadState = await response.json();
-    return (state.values?.messages as Message[] | undefined) ?? [];
+    let messages = (state.values?.messages as Message[] | undefined) ?? [];
+
+    // When a subgraph (e.g., build_flow) is interrupted, its messages are in
+    // the subgraph's internal checkpoint, not the parent state. Extract from
+    // the deepest active task — subgraph messages are always a superset.
+    if (state.tasks?.length) {
+      for (const task of state.tasks) {
+        const taskState = (task as Record<string, unknown>).state as
+          | { values?: Record<string, unknown> }
+          | undefined;
+        const taskMsgs = taskState?.values?.messages as Message[] | undefined;
+        if (taskMsgs && taskMsgs.length > messages.length) {
+          messages = taskMsgs;
+        }
+      }
+    }
+
+    return messages;
   }
 
   /**

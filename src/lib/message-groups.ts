@@ -602,6 +602,75 @@ export function groupMessages(
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Merge interrupt_decision blocks into their preceding interrupt_card blocks.
+  // The backend emits the decision as a separate AIMessage. We merge the decision
+  // data (decision, decided_at, feedback) into the card block so the resolved
+  // state renders inside the card, then remove the standalone decision message.
+  // ---------------------------------------------------------------------------
+  const decisionGroupIndicesToRemove = new Set<number>();
+
+  for (let i = 0; i < groups.length; i++) {
+    const grp = groups[i];
+    if (grp.message.type !== "ai") continue;
+
+    const meta = "response_metadata" in grp.message
+      ? (grp.message as AIMessage).response_metadata
+      : undefined;
+    if (!meta || typeof meta !== "object") continue;
+
+    const blocks = (meta as Record<string, unknown>).blocks as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (!Array.isArray(blocks)) continue;
+
+    const decisionBlock = blocks.find(
+      (b) => b.type === "interrupt_decision" || b.block_type === "interrupt_decision",
+    );
+    if (!decisionBlock) continue;
+
+    // Found a decision message — scan backwards for the interrupt_card group
+    for (let j = i - 1; j >= 0; j--) {
+      const cardGrp = groups[j];
+      if (cardGrp.message.type !== "ai") continue;
+
+      const cardMeta = "response_metadata" in cardGrp.message
+        ? (cardGrp.message as AIMessage).response_metadata
+        : undefined;
+      if (!cardMeta || typeof cardMeta !== "object") continue;
+
+      const cardBlocks = (cardMeta as Record<string, unknown>).blocks as
+        | Array<Record<string, unknown>>
+        | undefined;
+      if (!Array.isArray(cardBlocks)) continue;
+
+      const cardBlock = cardBlocks.find(
+        (b) => b.type === "interrupt_card" || b.block_type === "interrupt_card",
+      );
+      if (!cardBlock) continue;
+
+      // Merge decision data into the card block so InterruptCardBlock
+      // renders its built-in resolved state (lines 344-367)
+      cardBlock.decision = decisionBlock.decision;
+      cardBlock.decided_at = decisionBlock.decided_at;
+      if (decisionBlock.feedback) {
+        cardBlock.feedback = decisionBlock.feedback;
+      }
+
+      // Mark the standalone decision message for removal
+      decisionGroupIndicesToRemove.add(i);
+      break;
+    }
+  }
+
+  // Remove standalone decision messages (iterate in reverse to preserve indices)
+  if (decisionGroupIndicesToRemove.size > 0) {
+    const sortedDesc = [...decisionGroupIndicesToRemove].sort((a, b) => b - a);
+    for (const idx of sortedDesc) {
+      groups.splice(idx, 1);
+    }
+  }
+
   // Attach nextHumanMessage to each AI group (for disambiguation selection tracking)
   for (let i = 0; i < groups.length; i++) {
     if (groups[i].message.type !== "human") {
