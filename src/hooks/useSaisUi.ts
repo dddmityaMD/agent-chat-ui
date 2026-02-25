@@ -304,8 +304,17 @@ export function useSaisUi(): UseSaisUiResult {
   // produces a visible "4 steps → 8 steps" flicker and delayed interrupt cards.
   // Fix: keep the last substantive sais_ui and fall back to it when the current
   // value is empty/missing.
+  //
+  // Thread switch guard: when manager.clear() runs, values becomes {} and
+  // sais_ui is undefined. Clear the cache to prevent stale data from the
+  // previous thread leaking into the new one. This is safe because the
+  // stream manager's own saisUiCache handles stream→idle transitions
+  // (values won't be {} during normal stream gaps — only on thread switch).
   const cacheRef = useRef<typeof rawSaisUi>(undefined);
-  if (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0) {
+  const valuesEmpty = !values || Object.keys(values).length === 0;
+  if (valuesEmpty) {
+    cacheRef.current = undefined;
+  } else if (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0) {
     cacheRef.current = rawSaisUi;
   }
   const effectiveRaw = (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0)

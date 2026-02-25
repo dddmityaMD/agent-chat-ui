@@ -740,6 +740,40 @@ export function BuildTab({ threadId }: { threadId?: string | null }) {
               isFlowFinished={isFlowFinished}
             />
           ))}
+
+          {/* Live stage progress during streaming */}
+          {stream.isLoading && !isFlowFinished && (() => {
+            const liveStage = extractString(raw, "rpabv_stage");
+            const liveStageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
+            const stageSubtitles = (raw && typeof raw === "object" && "stage_subtitles" in raw)
+              ? (raw as Record<string, unknown>).stage_subtitles as Record<string, string> | undefined
+              : undefined;
+            const activeDef = liveStageDefs.find(s => s.id === liveStage);
+            if (!activeDef) return null;
+            // Don't show if this stage already has a timeline entry
+            const hasEntry = buildData.timelineEntries.some(
+              e => e.cardType?.includes(liveStage!)
+            );
+            if (hasEntry) return null;
+            const subtitle = stageSubtitles?.[liveStage!];
+            return (
+              <div className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="flex h-6 w-6 items-center justify-center">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100">
+                      <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 pb-3">
+                  <span className="text-sm font-medium text-blue-700">{activeDef.label}</span>
+                  {subtitle && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Decisions audit trail (from interrupt_decision blocks) */}

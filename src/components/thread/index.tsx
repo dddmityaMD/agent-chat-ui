@@ -421,8 +421,18 @@ export function Thread() {
 
   // Clear turn ID ref on streaming→idle transition
   const prevStreamingRef = useRef(false);
+  // Track last message ID at stream start to detect interrupt resume:
+  // during resume, the last AI message is from BEFORE the stream and should
+  // NOT be treated as a "final response" that suppresses the stepper.
+  const preStreamLastMsgIdRef = useRef<string | null>(null);
+  if (isLoading && !prevStreamingRef.current) {
+    // Stream just started — snapshot last message ID
+    const lastMsg = messages[messages.length - 1];
+    preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
+  }
   if (!isLoading && prevStreamingRef.current) {
     currentTurnIdRef.current = null;
+    preStreamLastMsgIdRef.current = null;
   }
   prevStreamingRef.current = isLoading;
 
@@ -892,7 +902,13 @@ export function Thread() {
                     // (has active_flow metadata or non-empty stages).
                     const lastIsIntermediate = lastIsAi && lastGroup.stages.length === 0
                       && extractFlowFromResponseMeta(lastGroup.message) === null;
-                    const hasFinalResponse = lastIsAi && !lastIsIntermediate;
+                    // During interrupt resume, the last AI message is from BEFORE the
+                    // stream (the gate card).  Don't treat it as a "final response" —
+                    // the stepper must still render so users see build progress.
+                    const lastIsPreStream = lastIsAi
+                      && !!preStreamLastMsgIdRef.current
+                      && lastGroup.message.id === preStreamLastMsgIdRef.current;
+                    const hasFinalResponse = lastIsAi && !lastIsIntermediate && !lastIsPreStream;
                     if (!hasFinalResponse) {
                       // currentTurnValues: only populated when stream.values.turn_id matches
                       // the current turn's human message ID. Stale checkpoint data returns {}.
@@ -903,10 +919,19 @@ export function Thread() {
                       // since the baseline snapshot).
                       const streamSaisUi = (currentTurnValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
                       const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
-                      const stageDetails = deriveStageDetails(currentTurnValues);
+                      const stageDetails = deriveStageDetails(
+                        Object.keys(currentTurnValues).length > 0
+                          ? currentTurnValues
+                          : { sais_ui: saisUiData.raw } as StreamingStateValues,
+                      );
                       const enrichedStages = applyStageDetails(streamingStages, stageDetails);
                       const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
-                      const staticReveal = computeDataDrivenReveal(currentTurnValues, streamingStages);
+                      const staticReveal = computeDataDrivenReveal(
+                        Object.keys(currentTurnValues).length > 0
+                          ? currentTurnValues
+                          : { sais_ui: saisUiData.raw } as StreamingStateValues,
+                        streamingStages,
+                      );
                       const minReveal = Math.max(dynamicReveal, staticReveal);
                       return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} isPaused={hasActiveInterrupt} />;
                     }

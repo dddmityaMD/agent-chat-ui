@@ -575,7 +575,9 @@ function LastMessageDecorations({
 
         if (isLoading) {
           const hasStreamData = streamingValues && Object.keys(streamingValues).length > 0;
-          stageDetails = hasStreamData ? deriveStageDetails(streamingValues) : {};
+          stageDetails = hasStreamData
+            ? deriveStageDetails(streamingValues)
+            : deriveStageDetails({ sais_ui: saisUiData.raw } as StreamingStateValues);
           // Cache non-empty streaming details so they survive isLoading→false transition
           if (Object.keys(stageDetails).length > 0) {
             cachedStageDetailsRef.current = { ...cachedStageDetailsRef.current, ...stageDetails };

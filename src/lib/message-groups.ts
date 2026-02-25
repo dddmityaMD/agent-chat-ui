@@ -560,6 +560,36 @@ export function groupMessages(
     }
   }
 
+  // Find the last renderable AI message — only this message gets full saisUi
+  // (with stage_subtitles). Earlier messages get stage definitions but stripped
+  // subtitles to prevent cross-contamination between turns (state machine:
+  // last = "active", earlier = "historical").
+  let lastRenderableAiIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].type === "ai") {
+      const c = getContentString(messages[i].content ?? []);
+      const m = "response_metadata" in messages[i]
+        ? (messages[i] as AIMessage).response_metadata
+        : undefined;
+      const hb = m && typeof m === "object"
+        && Array.isArray((m as Record<string, unknown>).blocks)
+        && ((m as Record<string, unknown>).blocks as unknown[]).length > 0;
+      if (c.trim().length > 0 || hb) {
+        lastRenderableAiIdx = i;
+        break;
+      }
+    }
+  }
+
+  // saisUi with stage_subtitles stripped — provides stage definitions without
+  // cross-contaminating subtitles from later stages onto earlier messages.
+  const saisUiStructureOnly = saisUi ? (() => {
+    const copy = { ...saisUi };
+    delete copy.stage_subtitles;
+    delete copy.rpabv_stage_subtitle;
+    return copy;
+  })() : null;
+
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
 
@@ -591,10 +621,15 @@ export function groupMessages(
       // Derive flow type from response_metadata
       const flowType = extractFlowFromResponseMeta(msg);
 
-      // Use saisUi for dynamic stages on messages after the last human
-      // (current turn). Historical messages rely on their own response_metadata.
+      // Stepper state machine for saisUi usage:
+      // - Last AI message (active): full saisUi with stage_subtitles
+      // - Earlier AI messages (historical): saisUi structure only (stage defs, no subtitles)
+      // - Before last human (old turn): no saisUi at all
       const isCurrentTurn = i >= lastHumanIdx;
-      const uiForStages = isCurrentTurn ? saisUi : null;
+      const isLastAi = i === lastRenderableAiIdx;
+      const uiForStages = isCurrentTurn
+        ? (isLastAi ? saisUi : saisUiStructureOnly)
+        : null;
 
       // All REST-sourced messages are final — render with stages
       const stages = deriveStagesFromFlow(flowType, uiForStages);
