@@ -8,7 +8,7 @@
  * and enable type-safe access to flow-specific state.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useStreamContext } from "@/providers/Stream";
 import { parseSaisUi } from "@/lib/schemas/sais-ui";
 import type { SaisUi } from "@/lib/schemas/sais-ui";
@@ -57,33 +57,49 @@ export interface UseSaisUiResult {
   // Investigation flow
   /** True if active_flow === "investigation" */
   isInvestigating: boolean;
-  /** True if evidence array is non-empty */
+  /** True if evidence array is non-empty
+   * @deprecated Phase 23.4: evidence now sourced from block messages (data_table blocks). Use extractSummaryData() from summary-tab.tsx or read blocks directly.
+   */
   hasEvidence: boolean;
-  /** Evidence array from investigation flow */
+  /** Evidence array from investigation flow
+   * @deprecated Phase 23.4: evidence now sourced from block messages (data_table blocks). Read from REST-fetched message blocks instead.
+   */
   evidence: Array<Record<string, unknown>>;
-  /** Findings dict from investigation flow */
+  /** Findings dict from investigation flow
+   * @deprecated Phase 23.4: findings now sourced from block messages (text blocks). Read from REST-fetched message blocks instead.
+   */
   findings: Record<string, unknown> | null;
 
   // Catalog flow
   /** True if active_flow === "catalog" */
   isCatalog: boolean;
-  /** Metadata results from catalog flow */
+  /** Metadata results from catalog flow
+   * @deprecated Phase 23.4: metadata results now sourced from block messages (data_table blocks).
+   */
   metadataResults: Array<Record<string, unknown>>;
   /** Disambiguation data for ambiguous entity queries */
   disambiguation: Record<string, unknown> | null;
 
   // Remediation flow
-  /** Remediation proposals array */
+  /** Remediation proposals array
+   * @deprecated Phase 23.4: remediation proposals now sourced from block messages.
+   */
   remediationProposals: Array<Record<string, unknown>>;
 
   // Build flow
   /** True if active_flow === "build" */
   isBuild: boolean;
-  /** True if build_plan object exists */
+  /** True if build_plan object exists
+   * @deprecated Phase 23.4: build plan now sourced from interrupt_card blocks. Use extractBuildData() from build-tab.tsx.
+   */
   hasBuildPlan: boolean;
-  /** Build plan status (proposed | approved | rejected | executing | completed | failed) */
+  /** Build plan status (proposed | approved | rejected | executing | completed | failed)
+   * @deprecated Phase 23.4: build plan status now derived from interrupt_card/flow_summary blocks. Use extractBuildData() from build-tab.tsx.
+   */
   buildPlanStatus: string | null;
-  /** Build verification result dict */
+  /** Build verification result dict
+   * @deprecated Phase 23.4: verification results now in interrupt_card blocks (verify_approval card_type). Read from blocks.
+   */
   buildVerificationResult: Record<string, unknown> | null;
 
   // Cross-flow state
@@ -91,7 +107,9 @@ export interface UseSaisUiResult {
   handoff: Record<string, unknown> | null;
   /** Resolution steps for debugging UI */
   resolutionSteps: Record<string, unknown> | null;
-  /** Confidence data (level, reason) */
+  /** Confidence data (level, reason)
+   * @deprecated Phase 23.4: confidence now sourced from block messages or response_metadata.
+   */
   confidence: Record<string, unknown> | null;
   /** Multi-intent decomposition payload */
   multiIntent: Record<string, unknown> | null;
@@ -280,9 +298,23 @@ export function useSaisUi(): UseSaisUiResult {
   const { values } = useStreamContext();
   const rawSaisUi = values.sais_ui;
 
+  // Cache sais_ui across stream→idle transitions.  When streaming ends the SDK
+  // briefly resets stream.values before the history fetch completes, causing
+  // stage_definitions (and other keys) to disappear for 1-2 frames.  This
+  // produces a visible "4 steps → 8 steps" flicker and delayed interrupt cards.
+  // Fix: keep the last substantive sais_ui and fall back to it when the current
+  // value is empty/missing.
+  const cacheRef = useRef<typeof rawSaisUi>(undefined);
+  if (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0) {
+    cacheRef.current = rawSaisUi;
+  }
+  const effectiveRaw = (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0)
+    ? rawSaisUi
+    : cacheRef.current;
+
   return useMemo(() => {
     // Parse with Zod schema (warn-and-fallback)
-    const parsed = parseSaisUi(rawSaisUi);
+    const parsed = parseSaisUi(effectiveRaw);
 
     // Extract all derived state
     const flowType = extractFlowType(parsed);
@@ -360,5 +392,5 @@ export function useSaisUi(): UseSaisUiResult {
       permissionGrants,
       groundedEntities,
     };
-  }, [rawSaisUi]); // Recompute only when sais_ui reference changes
+  }, [effectiveRaw]); // Recompute only when effective sais_ui reference changes
 }

@@ -1,14 +1,27 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+/**
+ * Summary tab - Thread overview with context and permissions.
+ *
+ * PRIMARY source for flow status: block messages from REST (flow_summary blocks).
+ * LIVE streaming state: useSaisUi via ContextPanelSection (active_flow, intent, entities).
+ * FALLBACK: sais_ui for legacy threads without block data.
+ *
+ * Historical data comes from persisted messages; live context from sais_ui.
+ */
+
+import React, { useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Copy } from "lucide-react";
+import { Copy, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 import { ContextPanelSection } from "@/components/context-panel";
 import { toast } from "sonner";
+import { useStreamContext } from "@/providers/Stream";
 import type { ThreadSummary } from "@/components/case-panel";
 import type { PermissionState } from "@/lib/types";
+import type { Message } from "@langchain/langgraph-sdk";
+import type { BlockData, FlowSummaryBlockData } from "@/lib/blocks/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,8 +36,100 @@ interface SummaryTabProps {
   revokePermissionGrant: (pendingActionId: string | null) => void;
   stream: {
     messages: any[];
-    submit: (input: any, options: any) => void;
+    submit: (input?: any, options?: any) => void;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Block extraction helpers
+// ---------------------------------------------------------------------------
+
+interface SummaryDataFromBlocks {
+  /** Flow summaries from flow_summary blocks (chronological) */
+  flowSummaries: FlowSummaryBlockData[];
+  /** Whether any block data was found */
+  hasBlockData: boolean;
+}
+
+/**
+ * Extract summary-relevant data from REST-fetched block messages.
+ * Scans for flow_summary blocks that provide flow completion status.
+ */
+function extractSummaryData(messages: Message[]): SummaryDataFromBlocks {
+  const flowSummaries: FlowSummaryBlockData[] = [];
+  let hasBlockData = false;
+
+  for (const msg of messages) {
+    if (msg.type !== "ai") continue;
+
+    const meta = msg.response_metadata as Record<string, unknown> | undefined;
+    if (!meta?.blocks) continue;
+
+    const blocks = meta.blocks as BlockData[];
+    if (!Array.isArray(blocks)) continue;
+
+    hasBlockData = true;
+
+    for (const block of blocks) {
+      if (block.type === "flow_summary") {
+        flowSummaries.push(block as FlowSummaryBlockData);
+      }
+    }
+  }
+
+  return { flowSummaries, hasBlockData };
+}
+
+// ---------------------------------------------------------------------------
+// Flow History Section (from block messages)
+// ---------------------------------------------------------------------------
+
+function FlowHistorySection({ summaries }: { summaries: FlowSummaryBlockData[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (summaries.length === 0) return null;
+
+  return (
+    <div className="grid gap-2">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 text-sm font-semibold"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? (
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        )}
+        <span>Flow History</span>
+        <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary">
+          {summaries.length}
+        </span>
+      </button>
+      {expanded && (
+        <div className="rounded-md border bg-card p-3 space-y-2">
+          {summaries.map((fs, idx) => {
+            const label = fs.flow_type
+              ? fs.flow_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+              : "Flow";
+
+            return (
+              <div
+                key={`flow-${idx}`}
+                className="flex items-center gap-2 text-xs"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                <span className="font-medium">{label}</span>
+                <span className="text-muted-foreground">
+                  {fs.stages_completed}/{fs.stages_total} stages
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +146,13 @@ export function SummaryTab({
   stream,
 }: SummaryTabProps) {
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const streamCtx = useStreamContext();
+
+  // Extract block-based summary data from REST messages
+  const summaryBlocks = useMemo(
+    () => extractSummaryData(streamCtx.messages),
+    [streamCtx.messages],
+  );
 
   const handleCopyThreadId = useCallback(() => {
     if (!threadId) return;
@@ -109,8 +221,11 @@ export function SummaryTab({
             />
           </div>
 
-          {/* Agent Context Section */}
+          {/* Agent Context Section (live streaming data from sais_ui) */}
           <ContextPanelSection threadId={threadId} />
+
+          {/* Flow History (from block messages -- persisted across refresh) */}
+          <FlowHistorySection summaries={summaryBlocks.flowSummaries} />
 
           {/* Permissions (collapsed by default) */}
           <details
@@ -164,11 +279,6 @@ export function SummaryTab({
                                     content: [{ type: "text", text }],
                                   },
                                 ],
-                              } as Record<string, unknown> as any,
-                              {
-                                streamMode: ["values"],
-                                streamSubgraphs: true,
-                                streamResumable: true,
                               },
                             );
                           }}
