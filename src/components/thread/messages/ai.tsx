@@ -1,6 +1,6 @@
 import { parsePartialJson } from "@langchain/core/output_parsers";
 import { useStreamContext } from "@/providers/Stream";
-import { AIMessage, Checkpoint, Message } from "@langchain/langgraph-sdk";
+import { AIMessage, Message } from "@langchain/langgraph-sdk";
 import { getContentString } from "../utils";
 import { BranchSwitcher, CommandBar } from "./shared";
 import { MarkdownText } from "../markdown-text";
@@ -51,6 +51,8 @@ import type { ThoughtStage, StreamingStateValues } from "@/lib/message-groups";
 import { deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDynamicStageReveal, computeDataDrivenReveal } from "@/lib/message-groups";
 import { ThoughtProcessPane } from "@/components/thread/thought-process-pane";
 import { HistoricalDisambiguationCard } from "@/components/thread/historical-disambiguation-card";
+import { getBlockRenderer } from "@/lib/blocks/registry";
+import type { BlockData } from "@/lib/blocks/types";
 
 // Type for interrupt decision records stored in response_metadata
 interface InterruptDecisionRecord {
@@ -260,17 +262,18 @@ function CustomComponent({
 }) {
   const artifact = useArtifact();
   const { values } = useStreamContext();
-  const customComponents = values.ui?.filter(
-    (ui) => ui.metadata?.message_id === message.id,
+  const uiMessages = values.ui as Array<{ id: string; metadata?: Record<string, unknown> }> | undefined;
+  const customComponents = uiMessages?.filter(
+    (ui: { metadata?: Record<string, unknown> }) => ui.metadata?.message_id === message.id,
   );
 
   if (!customComponents?.length) return null;
   return (
     <Fragment key={message.id}>
-      {customComponents.map((customComponent) => (
+      {customComponents.map((customComponent: any) => (
         <LoadExternalComponent
           key={customComponent.id}
-          stream={thread}
+          stream={thread as any}
           message={customComponent}
           meta={{ ui: customComponent, artifact }}
         />
@@ -533,6 +536,13 @@ function LastMessageDecorations({
     [threadSubmit, threadMessages],
   );
 
+  // --- Blocks-first rendering path ---
+  // If response_metadata.blocks exists, render each block via the block registry.
+  // This is the single rendering path for both live and historical messages.
+  // Legacy fallback: messages without blocks render via the old content-based path.
+  const blocks = msgResponseMeta?.blocks as BlockData[] | undefined;
+  const hasBlocks = Array.isArray(blocks) && blocks.length > 0;
+
   return (
     <>
       {/* Flow badge above message content */}
@@ -600,198 +610,225 @@ function LastMessageDecorations({
         );
       })()}
 
-      {/* Multi-intent decomposition */}
-      {multiIntentPayload && (
-        <MultiIntentResult payload={multiIntentPayload} />
-      )}
-
-      {/* Disambiguation card -- ambiguous entity matches */}
-      {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
-        <DisambiguationCard
-          payload={pendingDisambiguation}
-          onSelect={handleDisambiguationSelect}
-        />
-      )}
-
-      {/* Interrupt decision card (read-only) — rare for last message but possible after resume */}
-      {(() => {
-        const interruptDecision = getInterruptDecision(msgResponseMeta);
-        if (!interruptDecision) return null;
-        return (
-          <InterruptApproval
-            interruptValue={interruptDecision as unknown as SaisInterruptValue}
-            isReadOnly
-            decision={interruptDecision.decision}
-            feedback={interruptDecision.feedback}
-          />
-        );
-      })()}
-
-      {/* Synthesis indicator - show when streaming but no content yet */}
-      {isLoading && contentString.length === 0 && !pendingDisambiguation && (
-        <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Synthesizing answer...</span>
-        </div>
-      )}
-
-      {/* AI text content - show alongside metadata grids; hide text for decision records */}
-      {contentString.length > 0 && !getInterruptDecision(msgResponseMeta)
-        && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
-        <div className="py-1" data-testid="ai-message-content">
-          <MarkdownText>{contentString}</MarkdownText>
-        </div>
-      )}
-
-      {/* Render QueryResults for metadata responses */}
-      {metadataSections.map((section) => (
-        section.items.length > 0 && (
-          <details
-            className="mt-4"
-            key={section.entity_type}
-            open={true}
-            data-testid={`entity-grid-section-${section.entity_type}`}
-          >
-            {metadataSections.length > 1 && (
-              <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
-                {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
-              </summary>
-            )}
-            <QueryResults
-              evidence={section.items.map((item, idx) => ({
-                id: String(item.id || item.canonical_key || `item-${idx}`),
-                entity_type: section.entity_type,
-                ...item,
-              }))}
-              entityType={section.entity_type}
-              totalCount={section.total}
-              isLoading={isLoading}
-            />
-          </details>
-        )
-      ))}
-
-      {/* Confidence badge */}
-      <ConfidenceBadge
-        saisUiConfidence={confidenceData}
-        content={contentString}
-      />
-
-      {/* Lineage deep-link button — only for grounded entities */}
-      <ViewInLineageButton entities={saisUiData.groundedEntities} />
-
-      {/* Build plan display */}
-      {buildPlan && buildPlanStatus === "proposed" && (
-        <div className="mt-3">
-          <BuildPlanDisplay plan={buildPlan} />
-        </div>
-      )}
-
-      {/* Build execution progress indicator */}
-      {buildPlanStatus === "executing" && (
-        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400"></div>
-            <span className="text-sm text-blue-800 dark:text-blue-200">
-              Executing build plan...
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Build verification result */}
-      {buildVerificationResult && (
-        <div className="mt-3">
-          <VerificationBadge result={buildVerificationResult} />
-        </div>
-      )}
-
-      {/* Handoff confirmation card */}
-      {handoffProposal && !handoffProposal.confirmed && (
-        <HandoffConfirmationCard
-          handoff={handoffProposal}
-          currentFlow={activeFlow}
-          onConfirm={handleHandoffConfirm}
-          onDismiss={() => setHandoffDismissed(true)}
-          dismissed={handoffDismissed}
-        />
-      )}
-
-      {/* Remediation proposals as DiffCards */}
-      {remediationProposals && remediationProposals.length > 0 && (
-        <div className="mt-3" data-testid="remediation-proposals">
-          <BatchReview
-            batchId={
-              ((saisUiData.raw as Record<string, unknown>)
-                ?.remediation_batch_id as string) ||
-              `msg-${message?.id ?? "unknown"}`
+      {/* --- BLOCKS-FIRST RENDERING PATH ---
+           When response_metadata.blocks is present, render each block
+           via the block registry. Unknown block types fall back to markdown.
+           This is the unified path for both live and historical messages. */}
+      {hasBlocks ? (
+        <div className="flex flex-col gap-2">
+          {blocks!.map((block, i) => {
+            const Renderer = getBlockRenderer(block.type);
+            if (Renderer) {
+              return <Renderer key={`block-${i}`} block={block} />;
             }
-            threadId={
-              ((saisUiData.raw as Record<string, unknown>)?.thread_id as string) ||
-              ((saisUiData.raw as Record<string, unknown>)?.case_id as string) ||
-              ""
-            }
-            proposals={remediationProposals}
-            apiBaseUrl={getApiBaseUrl()}
-          />
+            // Fallback for unknown block types: render as raw text/markdown
+            return (
+              <div key={`block-${i}`} className="py-1" data-testid="ai-message-content">
+                <MarkdownText>{(block as { content?: string }).content ?? JSON.stringify(block)}</MarkdownText>
+              </div>
+            );
+          })}
         </div>
-      )}
+      ) : (
+        <>
+          {/* --- LEGACY RENDERING PATH ---
+               Messages without blocks (historical/pre-23.4) use the original
+               content-based rendering with all existing sub-components. */}
 
-      {/* Blocker messages */}
-      {blockers && blockers.length > 0 && (
-        <div className="mt-3" data-testid="blocker-messages">
-          {blockers.map((blocker, idx) => (
-            <BlockerMessage
-              key={`blocker-${idx}`}
-              blocker={blocker}
-              onAction={(action?: string) => {
-                const text = action || blocker.next_action;
-                if (text) {
-                  if (text.startsWith("grant write")) {
-                    const scopeMatch = text.match(/scope=([^\s]+)/);
-                    const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
-                    const reasonMatch = text.match(/reason="([\s\S]*)"$/);
-                    const grant: PermissionGrant = {
-                      capability: "WRITE",
-                      scope: scopeMatch?.[1] ?? "once",
-                      granted_at: new Date().toISOString(),
-                      expires_at:
-                        scopeMatch?.[1] === "1h"
-                          ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
-                          : null,
-                      reason: reasonMatch?.[1] ?? null,
-                      pending_action_id: pendingMatch?.[1] ?? null,
-                    };
-                    addPermissionGrant(grant);
-                  }
+          {/* Multi-intent decomposition */}
+          {multiIntentPayload && (
+            <MultiIntentResult payload={multiIntentPayload} />
+          )}
 
-                  if (text.startsWith("deny write")) {
-                    const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
-                    revokePermissionGrant(pendingMatch?.[1] ?? null);
-                  }
-
-                  const actionMsg: Message = {
-                    id: uuidv4(),
-                    type: "human",
-                    content: [{ type: "text", text }] as Message["content"],
-                  };
-                  thread.submit(
-                    { messages: [...thread.messages, actionMsg] } as Record<string, unknown> as any,
-                    { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
-                  );
-                }
-              }}
+          {/* Disambiguation card -- ambiguous entity matches */}
+          {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
+            <DisambiguationCard
+              payload={pendingDisambiguation}
+              onSelect={handleDisambiguationSelect}
             />
+          )}
+
+          {/* Interrupt decision card (read-only) — rare for last message but possible after resume */}
+          {(() => {
+            const interruptDecision = getInterruptDecision(msgResponseMeta);
+            if (!interruptDecision) return null;
+            return (
+              <InterruptApproval
+                interruptValue={interruptDecision as unknown as SaisInterruptValue}
+                isReadOnly
+                decision={interruptDecision.decision}
+                feedback={interruptDecision.feedback}
+              />
+            );
+          })()}
+
+          {/* Synthesis indicator - show when streaming but no content yet */}
+          {isLoading && contentString.length === 0 && !pendingDisambiguation && (
+            <div className="py-1 flex items-center gap-2 text-muted-foreground" data-testid="synthesis-indicator">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Synthesizing answer...</span>
+            </div>
+          )}
+
+          {/* AI text content - show alongside metadata grids; hide text for decision records */}
+          {contentString.length > 0 && !getInterruptDecision(msgResponseMeta)
+            && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
+            <div className="py-1" data-testid="ai-message-content">
+              <MarkdownText>{contentString}</MarkdownText>
+            </div>
+          )}
+
+          {/* Render QueryResults for metadata responses */}
+          {metadataSections.map((section) => (
+            section.items.length > 0 && (
+              <details
+                className="mt-4"
+                key={section.entity_type}
+                open={true}
+                data-testid={`entity-grid-section-${section.entity_type}`}
+              >
+                {metadataSections.length > 1 && (
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
+                    {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
+                  </summary>
+                )}
+                <QueryResults
+                  evidence={section.items.map((item, idx) => ({
+                    id: String(item.id || item.canonical_key || `item-${idx}`),
+                    entity_type: section.entity_type,
+                    ...item,
+                  }))}
+                  entityType={section.entity_type}
+                  totalCount={section.total}
+                  isLoading={isLoading}
+                />
+              </details>
+            )
           ))}
-        </div>
-      )}
 
-      {/* Clarification card */}
-      {clarificationData && (
-        <ClarificationCard
-          data={clarificationData}
-          onSelect={handleClarificationSelect}
-        />
+          {/* Confidence badge */}
+          <ConfidenceBadge
+            saisUiConfidence={confidenceData}
+            content={contentString}
+          />
+
+          {/* Lineage deep-link button — only for grounded entities */}
+          <ViewInLineageButton entities={saisUiData.groundedEntities} />
+
+          {/* Build plan display */}
+          {buildPlan && buildPlanStatus === "proposed" && (
+            <div className="mt-3">
+              <BuildPlanDisplay plan={buildPlan} />
+            </div>
+          )}
+
+          {/* Build execution progress indicator */}
+          {buildPlanStatus === "executing" && (
+            <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400"></div>
+                <span className="text-sm text-blue-800 dark:text-blue-200">
+                  Executing build plan...
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Build verification result */}
+          {buildVerificationResult && (
+            <div className="mt-3">
+              <VerificationBadge result={buildVerificationResult} />
+            </div>
+          )}
+
+          {/* Handoff confirmation card */}
+          {handoffProposal && !handoffProposal.confirmed && (
+            <HandoffConfirmationCard
+              handoff={handoffProposal}
+              currentFlow={activeFlow}
+              onConfirm={handleHandoffConfirm}
+              onDismiss={() => setHandoffDismissed(true)}
+              dismissed={handoffDismissed}
+            />
+          )}
+
+          {/* Remediation proposals as DiffCards */}
+          {remediationProposals && remediationProposals.length > 0 && (
+            <div className="mt-3" data-testid="remediation-proposals">
+              <BatchReview
+                batchId={
+                  ((saisUiData.raw as Record<string, unknown>)
+                    ?.remediation_batch_id as string) ||
+                  `msg-${message?.id ?? "unknown"}`
+                }
+                threadId={
+                  ((saisUiData.raw as Record<string, unknown>)?.thread_id as string) ||
+                  ((saisUiData.raw as Record<string, unknown>)?.case_id as string) ||
+                  ""
+                }
+                proposals={remediationProposals}
+                apiBaseUrl={getApiBaseUrl()}
+              />
+            </div>
+          )}
+
+          {/* Blocker messages */}
+          {blockers && blockers.length > 0 && (
+            <div className="mt-3" data-testid="blocker-messages">
+              {blockers.map((blocker, idx) => (
+                <BlockerMessage
+                  key={`blocker-${idx}`}
+                  blocker={blocker}
+                  onAction={(action?: string) => {
+                    const text = action || blocker.next_action;
+                    if (text) {
+                      if (text.startsWith("grant write")) {
+                        const scopeMatch = text.match(/scope=([^\s]+)/);
+                        const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                        const reasonMatch = text.match(/reason="([\s\S]*)"$/);
+                        const grant: PermissionGrant = {
+                          capability: "WRITE",
+                          scope: scopeMatch?.[1] ?? "once",
+                          granted_at: new Date().toISOString(),
+                          expires_at:
+                            scopeMatch?.[1] === "1h"
+                              ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                              : null,
+                          reason: reasonMatch?.[1] ?? null,
+                          pending_action_id: pendingMatch?.[1] ?? null,
+                        };
+                        addPermissionGrant(grant);
+                      }
+
+                      if (text.startsWith("deny write")) {
+                        const pendingMatch = text.match(/pending_action_id=([^\s]+)/);
+                        revokePermissionGrant(pendingMatch?.[1] ?? null);
+                      }
+
+                      const actionMsg: Message = {
+                        id: uuidv4(),
+                        type: "human",
+                        content: [{ type: "text", text }] as Message["content"],
+                      };
+                      thread.submit(
+                        { messages: [...thread.messages, actionMsg] } as Record<string, unknown> as any,
+                        { streamMode: ["values"], streamSubgraphs: true, streamResumable: true },
+                      );
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Clarification card */}
+          {clarificationData && (
+            <ClarificationCard
+              data={clarificationData}
+              onSelect={handleClarificationSelect}
+            />
+          )}
+        </>
       )}
     </>
   );
@@ -836,6 +873,10 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
   // Interrupt decision record (historical gate cards)
   const interruptDecision = getInterruptDecision(msgResponseMeta);
 
+  // --- Blocks-first rendering check ---
+  const blocks = msgResponseMeta?.blocks as BlockData[] | undefined;
+  const hasBlocks = Array.isArray(blocks) && blocks.length > 0;
+
   return (
     <>
       {/* Thought process pane — collapsed for historical messages (UAT-4).
@@ -869,65 +910,92 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
         );
       })()}
 
-      {/* Historical interrupt decision card (read-only) */}
-      {interruptDecision && (
-        <InterruptApproval
-          interruptValue={interruptDecision as unknown as SaisInterruptValue}
-          isReadOnly
-          decision={interruptDecision.decision}
-          feedback={interruptDecision.feedback}
-        />
-      )}
-
-      {/* Historical disambiguation card — grayed out with selection highlighted (UAT-4) */}
-      {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
-        <HistoricalDisambiguationCard
-          payload={pendingDisambiguation}
-          nextHumanMessage={nextHumanMessage}
-        />
-      )}
-
-      {/* AI text content — skip if this message is purely a decision record */}
-      {contentString.length > 0 && !interruptDecision
-        && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
-        <div className="py-1" data-testid="ai-message-content">
-          <MarkdownText>{contentString}</MarkdownText>
+      {/* --- BLOCKS-FIRST RENDERING PATH ---
+           When response_metadata.blocks is present, render each block
+           via the block registry. Unknown block types fall back to markdown.
+           Same path as LastMessageDecorations — single rendering path. */}
+      {hasBlocks ? (
+        <div className="flex flex-col gap-2">
+          {blocks!.map((block, i) => {
+            const Renderer = getBlockRenderer(block.type);
+            if (Renderer) {
+              return <Renderer key={`block-${i}`} block={block} />;
+            }
+            // Fallback for unknown block types: render as raw text/markdown
+            return (
+              <div key={`block-${i}`} className="py-1" data-testid="ai-message-content">
+                <MarkdownText>{(block as { content?: string }).content ?? JSON.stringify(block)}</MarkdownText>
+              </div>
+            );
+          })}
         </div>
-      )}
+      ) : (
+        <>
+          {/* --- LEGACY RENDERING PATH ---
+               Messages without blocks (historical/pre-23.4) use the original
+               content-based rendering. */}
 
-      {/* Per-message metadata grids */}
-      {metadataSections.map((section) => (
-        section.items.length > 0 && (
-          <details
-            className="mt-4"
-            key={section.entity_type}
-            open={true}
-            data-testid={`entity-grid-section-${section.entity_type}`}
-          >
-            {metadataSections.length > 1 && (
-              <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
-                {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
-              </summary>
-            )}
-            <QueryResults
-              evidence={section.items.map((item, idx) => ({
-                id: String(item.id || item.canonical_key || `item-${idx}`),
-                entity_type: section.entity_type,
-                ...item,
-              }))}
-              entityType={section.entity_type}
-              totalCount={section.total}
-              isLoading={false}
+          {/* Historical interrupt decision card (read-only) */}
+          {interruptDecision && (
+            <InterruptApproval
+              interruptValue={interruptDecision as unknown as SaisInterruptValue}
+              isReadOnly
+              decision={interruptDecision.decision}
+              feedback={interruptDecision.feedback}
             />
-          </details>
-        )
-      ))}
+          )}
 
-      {/* Confidence badge from content only (no sais_ui) */}
-      <ConfidenceBadge
-        saisUiConfidence={null}
-        content={contentString}
-      />
+          {/* Historical disambiguation card — grayed out with selection highlighted (UAT-4) */}
+          {pendingDisambiguation && pendingDisambiguation.candidates.length > 0 && (
+            <HistoricalDisambiguationCard
+              payload={pendingDisambiguation}
+              nextHumanMessage={nextHumanMessage}
+            />
+          )}
+
+          {/* AI text content — skip if this message is purely a decision record */}
+          {contentString.length > 0 && !interruptDecision
+            && !(pendingDisambiguation && pendingDisambiguation.candidates.length > 0) && (
+            <div className="py-1" data-testid="ai-message-content">
+              <MarkdownText>{contentString}</MarkdownText>
+            </div>
+          )}
+
+          {/* Per-message metadata grids */}
+          {metadataSections.map((section) => (
+            section.items.length > 0 && (
+              <details
+                className="mt-4"
+                key={section.entity_type}
+                open={true}
+                data-testid={`entity-grid-section-${section.entity_type}`}
+              >
+                {metadataSections.length > 1 && (
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 hover:text-foreground transition-colors">
+                    {ENTITY_TYPE_LABELS[section.entity_type] || section.entity_type} ({section.total})
+                  </summary>
+                )}
+                <QueryResults
+                  evidence={section.items.map((item, idx) => ({
+                    id: String(item.id || item.canonical_key || `item-${idx}`),
+                    entity_type: section.entity_type,
+                    ...item,
+                  }))}
+                  entityType={section.entity_type}
+                  totalCount={section.total}
+                  isLoading={false}
+                />
+              </details>
+            )
+          ))}
+
+          {/* Confidence badge from content only (no sais_ui) */}
+          <ConfidenceBadge
+            saisUiConfidence={null}
+            content={contentString}
+          />
+        </>
+      )}
     </>
   );
 }, (prev, next) => {
@@ -951,7 +1019,7 @@ export function AssistantMessage({
 }: {
   message: Message | undefined;
   isLoading: boolean;
-  handleRegenerate: (parentCheckpoint: Checkpoint | null | undefined) => void;
+  handleRegenerate: (parentCheckpoint: unknown) => void;
   /** Thought stages derived from preceding intermediate messages (UAT-4) */
   stages?: ThoughtStage[];
   /** The next human message after this one (for disambiguation selection tracking) */
