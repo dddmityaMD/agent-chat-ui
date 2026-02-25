@@ -138,15 +138,23 @@ export function deriveStagesFromSaisUi(
     ? defs.findIndex((d) => d.id === currentStageValue)
     : -1;
 
+  // Read accumulated per-stage subtitles (backend accumulates in stage_subtitles map)
+  const stageSubtitles = (saisUi.stage_subtitles ?? {}) as Record<string, string>;
+
   return defs.map((def, idx) => {
-    // Read subtitle from sais_ui (e.g., rpabv_stage_subtitle).
-    // Only show it on the CURRENT active stage — otherwise stale subtitles
-    // from a previous stage bleed into subsequent stages (G1' fix).
+    // Two subtitle sources:
+    // 1. stage_subtitles[stage_id] — accumulated by backend, persists across stages
+    // 2. rpabv_stage_subtitle — current active stage's live subtitle (most recent)
+    // For the active stage, prefer the live subtitle (more up-to-date).
+    // For completed stages, use the accumulated map.
     let detail: string | undefined;
     if (idx === currentIdx) {
       const subtitleKey = `${def.data_key}_subtitle`;
       const subtitle = saisUi[subtitleKey];
       detail = typeof subtitle === "string" && subtitle.length > 0 ? subtitle : undefined;
+    }
+    if (!detail && stageSubtitles[def.id]) {
+      detail = stageSubtitles[def.id];
     }
 
     return {

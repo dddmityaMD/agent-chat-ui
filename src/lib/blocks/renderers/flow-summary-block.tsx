@@ -45,6 +45,9 @@ export function FlowSummaryBlock({ block }: BlockRendererProps) {
                 }
               />
               <span>{stage.label}</span>
+              {stage.subtitle && (
+                <span className="text-xs text-muted-foreground">— {stage.subtitle}</span>
+              )}
             </div>
           ))}
         </div>

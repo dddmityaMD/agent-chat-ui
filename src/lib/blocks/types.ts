@@ -31,7 +31,7 @@ export interface FlowSummaryBlockData extends BlockData {
   flow_type: string;
   stages_completed: number;
   stages_total: number;
-  stage_details?: Array<{ id: string; label: string; status: string }>;
+  stage_details?: Array<{ id: string; label: string; status: string; subtitle?: string }>;
   duration_ms?: number;
 }
 
