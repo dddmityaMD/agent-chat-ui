@@ -367,7 +367,11 @@ export function CasePanel({ className }: { className?: string }) {
   useEffect(() => {
     const isBuild = saisUiData.isBuild;
     if (isBuild && !prevIsBuildRef.current) {
-      setActiveTab("build");
+      // Defer to next frame so the Build tab trigger is in the DOM
+      // before Radix Tabs processes the value change.
+      requestAnimationFrame(() => {
+        setActiveTab("build");
+      });
     }
     prevIsBuildRef.current = !!isBuild;
   }, [saisUiData.isBuild, setActiveTab]);

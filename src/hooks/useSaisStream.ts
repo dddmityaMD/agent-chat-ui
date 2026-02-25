@@ -168,8 +168,10 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
       return;
     }
 
-    // Clear state on thread switch
+    // Clear state on thread switch — including branch context so stale
+    // interrupt from the previous thread doesn't leak into the new one.
     manager.clear();
+    branch.clear();
     uiMessagesRef.current = [];
 
     if (!threadId) return;

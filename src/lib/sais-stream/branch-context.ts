@@ -39,6 +39,14 @@ export class BranchContext {
   }
 
   /**
+   * Clear all state (used on thread switch to prevent stale interrupt leaking).
+   */
+  clear(): void {
+    this.history = [];
+    this.messageToCheckpoint.clear();
+  }
+
+  /**
    * Get the latest checkpoint (thread head).
    * Used for interrupt detection when not streaming.
    */
