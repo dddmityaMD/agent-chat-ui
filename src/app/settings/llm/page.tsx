@@ -1,6 +1,7 @@
 "use client";
 
 import { LLMRoutingEditor } from "@/components/llm-routing-editor";
+import { EmbeddingConfigSection } from "@/components/embedding-config";
 
 export default function LLMConfigPage() {
   return (
@@ -9,6 +10,7 @@ export default function LLMConfigPage() {
         LLM Configuration
       </h1>
       <LLMRoutingEditor />
+      <EmbeddingConfigSection />
     </div>
   );
 }
