@@ -39,6 +39,8 @@ export function EmbeddingConfigSection() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<EmbeddingConfigData | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Editable draft values
   const [draftProvider, setDraftProvider] = useState("");
@@ -55,16 +57,21 @@ export function EmbeddingConfigSection() {
 
   const fetchConfig = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch(`${API}/api/embedding/config`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = await res.text();
+        setFetchError(`Failed to load embedding config: ${err}`);
+        return;
+      }
       const data: EmbeddingConfigData = await res.json();
       setConfig(data);
       setDraftProvider(data.provider);
       setDraftModel(data.model);
       setDraftApiKey("");
-    } catch {
-      // non-fatal on initial load
+    } catch (e) {
+      setFetchError(`Failed to load embedding config: ${e}`);
     } finally {
       setLoading(false);
     }
@@ -119,6 +126,7 @@ export function EmbeddingConfigSection() {
 
   const doSave = async () => {
     setSaving(true);
+    setSaveError(null);
     setShowConfirm(false);
     try {
       const payload: Record<string, string> = {
@@ -135,10 +143,13 @@ export function EmbeddingConfigSection() {
       });
       if (!res.ok) {
         const err = await res.text();
-        toast.error(`Save failed: ${err}`);
+        const msg = `Save failed: ${err}`;
+        toast.error(msg);
+        setSaveError(msg);
         return;
       }
       toast.success("Embedding config saved");
+      setSaveError(null);
 
       // Trigger re-embed if provider/model changed
       if (config && (draftProvider !== config.provider || draftModel !== config.model)) {
@@ -214,6 +225,12 @@ export function EmbeddingConfigSection() {
             </div>
           )}
 
+          {fetchError && (
+            <div className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1.5">
+              <p className="text-xs text-red-600 dark:text-red-400">{fetchError}</p>
+            </div>
+          )}
+
           {config && (
             <>
               <p className="text-xs text-muted-foreground">
@@ -279,6 +296,13 @@ export function EmbeddingConfigSection() {
                   <span className="text-[10px] text-muted-foreground">
                     Get your API key from ollama.com
                   </span>
+                  {/* API key missing warning when Ollama Cloud has issues */}
+                  {config.provider === "ollama_cloud" && isStale && (
+                    <p className="text-[10px] text-yellow-600 dark:text-yellow-400">
+                      Ollama Cloud API key may not be configured. Set OLLAMA_CLOUD_API_KEY in your
+                      environment or enter it above.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -286,6 +310,13 @@ export function EmbeddingConfigSection() {
               <div className="text-[10px] text-muted-foreground">
                 Current model ID: <code className="bg-muted px-1 rounded">{config.model_id}</code>
               </div>
+
+              {/* Save error */}
+              {saveError && (
+                <div className="rounded border border-red-500/30 bg-red-500/10 px-2 py-1">
+                  <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>
+                </div>
+              )}
 
               {/* Save / Cancel buttons */}
               <div className="flex gap-1">
