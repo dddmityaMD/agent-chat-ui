@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Check, Loader2, Brain, Circle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check, Loader2, Brain, Circle, Pause } from 'lucide-react';
 import type { ThoughtStage } from '@/lib/message-groups';
 import { cn } from '@/lib/utils';
 
@@ -14,13 +14,15 @@ function StageRow({
   status,
 }: {
   stage: ThoughtStage;
-  status: 'completed' | 'in-progress' | 'pending';
+  status: 'completed' | 'in-progress' | 'paused' | 'pending';
 }) {
   if (status === 'pending') return null; // Not yet revealed
 
   return (
     <div className="flex items-center gap-2 py-0.5">
-      {status === 'in-progress' ? (
+      {status === 'paused' ? (
+        <Pause className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
+      ) : status === 'in-progress' ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
       ) : status === 'completed' ? (
         <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
@@ -30,6 +32,7 @@ function StageRow({
       <span
         className={cn(
           'text-xs',
+          status === 'paused' ? 'text-orange-500' :
           status === 'in-progress' ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -186,7 +189,6 @@ function useMinSpinStatuses(
       }
       return 'completed';
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [revealedCount, isStreaming, minSpinMs, /* setTick dependency via tick */],
   );
 
@@ -218,7 +220,7 @@ function deriveCollapsedSummary(stages: ThoughtStage[]): string {
     return `Complete: ${stages.length} steps`;
   }
 
-  const parts = [`${stageCount} stages complete`];
+  const parts = [`${stageCount} ${stageCount === 1 ? "stage" : "stages"} complete`];
   if (details.length > 0) {
     parts.push(details.join(', '));
   }
@@ -241,6 +243,12 @@ interface ThoughtProcessPaneProps {
    * of the timer so details appear on the correct stage.
    */
   minRevealCount?: number;
+  /**
+   * Whether the flow is paused due to an active interrupt.
+   * When true, the current in-progress stage shows an orange pause
+   * indicator instead of the animated spinner.
+   */
+  isPaused?: boolean;
 }
 
 /**
@@ -261,18 +269,19 @@ export function ThoughtProcessPane({
   isStreaming = false,
   startCollapsed = false,
   minRevealCount = 0,
+  isPaused = false,
 }: ThoughtProcessPaneProps) {
   const [isOpen, setIsOpen] = useState(!startCollapsed && isStreaming);
   const revealedCount = useProgressiveReveal(stages, isStreaming, minRevealCount);
   const getStageStatus = useMinSpinStatuses(revealedCount, isStreaming);
 
-  // Auto-collapse when streaming ends
+  // Auto-collapse when streaming ends (but not when just paused)
   useEffect(() => {
-    if (!isStreaming && isOpen && !startCollapsed) {
+    if (!isStreaming && !isPaused && isOpen && !startCollapsed) {
       const timer = setTimeout(() => setIsOpen(false), 800);
       return () => clearTimeout(timer);
     }
-  }, [isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isStreaming, isPaused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open when streaming starts
   useEffect(() => {
@@ -283,15 +292,20 @@ export function ThoughtProcessPane({
 
   if (stages.length === 0) return null;
 
-  // When not streaming, collapse to one-line summary (user can expand)
-  const allComplete = !isStreaming;
+  // Determine effective status for the header
+  const allComplete = !isStreaming && !isPaused;
   const summaryText = allComplete
     ? deriveCollapsedSummary(stages)
-    : 'Thinking...';
+    : isPaused
+      ? 'Paused — awaiting decision'
+      : 'Thinking...';
 
-  const statusText = isStreaming
-    ? 'Thinking...'
-    : summaryText;
+  // When paused, override the last in-progress stage to show paused status
+  const getEffectiveStatus = (idx: number): 'completed' | 'in-progress' | 'paused' | 'pending' => {
+    const base = getStageStatus(idx);
+    if (isPaused && base === 'in-progress') return 'paused';
+    return base;
+  };
 
   return (
     <div
@@ -312,10 +326,13 @@ export function ThoughtProcessPane({
         {allComplete && !isOpen ? (
           <span className="truncate">{summaryText}</span>
         ) : (
-          <span>{isStreaming ? 'Thinking...' : `${stages.length} steps`}</span>
+          <span>{summaryText}</span>
         )}
-        {isStreaming && (
+        {isStreaming && !isPaused && (
           <Loader2 className="ml-auto h-3 w-3 animate-spin text-blue-500" />
+        )}
+        {isPaused && (
+          <Pause className="ml-auto h-3 w-3 text-orange-400 flex-shrink-0" />
         )}
         {allComplete && (
           <Check className="ml-auto h-3 w-3 text-emerald-500 flex-shrink-0" />
@@ -328,7 +345,7 @@ export function ThoughtProcessPane({
             <StageRow
               key={stage.id}
               stage={stage}
-              status={getStageStatus(idx)}
+              status={getEffectiveStatus(idx)}
             />
           ))}
         </div>
@@ -345,19 +362,22 @@ interface ThinkingIndicatorProps {
   stages: ThoughtStage[];
   /** Data-driven minimum reveal count from streaming state. */
   minRevealCount?: number;
+  /** Whether an active interrupt is pausing the flow. */
+  isPaused?: boolean;
 }
 
 /**
  * Standalone thinking indicator shown during streaming before the response arrives.
  * Stages are progressively revealed to reflect the agent's graph execution.
+ * When paused (interrupt active), stages remain visible with an orange pause indicator.
  */
-export function ThinkingIndicator({ stages, minRevealCount = 0 }: ThinkingIndicatorProps) {
+export function ThinkingIndicator({ stages, minRevealCount = 0, isPaused = false }: ThinkingIndicatorProps) {
   if (stages.length === 0) return null;
 
   return (
     <div className="mr-auto flex w-full items-start gap-2" data-testid="thinking-indicator">
       <div className="flex w-full flex-col gap-2">
-        <ThoughtProcessPane stages={stages} isStreaming startCollapsed={false} minRevealCount={minRevealCount} />
+        <ThoughtProcessPane stages={stages} isStreaming startCollapsed={false} minRevealCount={minRevealCount} isPaused={isPaused} />
       </div>
     </div>
   );

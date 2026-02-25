@@ -908,7 +908,7 @@ export function Thread() {
                       const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
                       const staticReveal = computeDataDrivenReveal(currentTurnValues, streamingStages);
                       const minReveal = Math.max(dynamicReveal, staticReveal);
-                      return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} />;
+                      return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} isPaused={hasActiveInterrupt} />;
                     }
                     return null;
                   })()}
