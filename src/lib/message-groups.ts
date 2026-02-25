@@ -66,10 +66,8 @@ export interface GroupMessagesOptions {
   saisUi?: Record<string, unknown> | null;
   /**
    * Message IDs that existed before the current streaming session started.
-   * When provided during streaming, messages with these IDs are always
-   * rendered (never filtered as intermediate subgraph outputs).
-   * Solves G7': after interrupt resume, no new human message is added,
-   * so all prior AI responses would otherwise be filtered.
+   * @deprecated No longer tracked after REST message migration (Phase 23.4).
+   * Kept for backward compatibility — always pass undefined or empty Set.
    */
   preStreamIds?: Set<string>;
 }
@@ -141,10 +139,15 @@ export function deriveStagesFromSaisUi(
     : -1;
 
   return defs.map((def, idx) => {
-    // Read subtitle from sais_ui (e.g., rpabv_stage_subtitle)
-    const subtitleKey = `${def.data_key}_subtitle`;
-    const subtitle = saisUi[subtitleKey];
-    const detail = typeof subtitle === "string" && subtitle.length > 0 ? subtitle : undefined;
+    // Read subtitle from sais_ui (e.g., rpabv_stage_subtitle).
+    // Only show it on the CURRENT active stage — otherwise stale subtitles
+    // from a previous stage bleed into subsequent stages (G1' fix).
+    let detail: string | undefined;
+    if (idx === currentIdx) {
+      const subtitleKey = `${def.data_key}_subtitle`;
+      const subtitle = saisUi[subtitleKey];
+      detail = typeof subtitle === "string" && subtitle.length > 0 ? subtitle : undefined;
+    }
 
     return {
       id: def.id,
@@ -522,31 +525,25 @@ function getContentString(content: Message["content"]): string {
 /**
  * Build MessageGroups from a flat message list.
  *
- * Uses metadata-driven filtering (no content inspection):
+ * With REST-sourced messages (Phase 23.4), all messages returned by the
+ * LangGraph thread state API are persisted and final. No intermediate
+ * subgraph outputs appear in REST responses.
  *
- * 1. AI messages with `response_metadata.active_flow` are always shown
- *    (confirmed final from `build_respond_payload()`).
- * 2. AI messages BEFORE the last human message are always shown
- *    (historical context from prior turns — always final).
- * 3. AI messages AFTER the last human message WITHOUT `active_flow`:
- *    - During streaming → intermediate subgraph output → skip
- *    - Not streaming → historical final message (pre-metadata era) → show
- *
- * Also filters out:
- * - Tool-only AI messages (no text content)
- * - Tool result messages
+ * Simplified filtering:
+ * - Tool result messages: hidden (rendered inline by tool-calls component)
+ * - Tool-only AI messages (no text content, no blocks): hidden
+ * - All other AI messages: rendered with stages derived from metadata
+ * - Human messages: always rendered
  */
 export function groupMessages(
   messages: Message[],
   options?: GroupMessagesOptions,
 ): MessageGroup[] {
-  const isStreaming = options?.isStreaming ?? false;
   const saisUi = options?.saisUi ?? null;
-  const preStreamIds = options?.preStreamIds;
   const groups: MessageGroup[] = [];
 
-  // Find the index of the last human message — everything before it is
-  // historical context from prior turns (always safe to render).
+  // Find the index of the last human message — used to determine
+  // which AI message gets saisUi for dynamic stage derivation.
   let lastHumanIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].type === "human") {
@@ -570,45 +567,30 @@ export function groupMessages(
 
     if (msg.type === "ai") {
       const content = getContentString(msg.content ?? []);
-      if (content.trim().length === 0) {
-        // Tool-only AI messages (no text content) — skip
+      // Check for blocks in response_metadata (Phase 23.4 blocks model)
+      const meta = "response_metadata" in msg
+        ? (msg as AIMessage).response_metadata
+        : undefined;
+      const hasBlocks = meta && typeof meta === "object"
+        && Array.isArray((meta as Record<string, unknown>).blocks)
+        && ((meta as Record<string, unknown>).blocks as unknown[]).length > 0;
+
+      if (content.trim().length === 0 && !hasBlocks) {
+        // Tool-only AI messages with no text content and no blocks — skip
         continue;
       }
 
-      // Primary discriminator: response_metadata.active_flow
-      // Set exclusively by build_respond_payload() in the respond node.
+      // Derive flow type from response_metadata
       const flowType = extractFlowFromResponseMeta(msg);
 
-      // Use saisUi for dynamic stages on the LAST AI message (current turn).
-      // Historical messages rely on their own response_metadata.
-      const isLastAi = i >= lastHumanIdx;
-      const uiForStages = isLastAi ? saisUi : null;
+      // Use saisUi for dynamic stages on messages after the last human
+      // (current turn). Historical messages rely on their own response_metadata.
+      const isCurrentTurn = i >= lastHumanIdx;
+      const uiForStages = isCurrentTurn ? saisUi : null;
 
-      if (flowType) {
-        // Confirmed final message via metadata — always render
-        const stages = deriveStagesFromFlow(flowType, uiForStages);
-        groups.push({ message: msg, stages });
-      } else if (i < lastHumanIdx) {
-        // Before the current turn's human message — historical final message
-        // (may predate the active_flow metadata addition)
-        const stages = deriveStagesFromFlow(null);
-        groups.push({ message: msg, stages });
-      } else if (!isStreaming) {
-        // After last human but not streaming — this is the final response
-        // from a completed turn (backward compat for pre-metadata messages)
-        const stages = deriveStagesFromFlow(null, uiForStages);
-        groups.push({ message: msg, stages });
-      } else if (msg.id && preStreamIds?.has(msg.id)) {
-        // Message existed before streaming started (e.g. completed gate
-        // response from prior interrupt).  Always render — it's not an
-        // intermediate subgraph output even though it lacks active_flow
-        // metadata and is after lastHumanIdx.
-        const stages = deriveStagesFromFlow(null);
-        groups.push({ message: msg, stages });
-      }
-      // else: after last human, no active_flow metadata, AND streaming
-      // → intermediate subgraph output (intent router, evidence agent, etc.)
-      // → skip — these are transient artifacts from streamSubgraphs
+      // All REST-sourced messages are final — render with stages
+      const stages = deriveStagesFromFlow(flowType, uiForStages);
+      groups.push({ message: msg, stages });
     }
   }
 

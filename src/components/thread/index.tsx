@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
 import { useState, useCallback, FormEvent } from "react";
 import { Button } from "../ui/button";
-import { Checkpoint, Message } from "@langchain/langgraph-sdk";
-import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
+import { Message } from "@langchain/langgraph-sdk";
+import { AssistantMessage } from "./messages/ai";
 import { HumanMessage } from "./messages/human";
 import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
-import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, computeDynamicStageReveal, inferFlowFromIntent, type StreamingStateValues } from "@/lib/message-groups";
+import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, computeDynamicStageReveal, inferFlowFromIntent, extractFlowFromResponseMeta, type StreamingStateValues } from "@/lib/message-groups";
 import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
 import { LangGraphLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
@@ -20,7 +20,6 @@ import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   AlertTriangle,
   ArrowDown,
-  LoaderCircle,
   PanelRightOpen,
   PanelRightClose,
   RotateCcw,
@@ -119,7 +118,11 @@ function StickyToBottomContent(props: {
   );
 }
 
-function ScrollToBottom(props: { className?: string }) {
+function ScrollToBottom(props: {
+  className?: string;
+  hasNewMessages?: boolean;
+  onScrollToBottom?: () => void;
+}) {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
 
   if (isAtBottom) return null;
@@ -127,15 +130,54 @@ function ScrollToBottom(props: { className?: string }) {
     <button
       type="button"
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-md transition-all hover:bg-accent",
+        "flex items-center justify-center gap-1.5 rounded-full border bg-background shadow-md transition-all hover:bg-accent",
+        props.hasNewMessages ? "h-8 px-3" : "h-8 w-8",
         props.className,
       )}
-      onClick={() => scrollToBottom()}
-      aria-label="Scroll to bottom"
+      onClick={() => {
+        scrollToBottom();
+        props.onScrollToBottom?.();
+      }}
+      aria-label={props.hasNewMessages ? "New messages - scroll to bottom" : "Scroll to bottom"}
     >
+      {props.hasNewMessages && (
+        <span className="text-xs font-medium text-blue-600">New messages</span>
+      )}
       <ArrowDown className="h-4 w-4" />
     </button>
   );
+}
+
+/**
+ * Detects new messages arriving while user is scrolled up.
+ * Must be rendered inside StickToBottom context.
+ */
+function NewMessagesDetector({
+  messageCount,
+  onNewMessages,
+  onAtBottom,
+}: {
+  messageCount: number;
+  onNewMessages: () => void;
+  onAtBottom: () => void;
+}) {
+  const { isAtBottom } = useStickToBottomContext();
+  const prevCountRef = useRef(messageCount);
+
+  useEffect(() => {
+    if (messageCount > prevCountRef.current && !isAtBottom) {
+      onNewMessages();
+    }
+    prevCountRef.current = messageCount;
+  }, [messageCount, isAtBottom, onNewMessages]);
+
+  useEffect(() => {
+    if (isAtBottom) {
+      onAtBottom();
+    }
+  }, [isAtBottom, onAtBottom]);
+
+  return null;
 }
 
 function OpenGitHubRepo() {
@@ -373,40 +415,14 @@ export function Thread() {
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
 
-  // Cache messages to prevent disappearing history during subgraph streaming.
-  // LangGraph SDK replaces entire state on subgraph `values` events, which can
-  // temporarily wipe parent-level messages. We detect this (messages shrinking
-  // during streaming) and merge with the cache to preserve chat history.
-  const messagesRef = useRef<Message[]>([]);
-  let messages: Message[];
-  if (isLoading && stream.messages.length < messagesRef.current.length) {
-    // Subgraph event wiped messages — use cache, append any new ones
-    const cachedIds = new Set(messagesRef.current.map((m) => m.id));
-    const newMsgs = stream.messages.filter((m) => !cachedIds.has(m.id));
-    messages = [...messagesRef.current, ...newMsgs];
-  } else {
-    messages = stream.messages;
-    messagesRef.current = stream.messages;
-  }
+  // Messages come from REST via useSaisStream hook (Phase 23.4).
+  // SSE carries only sais_ui signals; messages fetched from thread state API.
+  const messages = stream.messages;
 
-  // Track message IDs that existed before the current streaming session.
-  // After interrupt resume, no new human message is added, so all prior AI
-  // responses look like "current turn" and get filtered by groupMessages.
-  // Pre-stream IDs tell groupMessages to always render those messages.
-  const preStreamIdsRef = useRef<Set<string>>(new Set());
-
-  // Clear turn ID ref only on the streaming→idle transition (not every idle render).
-  // Without this guard, the ref set in handleSubmit would be wiped on the immediate
-  // re-render before isLoading transitions to true.
+  // Clear turn ID ref on streaming→idle transition
   const prevStreamingRef = useRef(false);
-  if (isLoading && !prevStreamingRef.current) {
-    // Streaming just started — snapshot existing message IDs
-    preStreamIdsRef.current = new Set(stream.messages.map((m) => m.id).filter((id): id is string => !!id));
-  }
   if (!isLoading && prevStreamingRef.current) {
     currentTurnIdRef.current = null;
-    messagesRef.current = stream.messages; // Sync cache with final state
-    preStreamIdsRef.current = new Set(); // Clear pre-stream tracking
   }
   prevStreamingRef.current = isLoading;
 
@@ -416,17 +432,14 @@ export function Thread() {
   const currentTurnValues = useCurrentTurnDelta(rawStreamValues, currentTurnId);
 
   // Group messages into renderable units (UAT-4: thought process pane).
-  // Each AI message gets stages derived from the flow type.
-  // During streaming, intermediate subgraph outputs (lacking active_flow
-  // in response_metadata) are filtered out — metadata-driven, no content
-  // inspection.  When not streaming, all AI messages render (backward compat).
+  // With REST-sourced messages (Phase 23.4), all messages are final —
+  // no intermediate subgraph filtering needed.
   const messageGroups = useMemo(
     () => groupMessages(
       messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
       {
         isStreaming: isLoading,
         saisUi: saisUiData.raw as Record<string, unknown> | null,
-        preStreamIds: isLoading ? preStreamIdsRef.current : undefined,
       },
     ),
     [messages, isLoading, saisUiData.raw],
@@ -514,7 +527,7 @@ export function Thread() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
+    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading || hasActiveInterrupt)
       return;
     // Build the message first so we can use it for both optimistic render
     // and the actual submit payload.
@@ -545,14 +558,11 @@ export function Thread() {
         context,
       },
       {
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
         optimisticValues: (prev) => ({
           ...prev,
           context,
           messages: [
-            ...(prev.messages ?? []),
+            ...((prev.messages ?? []) as Message[]),
             ...toolMessages,
             newHumanMessage,
           ],
@@ -565,12 +575,9 @@ export function Thread() {
   };
 
   const handleRegenerate = useCallback(
-    (parentCheckpoint: Checkpoint | null | undefined) => {
+    (parentCheckpoint: unknown) => {
       stream.submit(undefined, {
         checkpoint: parentCheckpoint,
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
       });
     },
     [stream.submit],
@@ -612,12 +619,9 @@ export function Thread() {
     stream.submit(
       { messages: [...stream.messages, ...toolMessages, retryMessage] },
       {
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
         optimisticValues: (prev) => ({
           ...prev,
-          messages: [...(prev.messages ?? []), ...toolMessages, retryMessage],
+          messages: [...((prev.messages ?? []) as Message[]), ...toolMessages, retryMessage],
         }),
       },
     );
@@ -636,6 +640,18 @@ export function Thread() {
   const hasNoAIOrToolMessages = !messages.find(
     (m) => m.type === "ai" || m.type === "tool",
   );
+
+  // Detect active interrupt — input should be disabled during interrupts
+  // per CONTEXT.md: "Input disabled with hint 'Approve or reject the pending decision to continue.'"
+  const hasActiveInterrupt = !!stream.interrupt;
+
+  // "New messages" indicator: track message count and isAtBottom state
+  // to show a pill when new messages arrive while user has scrolled up.
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const prevMessageCountRef = useRef(messages.length);
+  // We'll use the StickToBottom context inside the scroll area,
+  // so we track a ref that gets updated by ScrollToBottom's parent.
+  const isAtBottomRef = useRef(true);
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -811,6 +827,11 @@ export function Thread() {
           )}
 
           <StickToBottom className="relative flex-1 overflow-hidden">
+            <NewMessagesDetector
+              messageCount={messages.length}
+              onNewMessages={useCallback(() => setHasNewMessages(true), [])}
+              onAtBottom={useCallback(() => setHasNewMessages(false), [])}
+            />
             <StickyToBottomContent
               className={cn(
                 "absolute inset-0 overflow-y-scroll px-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent",
@@ -863,10 +884,15 @@ export function Thread() {
                   )}
                   {isLoading && (() => {
                     // Check if the current turn has a final AI response in messageGroups.
-                    // During streaming, intermediate messages are filtered out, so we need
-                    // to show a streaming indicator until the final response arrives.
+                    // With REST messages, we show ThinkingIndicator until a new AI
+                    // message (with flow metadata) appears in the current turn.
                     const lastGroup = messageGroups[messageGroups.length - 1];
-                    const hasFinalResponse = lastGroup && lastGroup.message.type === "ai";
+                    const lastIsAi = lastGroup && lastGroup.message.type === "ai";
+                    // Check if the last AI message is a genuine new response for this turn
+                    // (has active_flow metadata or non-empty stages).
+                    const lastIsIntermediate = lastIsAi && lastGroup.stages.length === 0
+                      && extractFlowFromResponseMeta(lastGroup.message) === null;
+                    const hasFinalResponse = lastIsAi && !lastIsIntermediate;
                     if (!hasFinalResponse) {
                       // currentTurnValues: only populated when stream.values.turn_id matches
                       // the current turn's human message ID. Stale checkpoint data returns {}.
@@ -929,7 +955,11 @@ export function Thread() {
                     </div>
                   )}
 
-                  <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
+                  <ScrollToBottom
+                    className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2"
+                    hasNewMessages={hasNewMessages}
+                    onScrollToBottom={() => setHasNewMessages(false)}
+                  />
 
                   <div
                     ref={dropRef}
@@ -967,8 +997,16 @@ export function Thread() {
                             form?.requestSubmit();
                           }
                         }}
-                        placeholder="Type your message..."
-                        className="field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none"
+                        placeholder={
+                          hasActiveInterrupt
+                            ? "Approve or reject the pending decision to continue."
+                            : "Type your message..."
+                        }
+                        disabled={hasActiveInterrupt}
+                        className={cn(
+                          "field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none",
+                          hasActiveInterrupt && "cursor-not-allowed opacity-50",
+                        )}
                       />
 
                       <div className="flex items-center gap-6 p-2 pt-4">
@@ -1023,6 +1061,7 @@ export function Thread() {
                             className="ml-auto shadow-md transition-all"
                             disabled={
                               isLoading ||
+                              hasActiveInterrupt ||
                               (!input.trim() && contentBlocks.length === 0)
                             }
                           >
