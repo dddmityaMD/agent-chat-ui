@@ -2,11 +2,7 @@
  * Tests for StreamProvider and useStreamContext hook.
  *
  * Phase 19 - TEST-04: Frontend component test coverage.
- *
- * Strategy: Test the public API behavior of StreamProvider. Since the component
- * relies heavily on @langchain/langgraph-sdk/react's useStream hook which
- * requires a real LangGraph server, we mock the useStream hook and test
- * the provider's wrapping behavior and context propagation.
+ * Updated: Mocks useSaisStream (custom hook) instead of SDK useStream.
  */
 import React from "react";
 import { render, screen } from "@testing-library/react";
@@ -16,7 +12,6 @@ import "@testing-library/jest-dom";
 // Mocks (must be before imports)
 // ---------------------------------------------------------------------------
 
-// Mock useStream from LangGraph SDK
 const mockStreamValue = {
   messages: [],
   values: { messages: [], sais_ui: undefined },
@@ -24,14 +19,13 @@ const mockStreamValue = {
   stop: jest.fn(),
   interrupt: undefined,
   isLoading: false,
-  error: undefined,
+  error: null,
   getMessagesMetadata: jest.fn(),
-  setBranch: jest.fn(),
-  next: jest.fn(),
+  preStreamIds: new Set<string>(),
 };
 
-jest.mock("@langchain/langgraph-sdk/react", () => ({
-  useStream: jest.fn(() => mockStreamValue),
+jest.mock("@/hooks/useSaisStream", () => ({
+  useSaisStream: jest.fn(() => mockStreamValue),
 }));
 
 jest.mock("@langchain/langgraph-sdk/react-ui", () => ({

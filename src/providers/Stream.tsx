@@ -6,15 +6,9 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { useStream } from "@langchain/langgraph-sdk/react";
-import type { UseStream } from "@langchain/langgraph-sdk/react";
 import { type Message } from "@langchain/langgraph-sdk";
 import {
-  uiMessageReducer,
-  isUIMessage,
-  isRemoveUIMessage,
   type UIMessage,
-  type RemoveUIMessage,
 } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
 import { Input } from "@/components/ui/input";
@@ -27,6 +21,8 @@ import { getApiKey } from "@/lib/api-key";
 import { useThreads } from "./Thread";
 import { useAuth } from "./Auth";
 import { toast } from "sonner";
+import { useSaisStream, type UseSaisStreamResult } from "@/hooks/useSaisStream";
+
 
 export type StateType = {
   messages: Message[];
@@ -64,18 +60,8 @@ export type StateType = {
   };
 };
 
-type BagType = {
-  UpdateType: {
-    messages?: Message[] | Message | string;
-    ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
-    context?: Record<string, unknown>;
-  };
-  CustomEventType: UIMessage | RemoveUIMessage;
-};
-
-// Explicitly type as UseStream (full API with branching, metadata, etc.)
-// not UseStreamCustom (limited API for custom transports)
-type StreamContextType = UseStream<StateType, BagType>;
+// StreamContextType is now our custom hook result
+type StreamContextType = UseSaisStreamResult;
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
 
 async function sleep(ms = 4000) {
@@ -103,11 +89,6 @@ async function checkGraphStatus(
   }
 }
 
-// Custom fetch wrapper that includes credentials (cookie forwarding)
-const credentialsFetch: typeof fetch = (input, init) => {
-  return fetch(input, { ...init, credentials: "include" });
-};
-
 const StreamSession = ({
   children,
   apiKey,
@@ -124,30 +105,14 @@ const StreamSession = ({
   const { setSessionExpired } = useAuth();
 
   // Track current threadId to guard against async race conditions in onThreadId.
-  // When a new thread is created, registerThread is async. If the user switches
-  // threads before it resolves, the stale .then(() => setThreadId(oldId)) would
-  // overwrite the user's selection. The ref lets us check before setting.
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
-  const streamValue = useStream<StateType, BagType>({
+  const streamValue = useSaisStream({
     apiUrl,
     apiKey: apiKey ?? undefined,
     assistantId,
     threadId: threadId ?? null,
-    fetchStateHistory: true,
-    callerOptions: { fetch: credentialsFetch },
-    // Throttle state updates to prevent Maximum update depth exceeded (React #185)
-    // true = macrotask batching (SDK v1.1.0+)
-    throttle: true,
-    onCustomEvent: (event, options) => {
-      if (isUIMessage(event) || isRemoveUIMessage(event)) {
-        options.mutate((prev) => {
-          const ui = uiMessageReducer(prev.ui ?? [], event);
-          return { ...prev, ui };
-        });
-      }
-    },
     onThreadId: (id) => {
       // Register the thread in backend metadata BEFORE setting threadId in state.
       // This prevents a race condition where CasePanel detects the threadId change
@@ -166,13 +131,11 @@ const StreamSession = ({
           }
         });
       // Refetch threads list when thread ID changes.
-      // Wait for some seconds before fetching so we're able to get the new thread that was created.
       sleep().then(() => getThreads().then(setThreads).catch(console.error));
     },
     onError: (error) => {
       const msg = error instanceof Error ? error.message : String(error);
       // Session expired -- trigger re-auth modal instead of error toast.
-      // LangGraph SDK surfaces HTTP errors as Error objects with status in message.
       if (msg.includes("401") || msg.includes("Unauthorized")) {
         setSessionExpired(true);
         return;

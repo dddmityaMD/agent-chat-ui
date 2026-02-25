@@ -10,7 +10,7 @@ import { getApiBaseUrl } from "@/lib/api-url";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { isSaisInterruptSchema, isSaisInterruptType, useInterruptApproval } from "@/hooks/useInterruptApproval";
 import { ThreadView } from "../agent-inbox";
@@ -441,6 +441,8 @@ function LastMessageDecorations({
   const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
   const { isActiveInterrupt, handleApprove, handleReject } = useInterruptApproval();
   const [handoffDismissed, setHandoffDismissed] = useState(false);
+  // Cache streaming stage details so they persist when isLoading→false (interrupt fires)
+  const cachedStageDetailsRef = useRef<Record<string, string>>({});
 
   // Metadata results fallback: use sais_ui when per-message response_metadata is empty
   const msgMetadataResults = msgResponseMeta && typeof msgResponseMeta === "object" && "metadata_results" in msgResponseMeta
@@ -566,17 +568,18 @@ function LastMessageDecorations({
 
         // During streaming, use live streaming state for details and progressive reveal.
         // After streaming, fall back to per-message response_metadata (historical data).
+        // Cached details persist across isLoading transitions (e.g. interrupt fires)
+        // so pre-flow stage subtitles survive when the run pauses.
         let stageDetails: Record<string, string>;
         let minReveal = 0;
 
         if (isLoading) {
-          // Use turn-gated values for detail fields when available,
-          // but always use saisUiData.raw for dynamic stage reveal.
-          // During interrupt resume, currentTurnIdRef isn't set (approval
-          // bypasses handleSubmit), so streamingValues may be empty — but
-          // saisUiData.raw is always updated by the SDK from values events.
           const hasStreamData = streamingValues && Object.keys(streamingValues).length > 0;
           stageDetails = hasStreamData ? deriveStageDetails(streamingValues) : {};
+          // Cache non-empty streaming details so they survive isLoading→false transition
+          if (Object.keys(stageDetails).length > 0) {
+            cachedStageDetailsRef.current = { ...cachedStageDetailsRef.current, ...stageDetails };
+          }
           const latestSaisUi = saisUiData.raw as Record<string, unknown> | undefined;
           const dynamicReveal = computeDynamicStageReveal(latestSaisUi, effectiveStages);
           const staticReveal = hasStreamData
@@ -600,6 +603,9 @@ function LastMessageDecorations({
             resolved_entities: entitiesFromMeta,
             evidence_result: catalogCount ? { catalog_count: catalogCount } : undefined,
           });
+          // Merge cached streaming details for fields not in response_metadata
+          // (e.g. resolve/intent details that only exist in streaming state)
+          stageDetails = { ...cachedStageDetailsRef.current, ...stageDetails };
         }
 
         const enrichedStages = applyStageDetails(effectiveStages, stageDetails);

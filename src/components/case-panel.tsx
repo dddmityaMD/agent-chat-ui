@@ -362,6 +362,16 @@ export function CasePanel({ className }: { className?: string }) {
 
   const investigationCount = evidenceCount + findingsCount;
 
+  // Auto-switch to Build tab when build flow starts
+  const prevIsBuildRef = useRef(false);
+  useEffect(() => {
+    const isBuild = saisUiData.isBuild;
+    if (isBuild && !prevIsBuildRef.current) {
+      setActiveTab("build");
+    }
+    prevIsBuildRef.current = !!isBuild;
+  }, [saisUiData.isBuild, setActiveTab]);
+
   // Detect block-based build data (interrupt_card blocks in messages)
   const hasBuildBlocks = useMemo(() => {
     for (const msg of stream.messages) {
