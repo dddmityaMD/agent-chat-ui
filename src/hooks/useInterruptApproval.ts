@@ -52,20 +52,71 @@ export function isSaisInterruptSchema(value: unknown): value is SaisInterruptVal
   );
 }
 
+/**
+ * Check if an interrupt value matches a SAIS interrupt type but only by the
+ * `type` field (the new pre-gate/gate split emits minimal interrupt payloads
+ * that may not include `message`).
+ */
+export function isSaisInterruptType(value: unknown): value is { type: SaisInterruptType } {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.type === "string" &&
+    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval"].includes(v.type)
+  );
+}
+
+/**
+ * Hook for interrupt approval — block-based architecture (Phase 23.4-05).
+ *
+ * The hook provides:
+ * - `isActiveInterrupt(cardType)`: whether a given card_type matches the current interrupt
+ * - `onApprove()`: send approve command via LangGraph resume
+ * - `onReject(feedback?)`: send reject command with optional feedback
+ * - `loading`: whether a submit is in progress
+ *
+ * UI state (showFeedbackInput, feedback text) is managed by the
+ * InterruptCardBlock component itself via useState.
+ */
 export function useInterruptApproval() {
   const thread = useStreamContext();
   const [loading, setLoading] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-  const [showFeedback, setShowFeedback] = useState(false);
+
+  /**
+   * Extract the SAIS interrupt type from the current thread interrupt, if any.
+   * The new gate nodes emit `interrupt({type: "plan_approval"})` etc.
+   */
+  const getActiveInterruptType = (): string | null => {
+    const interrupt = thread.interrupt;
+    if (!interrupt) return null;
+
+    // LangGraph may wrap in array [{value: {type: ...}}] or provide directly
+    const raw = Array.isArray(interrupt)
+      ? (interrupt[0]?.value ?? interrupt[0])
+      : ((interrupt as any)?.value ?? interrupt);
+
+    if (isSaisInterruptType(raw)) {
+      return raw.type;
+    }
+    // Also support the old full-payload schema for backwards compatibility
+    if (isSaisInterruptSchema(raw)) {
+      return raw.type;
+    }
+    return null;
+  };
+
+  /**
+   * Check if a specific card_type matches the current active interrupt.
+   */
+  const isActiveInterrupt = (cardType: string): boolean => {
+    return getActiveInterruptType() === cardType;
+  };
 
   const handleApprove = () => {
     try {
       setLoading(true);
       thread.submit({}, {
         command: { resume: { approved: true } },
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
         optimisticValues: (prev) => ({
           ...prev,
           messages: prev.messages ?? [],
@@ -89,17 +140,12 @@ export function useInterruptApproval() {
       }
       thread.submit({}, {
         command: { resume: resumeValue },
-        streamMode: ["values"],
-        streamSubgraphs: true,
-        streamResumable: true,
         optimisticValues: (prev) => ({
           ...prev,
           messages: prev.messages ?? [],
         }),
       });
       toast("Rejected", { description: "Action cancelled.", duration: 3000 });
-      setFeedbackText("");
-      setShowFeedback(false);
     } catch (error) {
       console.error("Error sending rejection", error);
       toast.error("Error", { description: "Failed to submit rejection.", richColors: true, closeButton: true, duration: 5000 });
@@ -110,10 +156,8 @@ export function useInterruptApproval() {
 
   return {
     loading,
-    feedbackText,
-    setFeedbackText,
-    showFeedback,
-    setShowFeedback,
+    isActiveInterrupt,
+    getActiveInterruptType,
     handleApprove,
     handleReject,
   };

@@ -12,9 +12,8 @@ import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
 import React, { useState } from "react";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
-import { isSaisInterruptSchema, SaisInterruptValue } from "@/hooks/useInterruptApproval";
+import { isSaisInterruptSchema, isSaisInterruptType, useInterruptApproval } from "@/hooks/useInterruptApproval";
 import { ThreadView } from "../agent-inbox";
-import { InterruptApproval } from "../interrupt-approval";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
@@ -332,8 +331,11 @@ function Interrupt({
     : ((interrupt as any)?.value ?? interrupt);
 
   // SAIS interrupt types (plan_approval, gate_confirmation, pipeline_resumption)
-  if (isSaisInterruptSchema(interruptValue)) {
-    return <InterruptApproval interruptValue={interruptValue} />;
+  // In the block-based architecture (Phase 23.4-05), interrupt cards are rendered
+  // as message blocks in chronological position. The Interrupt component no longer
+  // renders them — the card block handles active state + buttons.
+  if (isSaisInterruptSchema(interruptValue) || isSaisInterruptType(interruptValue)) {
+    return null;
   }
 
   // Fallback: generic JSON view
@@ -437,6 +439,7 @@ function LastMessageDecorations({
   const saisUiData = useSaisUi();
   const thread = useStreamContext();
   const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
+  const { isActiveInterrupt, handleApprove, handleReject } = useInterruptApproval();
   const [handoffDismissed, setHandoffDismissed] = useState(false);
 
   // Metadata results fallback: use sais_ui when per-message response_metadata is empty
@@ -619,6 +622,19 @@ function LastMessageDecorations({
           {blocks!.map((block, i) => {
             const Renderer = getBlockRenderer(block.type);
             if (Renderer) {
+              // For interrupt_card blocks, pass active state + callbacks
+              if (block.type === "interrupt_card") {
+                const cardType = (block as { card_type?: string }).card_type ?? "";
+                return (
+                  <Renderer
+                    key={`block-${i}`}
+                    block={block}
+                    isActive={isActiveInterrupt(cardType)}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                  />
+                );
+              }
               return <Renderer key={`block-${i}`} block={block} />;
             }
             // Fallback for unknown block types: render as raw text/markdown
@@ -648,17 +664,23 @@ function LastMessageDecorations({
             />
           )}
 
-          {/* Interrupt decision card (read-only) — rare for last message but possible after resume */}
+          {/* Interrupt decision badge (read-only legacy) — rare for last message but possible after resume */}
           {(() => {
             const interruptDecision = getInterruptDecision(msgResponseMeta);
             if (!interruptDecision) return null;
             return (
-              <InterruptApproval
-                interruptValue={interruptDecision as unknown as SaisInterruptValue}
-                isReadOnly
-                decision={interruptDecision.decision}
-                feedback={interruptDecision.feedback}
-              />
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                  interruptDecision.decision === "approved"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                    : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+                }`}>
+                  {interruptDecision.decision === "approved" ? "Approved" : "Rejected"}
+                </div>
+                {interruptDecision.feedback && (
+                  <p className="text-xs italic">{interruptDecision.feedback}</p>
+                )}
+              </div>
             );
           })()}
 
@@ -935,14 +957,20 @@ const HistoricalMessageContent = React.memo(function HistoricalMessageContent({
                Messages without blocks (historical/pre-23.4) use the original
                content-based rendering. */}
 
-          {/* Historical interrupt decision card (read-only) */}
+          {/* Historical interrupt decision badge (read-only legacy) */}
           {interruptDecision && (
-            <InterruptApproval
-              interruptValue={interruptDecision as unknown as SaisInterruptValue}
-              isReadOnly
-              decision={interruptDecision.decision}
-              feedback={interruptDecision.feedback}
-            />
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                interruptDecision.decision === "approved"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                  : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300"
+              }`}>
+                {interruptDecision.decision === "approved" ? "Approved" : "Rejected"}
+              </div>
+              {interruptDecision.feedback && (
+                <p className="text-xs italic">{interruptDecision.feedback}</p>
+              )}
+            </div>
           )}
 
           {/* Historical disambiguation card — grayed out with selection highlighted (UAT-4) */}
