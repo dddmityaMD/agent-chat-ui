@@ -439,7 +439,7 @@ function LastMessageDecorations({
   const saisUiData = useSaisUi();
   const thread = useStreamContext();
   const { addPermissionGrant, revokePermissionGrant } = usePermissionState();
-  const { isActiveInterrupt, handleApprove, handleReject } = useInterruptApproval();
+  const { isActiveInterrupt, handleApprove, handleReject, handleSubmit } = useInterruptApproval();
   const [handoffDismissed, setHandoffDismissed] = useState(false);
   // Cache streaming stage details so they persist when isLoading→false (interrupt fires)
   const cachedStageDetailsRef = useRef<Record<string, string>>({});
@@ -640,6 +640,27 @@ function LastMessageDecorations({
                     isActive={isActiveInterrupt(cardType)}
                     onApprove={handleApprove}
                     onReject={handleReject}
+                  />
+                );
+              }
+              // For assumption/discussion card blocks, pass active state + submit callback
+              if (block.type === "assumption_card") {
+                return (
+                  <Renderer
+                    key={`block-${i}`}
+                    block={block}
+                    isActive={isActiveInterrupt("assumptions_approval")}
+                    onSubmit={handleSubmit}
+                  />
+                );
+              }
+              if (block.type === "discussion_card") {
+                return (
+                  <Renderer
+                    key={`block-${i}`}
+                    block={block}
+                    isActive={isActiveInterrupt("discussion_approval")}
+                    onSubmit={handleSubmit}
                   />
                 );
               }

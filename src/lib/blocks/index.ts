@@ -5,5 +5,8 @@ export type {
   InterruptCardBlockData,
   DataTableBlockData,
   FlowSummaryBlockData,
+  AssumptionCardBlockData,
+  DiscussionCardBlockData,
+  EntityCardBlockData,
   BlockRendererProps,
 } from "./types";
