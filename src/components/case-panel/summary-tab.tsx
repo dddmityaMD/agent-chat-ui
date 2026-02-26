@@ -10,9 +10,9 @@
  * Historical data comes from persisted messages; live context from sais_ui.
  */
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { Copy, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { Copy, CheckCircle2, ChevronDown, ChevronRight, Filter, X } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ReadinessPanel } from "@/components/readiness/ReadinessPanel";
 import { ContextPanelSection } from "@/components/context-panel";
@@ -22,6 +22,9 @@ import type { ThreadSummary } from "@/components/case-panel";
 import type { PermissionState } from "@/lib/types";
 import type { Message } from "@langchain/langgraph-sdk";
 import type { BlockData, FlowSummaryBlockData } from "@/lib/blocks/types";
+
+// Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
+const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
 
 // ---------------------------------------------------------------------------
 // Props
@@ -38,6 +41,13 @@ interface SummaryTabProps {
     messages: any[];
     submit: (input?: any, options?: any) => void;
   };
+  /** Lineage filter state (passed from case-panel) */
+  lineageFilter: {
+    canonicalKeys: string[];
+    displayNames: string[];
+  } | null;
+  /** Setter for lineage filter */
+  setLineageFilter: (filter: { canonicalKeys: string[]; displayNames: string[] } | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +143,82 @@ function FlowHistorySection({ summaries }: { summaries: FlowSummaryBlockData[] }
 }
 
 // ---------------------------------------------------------------------------
+// Lineage Section (rendered inside Summary tab)
+// ---------------------------------------------------------------------------
+
+function LineageSection({
+  lineageFilter,
+  setLineageFilter,
+}: {
+  lineageFilter: { canonicalKeys: string[]; displayNames: string[] } | null;
+  setLineageFilter: (filter: { canonicalKeys: string[]; displayNames: string[] } | null) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="grid gap-2">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 text-sm font-semibold"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? (
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        )}
+        <span>Lineage</span>
+      </button>
+      {expanded && (
+        <div
+          data-testid="lineage-panel"
+          className="flex flex-1 flex-col"
+          style={{ minHeight: "400px" }}
+        >
+          {/* Lineage filter chip */}
+          {lineageFilter && lineageFilter.canonicalKeys.length > 0 && (
+            <div
+              className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-950"
+              data-testid="lineage-filter"
+            >
+              <Filter className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs text-blue-700 dark:text-blue-300">
+                Showing lineage for:{" "}
+                <span className="font-medium">
+                  {lineageFilter.displayNames.join(", ")}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setLineageFilter(null)}
+                className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-600 transition-colors hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900"
+                data-testid="lineage-filter-clear"
+                title="Clear filter to show full lineage graph"
+              >
+                <X className="h-3 w-3" />
+                Clear filter
+              </button>
+            </div>
+          )}
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Loading lineage graph...
+              </div>
+            }
+          >
+            <LineageGraph
+              className="h-full min-h-[400px] rounded-md border bg-card"
+              filterEntities={lineageFilter?.canonicalKeys}
+            />
+          </Suspense>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SummaryTab
 // ---------------------------------------------------------------------------
 
@@ -144,6 +230,8 @@ export function SummaryTab({
   permissionState,
   revokePermissionGrant,
   stream,
+  lineageFilter,
+  setLineageFilter,
 }: SummaryTabProps) {
   const [copyFeedback, setCopyFeedback] = useState(false);
   const streamCtx = useStreamContext();
@@ -226,6 +314,12 @@ export function SummaryTab({
 
           {/* Flow History (from block messages -- persisted across refresh) */}
           <FlowHistorySection summaries={summaryBlocks.flowSummaries} />
+
+          {/* Lineage Section (collapsible, only shown when lineage data available) */}
+          <LineageSection
+            lineageFilter={lineageFilter}
+            setLineageFilter={setLineageFilter}
+          />
 
           {/* Permissions (collapsed by default) */}
           <details
