@@ -726,28 +726,14 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
 
   const useBlocks = flowData.hasBlockData;
   const activeFlowType = saisUi.flowType;
-  const isBuildFlow = activeFlowType === "build";
 
-  // --- Legacy sais_ui data (used when no block data) ---
+  // --- sais_ui data for stage timeline ---
   const stageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
   const currentStage = extractString(raw, "rpabv_stage");
   const buildPlanStatus = extractString(raw, "build_plan_status");
   const flowFinished = buildPlanStatus === "completed" || buildPlanStatus === "failed";
   const rpabvArtifacts = extractObject(raw, "rpabv_artifacts");
-  const rpabvProgress = extractObject(raw, "rpabv_progress");
   const rpabvDecisions = extractArray(raw, "rpabv_decisions") as RpabvDecision[];
-
-  // L3 step info (legacy)
-  const currentLevel = rpabvProgress
-    ? (rpabvProgress.level as number | undefined)
-    : undefined;
-  const currentStepIndex = rpabvProgress
-    ? (rpabvProgress.step_index as number | undefined)
-    : undefined;
-  const totalSteps = rpabvProgress
-    ? (rpabvProgress.total_steps as number | undefined)
-    : undefined;
-  const isL3 = currentLevel === 3 && totalSteps != null && totalSteps > 1;
 
   // Completed non-build flows from flow_summary blocks
   const completedFlows = flowData.flowSummaries;
@@ -771,113 +757,52 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   // Build active flow section (block-based or legacy)
   // =========================================================================
 
-  const renderActiveBuildFlow = () => {
-    if (useBlocks) {
-      const isFlowFinished = flowData.flowSummaries.some(
-        (fs) => fs.flow_type === "build",
-      );
-
-      return (
-        <div>
-          {/* Block-based vertical timeline */}
-          <div className="space-y-0">
-            {flowData.timelineEntries.map((entry, idx) => (
-              <BlockTimelineEntry
-                key={`${entry.cardType}-${idx}`}
-                entry={entry}
-                isLast={idx === flowData.timelineEntries.length - 1}
-                isFlowFinished={isFlowFinished}
-              />
-            ))}
-
-            {/* Live stage progress during streaming */}
-            {stream.isLoading && !isFlowFinished && (() => {
-              const liveStage = extractString(raw, "rpabv_stage");
-              const liveStageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
-              const stageSubtitles = (raw && typeof raw === "object" && "stage_subtitles" in raw)
-                ? (raw as Record<string, unknown>).stage_subtitles as Record<string, string> | undefined
-                : undefined;
-              const activeDef = liveStageDefs.find(s => s.id === liveStage);
-              if (!activeDef) return null;
-              const hasEntry = flowData.timelineEntries.some(
-                e => e.cardType?.includes(liveStage!)
-              );
-              if (hasEntry) return null;
-              const subtitle = stageSubtitles?.[liveStage!];
-              return (
-                <div className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="flex h-6 w-6 items-center justify-center">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100">
-                        <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 pb-3">
-                    <span className="text-sm font-medium text-blue-700">{activeDef.label}</span>
-                    {subtitle && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Decisions audit trail */}
-          <DecisionsSection decisions={flowData.decisions} />
-        </div>
-      );
-    }
-
-    // Legacy sais_ui path
-    if (stageDefs.length > 0) {
-      const getStageArtifacts = (stageId: string): Artifact[] => {
-        if (!rpabvArtifacts) return [];
-        const stageArts = rpabvArtifacts[stageId];
-        return Array.isArray(stageArts) ? (stageArts as Artifact[]) : [];
-      };
-
-      return (
-        <div>
-          {/* L3 progress header */}
-          {isL3 && currentStepIndex != null && totalSteps != null && (
-            <div className="mb-3 rounded-md border bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              Multi-step build: Step {currentStepIndex + 1} of {totalSteps}
-            </div>
-          )}
-
-          {/* Vertical timeline */}
-          <div className="space-y-0">
-            {stageDefs.map((stage, idx) => (
-              <StageTimelineEntry
-                key={stage.id}
-                stage={stage}
-                status={getStageStatus(stage.id, idx, currentStage, stageDefs, flowFinished, rpabvDecisions)}
-                artifacts={getStageArtifacts(stage.id)}
-                isLast={idx === stageDefs.length - 1}
-              />
-            ))}
-          </div>
-
-          {/* Decisions audit trail */}
-          <DecisionsSection decisions={rpabvDecisions} />
-        </div>
-      );
-    }
-
-    return null;
-  };
-
   return (
     <div className="p-4 space-y-4">
-      {/* Active non-build flow */}
-      {activeFlowType && !isBuildFlow && stream.isLoading && (
-        <ActiveNonBuildFlowEntry flowType={activeFlowType} />
+      {/* Active flow — unified stage timeline for ALL flow types */}
+      {activeFlowType && stageDefs.length > 0 && (stream.isLoading || !flowFinished) && (
+        <div>
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 mb-3">
+            <div className="flex items-center gap-2">
+              {stream.isLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+              ) : (
+                <div className="h-3.5 w-3.5 rounded-full bg-blue-600" />
+              )}
+              <span className="text-sm font-medium text-blue-700">{formatFlowType(activeFlowType)}</span>
+              <span className="text-xs text-blue-600">{stream.isLoading ? "in progress" : ""}</span>
+            </div>
+          </div>
+
+          {/* Stage timeline */}
+          <div className="space-y-0">
+            {stageDefs.map((stage, idx) => {
+              const getStageArtifactsLocal = (stageId: string): Artifact[] => {
+                if (!rpabvArtifacts) return [];
+                const stageArts = rpabvArtifacts[stageId];
+                return Array.isArray(stageArts) ? (stageArts as Artifact[]) : [];
+              };
+              return (
+                <StageTimelineEntry
+                  key={stage.id}
+                  stage={stage}
+                  status={getStageStatus(stage.id, idx, currentStage, stageDefs, flowFinished, rpabvDecisions)}
+                  artifacts={getStageArtifactsLocal(stage.id)}
+                  isLast={idx === stageDefs.length - 1}
+                />
+              );
+            })}
+          </div>
+
+          {/* Decisions audit trail (build flows) */}
+          {rpabvDecisions.length > 0 && <DecisionsSection decisions={rpabvDecisions} />}
+        </div>
       )}
 
-      {/* Active build flow (RPABV timeline) */}
-      {(isBuildFlow || useBlocks || stageDefs.length > 0) && renderActiveBuildFlow()}
+      {/* Active flow without stages (fallback — spinner only) */}
+      {activeFlowType && stageDefs.length === 0 && stream.isLoading && (
+        <ActiveNonBuildFlowEntry flowType={activeFlowType} />
+      )}
 
       {/* Completed flows (stacked, latest on top, collapsed by default) */}
       {completedFlows.length > 0 && (
