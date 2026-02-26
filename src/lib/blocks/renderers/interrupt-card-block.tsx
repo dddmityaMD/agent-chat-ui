@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   XCircle,
   Info,
+  ExternalLink,
+  Shield,
 } from "lucide-react";
 
 // --- RPABV stepper (migrated from interrupt-approval.tsx) ---
@@ -192,6 +194,7 @@ const TITLE_MAP: Record<string, string> = {
   verify_approval: "Review Verification Results",
   gate_confirmation: "Action Confirmation",
   pipeline_resumption: "Pipeline Resumption",
+  sandbox_approval: "Sandbox Preview",
 };
 
 const APPROVE_LABEL_MAP: Record<string, string> = {
@@ -200,6 +203,7 @@ const APPROVE_LABEL_MAP: Record<string, string> = {
   verify_approval: "Accept Results",
   gate_confirmation: "Proceed",
   pipeline_resumption: "Continue",
+  sandbox_approval: "Apply Changes",
 };
 
 const REJECT_LABEL_MAP: Record<string, string> = {
@@ -208,13 +212,150 @@ const REJECT_LABEL_MAP: Record<string, string> = {
   verify_approval: "Request Changes",
   gate_confirmation: "Cancel",
   pipeline_resumption: "Cancel",
+  sandbox_approval: "Reject Changes",
 };
 
 const SHOW_FEEDBACK_TYPES = new Set([
   "plan_approval",
   "research_approval",
   "verify_approval",
+  "sandbox_approval",
 ]);
+
+// --- Sandbox preview rendering ---
+
+interface SandboxOperation {
+  action: string;
+  target: string;
+  description?: string;
+}
+
+interface GeneratedCodeItem {
+  filename: string;
+  language: string;
+  content: string;
+}
+
+interface LintResult {
+  gate: string;
+  passed: boolean;
+  message?: string;
+}
+
+interface SandboxArtifacts {
+  sandbox_render_mode?: "diff_summary" | "code_preview";
+  operations?: SandboxOperation[];
+  preview_url?: string;
+  generated_code?: GeneratedCodeItem[];
+  lint_results?: LintResult[];
+}
+
+function SandboxPreview({ artifacts }: { artifacts: SandboxArtifacts }) {
+  const mode = artifacts.sandbox_render_mode;
+  if (!mode) return null;
+
+  if (mode === "diff_summary") {
+    return (
+      <div className="mb-4 rounded-md border border-orange-200 bg-orange-50/50 p-3 dark:border-orange-800 dark:bg-orange-950/50">
+        <div className="mb-2 flex items-center gap-2">
+          <Shield className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <span className="text-xs font-semibold text-orange-800 dark:text-orange-200">
+            Planned Changes
+          </span>
+        </div>
+        {artifacts.operations && artifacts.operations.length > 0 && (
+          <ul className="space-y-1">
+            {artifacts.operations.map((op, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300"
+              >
+                <span className="shrink-0 rounded bg-orange-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-orange-700 dark:bg-orange-900/50 dark:text-orange-300">
+                  {op.action}
+                </span>
+                <span className="font-medium">{op.target}</span>
+                {op.description && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    -- {op.description}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {artifacts.preview_url && (
+          <a
+            href={artifacts.preview_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Preview
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (mode === "code_preview") {
+    return (
+      <div className="mb-4 space-y-3">
+        {/* Generated code blocks */}
+        {artifacts.generated_code && artifacts.generated_code.length > 0 && (
+          <div className="space-y-2">
+            {artifacts.generated_code.map((item, idx) => (
+              <div key={idx}>
+                <div className="flex items-center gap-2 mb-1">
+                  <FileCode className="h-3.5 w-3.5 text-purple-500" />
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {item.filename}
+                  </span>
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800">
+                    {item.language}
+                  </span>
+                </div>
+                <div className="max-h-96 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-700">
+                  <MarkdownText>{`\`\`\`${item.language}\n${item.content}\n\`\`\``}</MarkdownText>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Lint/gate results */}
+        {artifacts.lint_results && artifacts.lint_results.length > 0 && (
+          <div className="rounded-md border border-gray-200 bg-white/80 p-2 dark:border-gray-700 dark:bg-gray-900/50">
+            <p className="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+              Gate Results
+            </p>
+            <div className="space-y-0.5">
+              {artifacts.lint_results.map((result, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  {result.passed ? (
+                    <CheckCircle className="h-3 w-3 shrink-0 text-green-500" />
+                  ) : (
+                    <XCircle className="h-3 w-3 shrink-0 text-red-500" />
+                  )}
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {result.gate}
+                  </span>
+                  {result.message && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {result.message}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
 
 // --- Main component ---
 
@@ -268,6 +409,21 @@ export function InterruptCardBlock({
 
       {/* Artifacts section */}
       {artifacts.length > 0 && <ArtifactSection artifacts={artifacts} />}
+
+      {/* Sandbox preview (render_mode-driven, no connector_type branching) */}
+      {cardType === "sandbox_approval" && (() => {
+        // Sandbox data can be in block-level fields (via BlockData index signature)
+        // or inside the first artifacts array item
+        const blockAny = data as Record<string, unknown>;
+        const sandboxData: SandboxArtifacts = blockAny.sandbox_render_mode
+          ? (blockAny as unknown as SandboxArtifacts)
+          : artifacts.length > 0
+            ? (artifacts[0] as unknown as SandboxArtifacts)
+            : {};
+        return sandboxData.sandbox_render_mode ? (
+          <SandboxPreview artifacts={sandboxData} />
+        ) : null;
+      })()}
 
       {/* Card message as markdown */}
       {data.message && (
