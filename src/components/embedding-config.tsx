@@ -16,12 +16,13 @@ interface EmbeddingConfigData {
   provider: string;
   model: string;
   model_id: string;
+  api_key_set: boolean;
   health: EmbeddingHealth;
 }
 
 const PROVIDERS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "ollama_cloud", label: "Ollama Cloud" },
+  { value: "openai", label: "OpenAI", defaultModel: "text-embedding-3-small" },
+  { value: "ollama_cloud", label: "Ollama Cloud", defaultModel: "qwen3-embedding" },
 ] as const;
 
 function healthTotal(h: EmbeddingHealth) {
@@ -42,15 +43,12 @@ export function EmbeddingConfigSection() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Editable draft values
   const [draftProvider, setDraftProvider] = useState("");
   const [draftModel, setDraftModel] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
 
-  // Confirmation dialog
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Re-embed progress polling
   const [reembedding, setReembedding] = useState(false);
   const [progress, setProgress] = useState<EmbeddingHealth | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -81,7 +79,6 @@ export function EmbeddingConfigSection() {
     if (isOpen) fetchConfig();
   }, [isOpen, fetchConfig]);
 
-  // Poll re-embed progress
   const startPolling = useCallback(() => {
     setReembedding(true);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -91,7 +88,6 @@ export function EmbeddingConfigSection() {
         if (!res.ok) return;
         const data: EmbeddingHealth = await res.json();
         setProgress(data);
-        // Stop when no stale remain
         if (!hasStale(data)) {
           setReembedding(false);
           if (pollRef.current) clearInterval(pollRef.current);
@@ -119,7 +115,6 @@ export function EmbeddingConfigSection() {
     if (draftProvider !== config.provider || draftModel !== config.model) {
       setShowConfirm(true);
     } else if (draftApiKey) {
-      // Only API key change, save directly
       doSave();
     }
   };
@@ -133,7 +128,7 @@ export function EmbeddingConfigSection() {
         provider: draftProvider,
         model: draftModel,
       };
-      if (draftProvider === "ollama_cloud" && draftApiKey) {
+      if (draftApiKey) {
         payload.api_key = draftApiKey;
       }
       const res = await fetch(`${API}/api/embedding/config`, {
@@ -151,7 +146,6 @@ export function EmbeddingConfigSection() {
       toast.success("Embedding config saved");
       setSaveError(null);
 
-      // Trigger re-embed if provider/model changed
       if (config && (draftProvider !== config.provider || draftModel !== config.model)) {
         const reRes = await fetch(`${API}/api/embedding/re-embed`, { method: "POST" });
         if (!reRes.ok) {
@@ -198,7 +192,6 @@ export function EmbeddingConfigSection() {
   const totalEntities = config ? healthTotal(config.health) : 0;
   const isStale = config ? hasStale(config.health) : false;
 
-  // Progress bar calculation
   const progressTotal = progress ? healthTotal(progress) : 0;
   const progressCurrent = progress ? healthCurrent(progress) : 0;
   const progressPct = progressTotal > 0 ? Math.round((progressCurrent / progressTotal) * 100) : 0;
@@ -257,7 +250,12 @@ export function EmbeddingConfigSection() {
                 <label className="text-xs text-muted-foreground">Provider</label>
                 <select
                   value={draftProvider}
-                  onChange={(e) => setDraftProvider(e.target.value)}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    setDraftProvider(newProvider);
+                    const providerInfo = PROVIDERS.find((p) => p.value === newProvider);
+                    if (providerInfo) setDraftModel(providerInfo.defaultModel);
+                  }}
                   disabled={reembedding || saving}
                   className="rounded border px-1.5 py-1 text-xs bg-background disabled:opacity-50"
                 >
@@ -281,30 +279,23 @@ export function EmbeddingConfigSection() {
                 />
               </div>
 
-              {/* API key field for Ollama Cloud */}
-              {draftProvider === "ollama_cloud" && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground">Ollama Cloud API Key</label>
-                  <input
-                    type="password"
-                    value={draftApiKey}
-                    onChange={(e) => setDraftApiKey(e.target.value)}
-                    disabled={reembedding || saving}
-                    className="rounded border px-1.5 py-1 text-xs bg-background disabled:opacity-50"
-                    placeholder="Enter API key"
-                  />
-                  <span className="text-[10px] text-muted-foreground">
-                    Get your API key from ollama.com
-                  </span>
-                  {/* API key missing warning when Ollama Cloud has issues */}
-                  {config.provider === "ollama_cloud" && isStale && (
-                    <p className="text-[10px] text-yellow-600 dark:text-yellow-400">
-                      Ollama Cloud API key may not be configured. Set OLLAMA_CLOUD_API_KEY in your
-                      environment or enter it above.
-                    </p>
+              {/* API key field */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">API Key</label>
+                  {config.api_key_set && draftProvider === config.provider && (
+                    <span className="text-[10px] text-green-600 dark:text-green-400">configured</span>
                   )}
                 </div>
-              )}
+                <input
+                  type="password"
+                  value={draftApiKey}
+                  onChange={(e) => setDraftApiKey(e.target.value)}
+                  disabled={reembedding || saving}
+                  className="rounded border px-1.5 py-1 text-xs bg-background disabled:opacity-50"
+                  placeholder={config.api_key_set && draftProvider === config.provider ? "Leave blank to keep current" : "Enter API key"}
+                />
+              </div>
 
               {/* Current model ID */}
               <div className="text-[10px] text-muted-foreground">
