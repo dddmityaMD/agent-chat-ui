@@ -30,6 +30,9 @@ export function AssumptionCardBlock({
     return initial;
   });
 
+  // Track which items the user has explicitly interacted with
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+
   // Track which items are in override mode (showing text input)
   const [overrideMode, setOverrideMode] = useState<Record<string, boolean>>(
     {},
@@ -47,6 +50,7 @@ export function AssumptionCardBlock({
       ...prev,
       [assumptionId]: { action: "confirmed" },
     }));
+    setTouched((prev) => new Set(prev).add(assumptionId));
   };
 
   const handleStartOverride = (assumptionId: string) => {
@@ -59,6 +63,7 @@ export function AssumptionCardBlock({
       ...prev,
       [assumptionId]: { action: "overridden", value },
     }));
+    setTouched((prev) => new Set(prev).add(assumptionId));
   };
 
   const handleSubmit = () => {
@@ -149,34 +154,43 @@ export function AssumptionCardBlock({
                 <div className="mt-2 flex items-center gap-2">
                   {!isOverriding ? (
                     <>
-                      <Button
-                        size="sm"
-                        variant={
-                          currentDecision?.action === "confirmed"
-                            ? "default"
-                            : "outline"
-                        }
-                        className={
-                          currentDecision?.action === "confirmed"
-                            ? "gap-1 bg-green-600 hover:bg-green-700 text-white text-xs h-7"
-                            : "gap-1 text-xs h-7"
-                        }
-                        onClick={() => handleConfirm(assumption.assumption_id)}
-                      >
-                        <Check className="h-3 w-3" />
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1 text-xs h-7"
-                        onClick={() =>
-                          handleStartOverride(assumption.assumption_id)
-                        }
-                      >
-                        <Edit3 className="h-3 w-3" />
-                        Override
-                      </Button>
+                      {(() => {
+                        const isTouched = touched.has(assumption.assumption_id);
+                        const isConfirmed = isTouched && currentDecision?.action === "confirmed";
+                        const isOverridden = isTouched && currentDecision?.action === "overridden";
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant={isConfirmed ? "default" : "outline"}
+                              className={
+                                isConfirmed
+                                  ? "gap-1 bg-green-600 hover:bg-green-700 text-white text-xs h-7"
+                                  : "gap-1 text-xs h-7"
+                              }
+                              onClick={() => handleConfirm(assumption.assumption_id)}
+                            >
+                              <Check className="h-3 w-3" />
+                              {isConfirmed ? "Confirmed" : "Confirm"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={isOverridden ? "default" : "outline"}
+                              className={
+                                isOverridden
+                                  ? "gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
+                                  : "gap-1 text-xs h-7"
+                              }
+                              onClick={() =>
+                                handleStartOverride(assumption.assumption_id)
+                              }
+                            >
+                              <Edit3 className="h-3 w-3" />
+                              {isOverridden ? "Overridden" : "Override"}
+                            </Button>
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="flex w-full items-center gap-2">
