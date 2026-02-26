@@ -136,7 +136,7 @@ export function EmbeddingConfigSection() {
       if (draftProvider === "ollama_cloud" && draftApiKey) {
         payload.api_key = draftApiKey;
       }
-      const res = await fetch(`${API}/api/llm/config/embedding`, {
+      const res = await fetch(`${API}/api/embedding/config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
