@@ -43,7 +43,7 @@ export function LLMRoutingEditor() {
             };
           }
         );
-        setConfigs(parsed);
+        setConfigs(parsed.filter(c => c.operation_type !== "embedding"));
       } else if (Array.isArray(data)) {
         // Backward compatibility if API ever returns flat array
         setConfigs(data);
