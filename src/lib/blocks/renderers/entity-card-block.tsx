@@ -235,6 +235,11 @@ export function EntityCardBlock({ block }: BlockRendererProps) {
   const [showAll, setShowAll] = useState(false);
   const [expandedGrid, setExpandedGrid] = useState<string | null>(null);
 
+  // Null guard: prevent crash when entities is undefined/null (UAT gap 3)
+  if (!data?.entities || !Array.isArray(data.entities)) {
+    return null;
+  }
+
   const entities = data.entities as EntityItem[];
   const needsTruncation = entities.length > DISPLAY_LIMIT;
   const visibleEntities =

@@ -172,8 +172,7 @@ function LineageSection({
       {expanded && (
         <div
           data-testid="lineage-panel"
-          className="flex flex-1 flex-col"
-          style={{ minHeight: "400px" }}
+          className="flex flex-col"
         >
           {/* Lineage filter chip */}
           {lineageFilter && lineageFilter.canonicalKeys.length > 0 && (
@@ -208,7 +207,7 @@ function LineageSection({
             }
           >
             <LineageGraph
-              className="h-full min-h-[400px] rounded-md border bg-card"
+              className="min-h-[400px] max-h-[600px] rounded-md border bg-card"
               filterEntities={lineageFilter?.canonicalKeys}
             />
           </Suspense>
