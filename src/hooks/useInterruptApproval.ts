@@ -7,7 +7,9 @@ export type SaisInterruptType =
   | "gate_confirmation"
   | "pipeline_resumption"
   | "research_approval"
-  | "verify_approval";
+  | "verify_approval"
+  | "assumptions_approval"
+  | "discussion_approval";
 
 export interface SaisInterruptArtifact {
   type: string;         // e.g., "models_found", "schema_discovered", "dbt_run_output"
@@ -47,7 +49,7 @@ export function isSaisInterruptSchema(value: unknown): value is SaisInterruptVal
   const v = value as Record<string, unknown>;
   return (
     typeof v.type === "string" &&
-    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval"].includes(v.type) &&
+    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval", "assumptions_approval", "discussion_approval"].includes(v.type) &&
     typeof v.message === "string"
   );
 }
@@ -62,7 +64,7 @@ export function isSaisInterruptType(value: unknown): value is { type: SaisInterr
   const v = value as Record<string, unknown>;
   return (
     typeof v.type === "string" &&
-    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval"].includes(v.type)
+    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval", "assumptions_approval", "discussion_approval"].includes(v.type)
   );
 }
 
@@ -154,11 +156,36 @@ export function useInterruptApproval() {
     }
   };
 
+  /**
+   * Generic submit for structured payloads (assumption decisions, discussion answers).
+   * The underlying thread.submit() is payload-agnostic — this exposes that capability
+   * to renderers that need custom resume payloads beyond simple approved/rejected.
+   */
+  const handleSubmit = (payload: Record<string, unknown>) => {
+    try {
+      setLoading(true);
+      thread.submit({}, {
+        command: { resume: payload },
+        optimisticValues: (prev) => ({
+          ...prev,
+          messages: prev.messages ?? [],
+        }),
+      });
+      toast("Submitted", { description: "Response sent.", duration: 3000 });
+    } catch (error) {
+      console.error("Error sending submit", error);
+      toast.error("Error", { description: "Failed to submit response.", richColors: true, closeButton: true, duration: 5000 });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     isActiveInterrupt,
     getActiveInterruptType,
     handleApprove,
     handleReject,
+    handleSubmit,
   };
 }
