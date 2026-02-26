@@ -42,6 +42,8 @@ const defaultProps = {
   permissionState: { grants: [] },
   revokePermissionGrant: jest.fn(),
   stream: { messages: [], submit: jest.fn() },
+  lineageFilter: null,
+  setLineageFilter: jest.fn(),
 };
 
 describe("SummaryTab", () => {

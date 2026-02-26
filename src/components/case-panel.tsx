@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useQueryState } from "nuqs";
 import { useStreamContext } from "@/providers/Stream";
@@ -17,8 +17,7 @@ import {
   EVIDENCE_TYPE_LABELS,
   type EvidenceType,
 } from "@/hooks/useCaseEvidenceState";
-import { X, Filter, ChevronDown, ChevronRight } from "lucide-react";
-import type { BlockData } from "@/lib/blocks/types";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
@@ -26,21 +25,12 @@ import { TAB_CONFIG, TabTrigger } from "@/components/case-panel/tabs";
 import type { TabValue } from "@/components/case-panel/tabs";
 import { SummaryTab } from "@/components/case-panel/summary-tab";
 import { CostTab } from "@/components/case-panel/cost-tab";
-import { BuildTab } from "@/components/case-panel/build-tab";
+import { BuildArtifactsTab } from "@/components/case-panel/build-tab";
+import { FlowTab } from "@/components/case-panel/flow-tab";
 import { LINEAGE_NAVIGATE_EVENT } from "@/components/lineage-link";
 import type { LineageNavigateDetail } from "@/components/lineage-link";
 
-// Lazy-load LineageGraph to avoid pulling React Flow into the initial bundle
-const LineageGraph = lazy(() => import("@/components/lineage/LineageGraph"));
-
 type Check = { id: string; label: string; ok: boolean; requested: boolean };
-
-/** Safely extract an array from a passthrough sais_ui field */
-function extractArray(obj: unknown, key: string): unknown[] {
-  if (!obj || typeof obj !== "object") return [];
-  const val = (obj as Record<string, unknown>)[key];
-  return Array.isArray(val) ? val : [];
-}
 
 // ---------------------------------------------------------------------------
 // Thread Summary types (local to this component, matches backend ThreadSummaryOut)
@@ -194,7 +184,7 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const VALID_TABS: readonly TabValue[] = ["summary", "investigation", "lineage", "cost", "build"] as const;
+  const VALID_TABS: readonly TabValue[] = ["summary", "flow", "build", "investigation", "cost"] as const;
   const [activeTab, setActiveTabState] = useState<TabValue>("summary");
   // Read the deep-link tab from URL once (client-only, captured at module eval time)
   const deepLinkTabRef = useRef<TabValue | null>(null);
@@ -244,7 +234,7 @@ export function CasePanel({ className }: { className?: string }) {
           canonicalKeys: detail.canonicalKeys,
           displayNames: detail.displayNames,
         });
-        setActiveTab("lineage");
+        setActiveTab("summary");
       }
     }
     window.addEventListener(LINEAGE_NAVIGATE_EVENT, handleLineageNavigate);
@@ -362,32 +352,19 @@ export function CasePanel({ className }: { className?: string }) {
 
   const investigationCount = evidenceCount + findingsCount;
 
-  // Auto-switch to Build tab when build flow starts
-  const prevIsBuildRef = useRef(false);
+  // Auto-switch to Flow tab when any flow starts
+  const prevFlowTypeRef = useRef<string | null>(null);
   useEffect(() => {
-    const isBuild = saisUiData.isBuild;
-    if (isBuild && !prevIsBuildRef.current) {
-      // Defer to next frame so the Build tab trigger is in the DOM
+    const flowType = saisUiData.flowType;
+    if (flowType && !prevFlowTypeRef.current) {
+      // Defer to next frame so the Flow tab trigger is in the DOM
       // before Radix Tabs processes the value change.
       requestAnimationFrame(() => {
-        setActiveTab("build");
+        setActiveTab("flow");
       });
     }
-    prevIsBuildRef.current = !!isBuild;
-  }, [saisUiData.isBuild, setActiveTab]);
-
-  // Detect block-based build data (interrupt_card blocks in messages)
-  const hasBuildBlocks = useMemo(() => {
-    for (const msg of stream.messages) {
-      if (msg.type !== "ai") continue;
-      const meta = msg.response_metadata as Record<string, unknown> | undefined;
-      const blocks = meta?.blocks as BlockData[] | undefined;
-      if (Array.isArray(blocks) && blocks.some((b) => b.type === "interrupt_card")) {
-        return true;
-      }
-    }
-    return false;
-  }, [stream.messages]);
+    prevFlowTypeRef.current = flowType;
+  }, [saisUiData.flowType, setActiveTab]);
 
   const getBadgeCount = (tabValue: string): number | undefined => {
     switch (tabValue) {
@@ -408,13 +385,7 @@ export function CasePanel({ className }: { className?: string }) {
           className="flex shrink-0 gap-0 overflow-x-auto border-b px-2"
           aria-label="Thread details"
         >
-          {TAB_CONFIG.filter((tab) => {
-            // Build tab only visible when build flow is active or has build data
-            if (tab.value === "build") {
-              return saisUiData.isBuild || extractArray(saisUiData.raw, "stage_definitions").length > 0 || hasBuildBlocks;
-            }
-            return true;
-          }).map((tab) => (
+          {TAB_CONFIG.map((tab) => (
             <TabTrigger
               key={tab.value}
               config={tab}
@@ -435,7 +406,14 @@ export function CasePanel({ className }: { className?: string }) {
               permissionState={permissionState}
               revokePermissionGrant={revokePermissionGrant}
               stream={stream}
+              lineageFilter={lineageFilter}
+              setLineageFilter={setLineageFilter}
             />
+          </Tabs.Content>
+
+          {/* Flow Tab (universal flow tracker) */}
+          <Tabs.Content value="flow" className="p-0">
+            <FlowTab threadId={threadId} />
           </Tabs.Content>
 
           {/* Investigation Tab (merged Evidence + Findings + Mismatch + Evidence Status) */}
@@ -631,60 +609,9 @@ export function CasePanel({ className }: { className?: string }) {
             )}
           </Tabs.Content>
 
-          {/* Build Tab */}
+          {/* Build Tab (artifacts only) */}
           <Tabs.Content value="build" className="p-0">
-            <BuildTab threadId={threadId} />
-          </Tabs.Content>
-
-          {/* Lineage Tab */}
-          <Tabs.Content value="lineage" className="p-4">
-            {summary ? (
-              <div
-                data-testid="lineage-panel"
-                className="flex flex-1 flex-col"
-                style={{ minHeight: "400px" }}
-              >
-                {/* Lineage filter chip */}
-                {lineageFilter && lineageFilter.canonicalKeys.length > 0 && (
-                  <div
-                    className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-950"
-                    data-testid="lineage-filter"
-                  >
-                    <Filter className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs text-blue-700 dark:text-blue-300">
-                      Showing lineage for:{" "}
-                      <span className="font-medium">
-                        {lineageFilter.displayNames.join(", ")}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setLineageFilter(null)}
-                      className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-600 transition-colors hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900"
-                      data-testid="lineage-filter-clear"
-                      title="Clear filter to show full lineage graph"
-                    >
-                      <X className="h-3 w-3" />
-                      Clear filter
-                    </button>
-                  </div>
-                )}
-                <Suspense
-                  fallback={
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                      Loading lineage graph...
-                    </div>
-                  }
-                >
-                  <LineageGraph
-                    className="h-full min-h-[400px] rounded-md border bg-card"
-                    filterEntities={lineageFilter?.canonicalKeys}
-                  />
-                </Suspense>
-              </div>
-            ) : (
-              <div className="text-muted-foreground text-sm">No thread selected.</div>
-            )}
+            <BuildArtifactsTab threadId={threadId} />
           </Tabs.Content>
 
           {/* Cost Tab */}
