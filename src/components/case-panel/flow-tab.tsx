@@ -679,11 +679,35 @@ function CompletedFlowEntry({
         </span>
       </button>
       {expanded && (
-        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-          {summary.flow_type === "build" ? (
-            <span>Build flow completed with {summary.stages_completed} stages.</span>
+        <div className="border-t px-3 py-2">
+          {summary.stage_details && summary.stage_details.length > 0 ? (
+            <div className="space-y-0">
+              {summary.stage_details.map((sd, idx) => (
+                <div key={sd.id} className="flex items-start gap-2 py-1">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                    {sd.status === "completed" ? (
+                      <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
+                        <Check className="h-2.5 w-2.5 text-emerald-600" />
+                      </div>
+                    ) : (
+                      <div className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-100">
+                        <Circle className="h-2.5 w-2.5 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">{sd.label}</span>
+                    {sd.subtitle && (
+                      <span className="ml-1.5 text-[10px] text-muted-foreground">{sd.subtitle}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <span>{label} flow completed.</span>
+            <div className="text-xs text-muted-foreground">
+              {label} flow completed.
+            </div>
           )}
         </div>
       )}
@@ -731,7 +755,10 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   const stageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
   const currentStage = extractString(raw, "rpabv_stage");
   const buildPlanStatus = extractString(raw, "build_plan_status");
-  const flowFinished = buildPlanStatus === "completed" || buildPlanStatus === "failed";
+  // Build flows have explicit status; non-build flows finish when stream ends
+  const flowFinished = buildPlanStatus
+    ? buildPlanStatus === "completed" || buildPlanStatus === "failed"
+    : !stream.isLoading && !!activeFlowType;
   const rpabvArtifacts = extractObject(raw, "rpabv_artifacts");
   const rpabvDecisions = extractArray(raw, "rpabv_decisions") as RpabvDecision[];
 
