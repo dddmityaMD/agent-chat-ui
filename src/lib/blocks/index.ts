@@ -8,5 +8,8 @@ export type {
   AssumptionCardBlockData,
   DiscussionCardBlockData,
   EntityCardBlockData,
+  EntityItem,
+  EntityGroup,
+  FindingsCardBlockData,
   BlockRendererProps,
 } from "./types";

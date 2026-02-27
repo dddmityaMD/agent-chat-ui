@@ -70,18 +70,47 @@ export interface DiscussionCardBlockData extends BlockData {
   decided_at?: string;
 }
 
+export interface EntityItem {
+  entity_type: string;
+  uri: string;
+  connector_type: string;
+  display_name: string;
+  description?: string;
+  subtitle?: string;
+  freshness?: string;
+  properties: Record<string, unknown>;
+  qualified_references: string[];
+}
+
+export interface EntityGroup {
+  label: string;
+  entity_type: string;
+  count: number;
+  entities: EntityItem[];
+}
+
 export interface EntityCardBlockData extends BlockData {
   type: "entity_card";
-  entities: Array<{
-    entity_type: string;
-    uri: string;
-    connector_type: string;
-    display_name: string;
-    properties: Record<string, unknown>;
-    qualified_references: string[];
-  }>;
+  groups: EntityGroup[];
+  header?: string;
+  next_steps?: string[];
   layout: "list" | "grid";
   title?: string;
+  source_flow?: string;
+  // Backward compat — old flat format
+  entities?: EntityItem[];
+  summary?: string;
+}
+
+export interface FindingsCardBlockData extends BlockData {
+  type: "findings_card";
+  root_cause?: { statement: string; confidence: number; evidence_ids: string[] };
+  key_observations: Array<{ statement: string; confidence: number; evidence_ids?: string[] }>;
+  recommended_fix?: { steps: string[]; risks: string[]; validation_steps: string[] };
+  rejected_hypotheses: Array<{ statement: string; reason: string }>;
+  open_questions: Array<{ question: string; why_missing: string }>;
+  next_tests: Array<{ test: string; why: string }>;
+  entity_context: Array<{ display_name: string; entity_type: string; uri: string }>;
   source_flow?: string;
 }
 

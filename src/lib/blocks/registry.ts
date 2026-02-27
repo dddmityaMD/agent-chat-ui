@@ -8,6 +8,7 @@ import { InterruptDecisionBlock } from "./renderers/interrupt-decision-block";
 import { AssumptionCardBlock } from "./renderers/assumption-card-block";
 import { DiscussionCardBlock } from "./renderers/discussion-card-block";
 import { EntityCardBlock } from "./renderers/entity-card-block";
+import { FindingsCardBlock } from "./renderers/findings-card-block";
 
 const registry = new Map<string, ComponentType<BlockRendererProps>>();
 
@@ -33,3 +34,4 @@ registerBlockType("interrupt_decision", InterruptDecisionBlock);
 registerBlockType("assumption_card", AssumptionCardBlock);
 registerBlockType("discussion_card", DiscussionCardBlock);
 registerBlockType("entity_card", EntityCardBlock);
+registerBlockType("findings_card", FindingsCardBlock);
