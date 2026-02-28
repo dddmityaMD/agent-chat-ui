@@ -132,6 +132,18 @@ export interface UseSaisUiResult {
 // ---------------------------------------------------------------------------
 
 /**
+ * Extract the sais_ui object from thread values.
+ * Use this in non-component code that receives raw thread values.
+ */
+export function extractSaisUi(values: unknown): Record<string, unknown> | null {
+  if (!values || typeof values !== "object") return null;
+  const obj = values as Record<string, unknown>;
+  const saisUi = obj.sais_ui;
+  if (!saisUi || typeof saisUi !== "object") return null;
+  return saisUi as Record<string, unknown>;
+}
+
+/**
  * Extract flow_type from raw sais_ui.
  * Corresponds to extractActiveFlow from ai.tsx.
  */

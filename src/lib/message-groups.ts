@@ -26,6 +26,7 @@
  */
 
 import type { Message, AIMessage } from "@langchain/langgraph-sdk";
+import { extractSaisUi } from "@/hooks/useSaisUi";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -363,7 +364,7 @@ export function deriveStageDetails(
 
   // Build flow stages — IDs match backend StageDefinitions in build_flow.py:
   // research, plan, approve, build, verify
-  const saisUi = values.sais_ui;
+  const saisUi = extractSaisUi(values) as StreamingStateValues["sais_ui"];
   if (saisUi?.research_progress) {
     const rp = saisUi.research_progress;
     if (rp.context_found) {
@@ -434,6 +435,7 @@ export function computeDataDrivenReveal(
   // A stage's data being present means the corresponding graph node has completed,
   // so we should reveal UP TO the next stage (current completed + next in-progress).
   let lastCompletedIdx = -1;
+  const saisUi = extractSaisUi(values) as StreamingStateValues["sais_ui"];
 
   for (let i = 0; i < stages.length; i++) {
     const id = stages[i].id;
@@ -441,31 +443,31 @@ export function computeDataDrivenReveal(
       lastCompletedIdx = i;
     } else if (id === "intent" && values.intent !== undefined) {
       lastCompletedIdx = i;
-    } else if (id === "research" && values.sais_ui?.research_progress !== undefined) {
-      if (values.sais_ui.research_progress.status === "evaluating") {
+    } else if (id === "research" && saisUi?.research_progress !== undefined) {
+      if (saisUi.research_progress.status === "evaluating") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // research in progress
       }
-    } else if (id === "plan" && (values.sais_ui?.rpabv_stage === "plan" || values.sais_ui?.rpabv_stage === "approve" || values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
-      if (values.sais_ui.rpabv_stage !== "plan") {
+    } else if (id === "plan" && (saisUi?.rpabv_stage === "plan" || saisUi?.rpabv_stage === "approve" || saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
+      if (saisUi?.rpabv_stage !== "plan") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // plan in progress
       }
-    } else if (id === "approve" && (values.sais_ui?.rpabv_stage === "approve" || values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
-      if (values.sais_ui.rpabv_stage !== "approve") {
+    } else if (id === "approve" && (saisUi?.rpabv_stage === "approve" || saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
+      if (saisUi?.rpabv_stage !== "approve") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // approve in progress
       }
-    } else if (id === "build" && (values.sais_ui?.rpabv_stage === "build" || values.sais_ui?.rpabv_stage === "verify")) {
-      if (values.sais_ui.rpabv_stage === "verify") {
+    } else if (id === "build" && (saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
+      if (saisUi?.rpabv_stage === "verify") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // build in progress
       }
-    } else if (id === "verify" && values.sais_ui?.rpabv_stage === "verify") {
+    } else if (id === "verify" && saisUi?.rpabv_stage === "verify") {
       lastCompletedIdx = i;
     } else if (values.active_flow !== undefined && !["resolve", "intent", "respond"].includes(id)) {
       if (values.evidence_result !== undefined || values.findings !== undefined) {
