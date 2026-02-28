@@ -201,9 +201,11 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
               signal,
               fetchImpl: credentialsFetch,
             }),
-          ).then(() => {
-            // Run finished via rejoin — unregister
-            activeRuns.unregisterRun(threadId);
+          ).then((aborted) => {
+            // Only unregister if rejoin completed naturally (not aborted by thread switch)
+            if (!aborted) {
+              activeRuns.unregisterRun(threadId);
+            }
           });
         }
       } catch (err) {
@@ -231,7 +233,7 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
         }
 
         // Start streaming — wrap generator to intercept metadata for run tracking
-        await manager.start((signal) => {
+        const aborted = await manager.start((signal) => {
           const inner = streamRun({
             apiUrl,
             threadId: tid,
@@ -250,8 +252,12 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
           });
         });
 
-        // Stream ended — unregister run
-        activeRuns.unregisterRun(tid);
+        // Only unregister if stream completed naturally (not aborted by thread switch).
+        // If aborted, the backend run is still active and we need the registration
+        // so rejoin() triggers when the user switches back.
+        if (!aborted) {
+          activeRuns.unregisterRun(tid);
+        }
 
         // After stream ends: re-fetch history for branching metadata
         try {

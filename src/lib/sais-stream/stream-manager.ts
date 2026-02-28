@@ -104,7 +104,7 @@ export class SaisStreamManager {
    */
   async start(
     runFn: (signal: AbortSignal) => AsyncGenerator<SSEEvent>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     // Abort previous stream if any
     this.stop();
 
@@ -136,6 +136,11 @@ export class SaisStreamManager {
         this.onNewMessageSignal?.();
       }
     }
+
+    // Signal whether stream was aborted (e.g., by thread switch).
+    // Callers use this to decide whether to unregister the run —
+    // an aborted stream means the backend run is still active.
+    return controller.signal.aborted;
   }
 
   /**
@@ -145,7 +150,7 @@ export class SaisStreamManager {
    */
   async rejoin(
     runFn: (signal: AbortSignal) => AsyncGenerator<SSEEvent>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     // Abort any existing stream but do NOT clear saisUiCache or values
     if (this.abortController) {
       this.abortController.abort();
@@ -186,6 +191,11 @@ export class SaisStreamManager {
         this.onNewMessageSignal?.();
       }
     }
+
+    // Signal whether stream was aborted (e.g., by thread switch).
+    // Callers use this to decide whether to unregister the run —
+    // an aborted stream means the backend run is still active.
+    return controller.signal.aborted;
   }
 
   /**
