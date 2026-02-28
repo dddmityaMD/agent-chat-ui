@@ -108,26 +108,33 @@ export class SaisStreamManager {
     // Abort previous stream if any
     this.stop();
 
-    this.abortController = new AbortController();
+    const controller = new AbortController();
+    this.abortController = controller;
     this.updateState({ isLoading: true, error: null });
 
     try {
-      const generator = runFn(this.abortController.signal);
+      const generator = runFn(controller.signal);
 
       for await (const event of generator) {
-        if (this.abortController.signal.aborted) break;
+        if (controller.signal.aborted) break;
         this.processEvent(event.event, event.data);
       }
     } catch (err) {
-      if (!this.abortController?.signal.aborted) {
+      // Use local `controller.signal` — NOT `this.abortController` which may be null
+      // after clear() runs during a thread switch
+      if (!controller.signal.aborted) {
         const error = err instanceof Error ? err : new Error(String(err));
         this.updateState({ error });
       }
     } finally {
-      this.updateState({ isLoading: false });
-      this.abortController = null;
-      // Signal a final message fetch when stream ends (catches any last messages)
-      this.onNewMessageSignal?.();
+      // Only touch state if this controller is still the active one
+      // (clear() or another start() may have replaced it)
+      if (this.abortController === controller) {
+        this.updateState({ isLoading: false });
+        this.abortController = null;
+        // Signal a final message fetch when stream ends (catches any last messages)
+        this.onNewMessageSignal?.();
+      }
     }
   }
 
@@ -145,18 +152,21 @@ export class SaisStreamManager {
       this.abortController = null;
     }
 
-    this.abortController = new AbortController();
+    const controller = new AbortController();
+    this.abortController = controller;
     this.updateState({ isLoading: true, error: null });
 
     try {
-      const generator = runFn(this.abortController.signal);
+      const generator = runFn(controller.signal);
 
       for await (const event of generator) {
-        if (this.abortController.signal.aborted) break;
+        if (controller.signal.aborted) break;
         this.processEvent(event.event, event.data);
       }
     } catch (err) {
-      if (!this.abortController?.signal.aborted) {
+      // Use local `controller.signal` — NOT `this.abortController` which may be null
+      // after clear() runs during a thread switch
+      if (!controller.signal.aborted) {
         const error = err instanceof Error ? err : new Error(String(err));
         // 404/410 means run already finished — not a real error
         const msg = error.message;
@@ -168,9 +178,13 @@ export class SaisStreamManager {
         }
       }
     } finally {
-      this.updateState({ isLoading: false });
-      this.abortController = null;
-      this.onNewMessageSignal?.();
+      // Only touch state if this controller is still the active one
+      // (clear() or another start() may have replaced it)
+      if (this.abortController === controller) {
+        this.updateState({ isLoading: false });
+        this.abortController = null;
+        this.onNewMessageSignal?.();
+      }
     }
   }
 
