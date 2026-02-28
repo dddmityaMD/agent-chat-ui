@@ -198,6 +198,7 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
               apiUrl,
               threadId,
               runId: active.runId,
+              streamMode: ["values", "custom"],
               signal,
               fetchImpl: credentialsFetch,
             }),

@@ -40,6 +40,7 @@ export interface JoinStreamOptions {
   threadId: string;
   runId: string;
   lastEventId?: string;
+  streamMode?: string[];
   signal?: AbortSignal;
   fetchImpl?: typeof fetch;
 }
@@ -256,11 +257,19 @@ export async function* joinStream(
     threadId,
     runId,
     lastEventId,
+    streamMode,
     signal,
     fetchImpl = fetch,
   } = options;
 
-  const url = `${apiUrl}/threads/${threadId}/runs/${runId}/stream`;
+  const params = new URLSearchParams();
+  if (streamMode) {
+    for (const mode of streamMode) {
+      params.append("stream_mode", mode);
+    }
+  }
+  const qs = params.toString();
+  const url = `${apiUrl}/threads/${threadId}/runs/${runId}/stream${qs ? `?${qs}` : ""}`;
 
   const headers: Record<string, string> = {};
   if (lastEventId) {
