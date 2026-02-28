@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   ReactNode,
   useState,
@@ -22,6 +23,8 @@ import { useThreads } from "./Thread";
 import { useAuth } from "./Auth";
 import { toast } from "sonner";
 import { useSaisStream, type UseSaisStreamResult } from "@/hooks/useSaisStream";
+import { ActiveRunsProvider } from "./ActiveRuns";
+import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
 
 
 export type StateType = {
@@ -88,6 +91,11 @@ async function checkGraphStatus(
     return false;
   }
 }
+
+// Custom fetch wrapper that includes credentials (cookie forwarding)
+const credentialsFetch: typeof fetch = (input, init) => {
+  return fetch(input, { ...init, credentials: "include" });
+};
 
 const StreamSession = ({
   children,
@@ -176,6 +184,40 @@ const StreamSession = ({
     <StreamContext.Provider value={streamValue}>
       {children}
     </StreamContext.Provider>
+  );
+};
+
+/**
+ * Wrapper that provides ActiveRunsProvider outside StreamSession,
+ * so useSaisStream (inside StreamSession) can access the context.
+ */
+const ActiveRunsWrapper = ({
+  children,
+  apiUrl,
+}: {
+  children: ReactNode;
+  apiUrl: string;
+}) => {
+  const [threadId] = useQueryState("threadId");
+  const { getThreads, setThreads } = useThreads();
+
+  const threadClientRef = useRef<SaisThreadClient | null>(null);
+  if (!threadClientRef.current) {
+    threadClientRef.current = new SaisThreadClient(apiUrl, credentialsFetch);
+  }
+
+  const refreshThreads = useCallback(() => {
+    getThreads().then(setThreads).catch(console.error);
+  }, [getThreads, setThreads]);
+
+  return (
+    <ActiveRunsProvider
+      threadClient={threadClientRef.current}
+      currentThreadId={threadId}
+      onThreadCompleted={refreshThreads}
+    >
+      {children}
+    </ActiveRunsProvider>
   );
 };
 
@@ -317,13 +359,15 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   }
 
   return (
-    <StreamSession
-      apiKey={apiKey}
-      apiUrl={apiUrl}
-      assistantId={assistantId}
-    >
-      {children}
-    </StreamSession>
+    <ActiveRunsWrapper apiUrl={apiUrl}>
+      <StreamSession
+        apiKey={apiKey}
+        apiUrl={apiUrl}
+        assistantId={assistantId}
+      >
+        {children}
+      </StreamSession>
+    </ActiveRunsWrapper>
   );
 };
 

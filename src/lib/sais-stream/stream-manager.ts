@@ -132,6 +132,49 @@ export class SaisStreamManager {
   }
 
   /**
+   * Rejoin an active run's SSE stream without clearing cached state.
+   * Used when switching back to a thread that has a run in progress.
+   * If the stream fails (404/410 = run already finished), degrades gracefully.
+   */
+  async rejoin(
+    runFn: (signal: AbortSignal) => AsyncGenerator<SSEEvent>,
+  ): Promise<void> {
+    // Abort any existing stream but do NOT clear saisUiCache or values
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+
+    this.abortController = new AbortController();
+    this.updateState({ isLoading: true, error: null });
+
+    try {
+      const generator = runFn(this.abortController.signal);
+
+      for await (const event of generator) {
+        if (this.abortController.signal.aborted) break;
+        this.processEvent(event.event, event.data);
+      }
+    } catch (err) {
+      if (!this.abortController?.signal.aborted) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        // 404/410 means run already finished — not a real error
+        const msg = error.message;
+        if (msg.includes("404") || msg.includes("410")) {
+          // Run already completed — keep REST-fetched state, just stop loading
+          console.info("[SaisStreamManager] rejoin: run already finished, keeping REST state");
+        } else {
+          this.updateState({ error });
+        }
+      }
+    } finally {
+      this.updateState({ isLoading: false });
+      this.abortController = null;
+      this.onNewMessageSignal?.();
+    }
+  }
+
+  /**
    * Stop the current stream.
    */
   stop(): void {

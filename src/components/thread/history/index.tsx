@@ -25,8 +25,10 @@ import {
   MoreVertical,
   Archive,
   Pencil,
+  Loader2,
 } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useActiveRuns } from "@/providers/ActiveRuns";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -159,6 +161,9 @@ function ThreadEntry({
   onTogglePin: (threadId: string, isPinned: boolean) => void;
   onArchive: (threadId: string) => void;
 }) {
+  const { getActiveRun } = useActiveRuns();
+  const isRunning = !!getActiveRun(thread.thread_id);
+
   const displayTitle =
     thread.title ||
     (thread.last_message_preview
@@ -194,6 +199,11 @@ function ThreadEntry({
       {/* Pin indicator */}
       {thread.is_pinned && (
         <Pin className="size-3 shrink-0 text-amber-500" />
+      )}
+
+      {/* Running indicator */}
+      {isRunning && (
+        <Loader2 className="size-3 shrink-0 animate-spin text-blue-500" />
       )}
 
       {/* Title + timestamp */}

@@ -159,6 +159,28 @@ export class SaisThreadClient {
   }
 
   /**
+   * Get the status of a specific run (for background polling).
+   */
+  async getRunStatus(
+    threadId: string,
+    runId: string,
+  ): Promise<{ status: string }> {
+    const response = await this.fetchImpl(
+      `${this.apiUrl}/threads/${threadId}/runs/${runId}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Get run status failed: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * Check if the LangGraph server is accessible.
    */
   async checkStatus(): Promise<boolean> {

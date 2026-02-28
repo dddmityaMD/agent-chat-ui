@@ -24,8 +24,9 @@ import {
 import { SaisStreamManager } from "@/lib/sais-stream/stream-manager";
 import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
 import { BranchContext, type MessageMetadata } from "@/lib/sais-stream/branch-context";
-import { streamRun } from "@/lib/sais-stream/sse-client";
+import { streamRun, joinStream } from "@/lib/sais-stream/sse-client";
 import { useMessages } from "@/hooks/useMessages";
+import { useActiveRuns } from "@/providers/ActiveRuns";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,6 +108,7 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
   const manager = managerRef.current;
   const threadClient = threadClientRef.current;
   const branch = branchRef.current;
+  const activeRuns = useActiveRuns();
 
   // REST-based message fetching (Phase 23.4)
   const { messages, refetch: refetchMessages } = useMessages(threadId, threadClient);
@@ -187,11 +189,28 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
 
         manager.setValues(state.values);
         branch.update(history);
+
+        // If this thread has an active run, rejoin the SSE stream
+        const active = activeRuns.getActiveRun(threadId);
+        if (active) {
+          manager.rejoin((signal) =>
+            joinStream({
+              apiUrl,
+              threadId,
+              runId: active.runId,
+              signal,
+              fetchImpl: credentialsFetch,
+            }),
+          ).then(() => {
+            // Run finished via rejoin — unregister
+            activeRuns.unregisterRun(threadId);
+          });
+        }
       } catch (err) {
         console.warn("[useSaisStream] Failed to load thread state:", err);
       }
     })();
-  }, [threadId, manager, threadClient, branch]);
+  }, [threadId, apiUrl, manager, threadClient, branch, activeRuns]);
 
   // ----- submit -----
   const submit: UseSaisStreamResult["submit"] = useCallback(
@@ -211,9 +230,9 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
           manager.applyOptimistic(optimisticValues);
         }
 
-        // Start streaming
-        await manager.start((signal) =>
-          streamRun({
+        // Start streaming — wrap generator to intercept metadata for run tracking
+        await manager.start((signal) => {
+          const inner = streamRun({
             apiUrl,
             threadId: tid,
             assistantId,
@@ -225,8 +244,14 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
             streamResumable: streamResumable ?? true,
             signal,
             fetchImpl: credentialsFetch,
-          }),
-        );
+          });
+          return interceptMetadata(inner, (runId) => {
+            activeRuns.registerRun(tid, runId);
+          });
+        });
+
+        // Stream ended — unregister run
+        activeRuns.unregisterRun(tid);
 
         // After stream ends: re-fetch history for branching metadata
         try {
@@ -256,7 +281,7 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
           });
       }
     },
-    [apiUrl, assistantId, threadId, manager, threadClient, branch, onThreadId, onError],
+    [apiUrl, assistantId, threadId, manager, threadClient, branch, activeRuns, onThreadId, onError],
   );
 
   // ----- stop -----
@@ -306,4 +331,29 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
     setBranch,
     preStreamIds: emptyPreStreamIds,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps an SSE async generator to intercept the `metadata` event and
+ * extract the run_id before yielding it downstream.
+ */
+async function* interceptMetadata(
+  inner: AsyncGenerator<import("@/lib/sais-stream/sse-client").SSEEvent>,
+  onRunId: (runId: string) => void,
+): AsyncGenerator<import("@/lib/sais-stream/sse-client").SSEEvent> {
+  for await (const event of inner) {
+    if (
+      event.event === "metadata" &&
+      event.data &&
+      typeof event.data === "object" &&
+      "run_id" in (event.data as Record<string, unknown>)
+    ) {
+      onRunId((event.data as { run_id: string }).run_id);
+    }
+    yield event;
+  }
 }
