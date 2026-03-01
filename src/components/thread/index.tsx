@@ -429,6 +429,15 @@ export function Thread() {
     // Stream just started — snapshot last message ID
     const lastMsg = messages[messages.length - 1];
     preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
+
+    // Handle rejoin: isLoading turned true but no currentTurnIdRef (rejoin, not user submit)
+    if (!currentTurnIdRef.current) {
+      const lastHuman = [...messages].reverse().find(m => m.type === "human");
+      if (lastHuman?.id) {
+        console.debug("[Thread] rejoin: setting currentTurnIdRef to last human message:", lastHuman.id);
+        currentTurnIdRef.current = lastHuman.id;
+      }
+    }
   }
   if (!isLoading && prevStreamingRef.current) {
     currentTurnIdRef.current = null;
@@ -912,27 +921,27 @@ export function Thread() {
                     if (!hasFinalResponse) {
                       // currentTurnValues: only populated when stream.values.turn_id matches
                       // the current turn's human message ID. Stale checkpoint data returns {}.
-                      const streamFlow = currentTurnValues.active_flow || inferFlowFromIntent(currentTurnValues.intent) || saisUiData.flowType;
+                      // When empty (rejoin/REST restore), fall back to rawStreamValues which
+                      // has the full checkpoint state including resolved_entities, intent, etc.
+                      const hasLiveData = Object.keys(currentTurnValues).length > 0;
+                      const effectiveValues = hasLiveData ? currentTurnValues : rawStreamValues;
+                      const streamFlow = effectiveValues.active_flow || inferFlowFromIntent(effectiveValues.intent) || saisUiData.flowType;
                       // Fall back to saisUiData.raw so stage_definitions from the
                       // build flow are available even before the delta filter
                       // includes sais_ui (e.g. when stage_definitions hasn't changed
                       // since the baseline snapshot).
-                      const streamSaisUi = (currentTurnValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
+                      const streamSaisUi = (effectiveValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
                       const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
-                      const stageDetails = deriveStageDetails(
-                        Object.keys(currentTurnValues).length > 0
-                          ? currentTurnValues
-                          : { sais_ui: saisUiData.raw } as StreamingStateValues,
-                      );
+                      const stageDetails = deriveStageDetails(effectiveValues);
                       const enrichedStages = applyStageDetails(streamingStages, stageDetails);
                       const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
-                      const staticReveal = computeDataDrivenReveal(
-                        Object.keys(currentTurnValues).length > 0
-                          ? currentTurnValues
-                          : { sais_ui: saisUiData.raw } as StreamingStateValues,
-                        streamingStages,
-                      );
+                      const staticReveal = computeDataDrivenReveal(effectiveValues, streamingStages);
                       const minReveal = Math.max(dynamicReveal, staticReveal);
+                      // --- DIAGNOSTIC: log reveal computation ---
+                      console.debug("[ThinkingIndicator] currentTurnId:", currentTurnId, "| hasLiveData:", hasLiveData,
+                        "| usingRawFallback:", !hasLiveData, "| dynamicReveal:", dynamicReveal, "| staticReveal:", staticReveal,
+                        "| minReveal:", minReveal, "| stages:", enrichedStages.length, "| flow:", streamFlow);
+                      // --- END DIAGNOSTIC ---
                       return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} isPaused={hasActiveInterrupt} />;
                     }
                     return null;

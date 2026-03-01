@@ -150,7 +150,7 @@ export class SaisStreamManager {
    */
   async rejoin(
     runFn: (signal: AbortSignal) => AsyncGenerator<SSEEvent>,
-  ): Promise<boolean> {
+  ): Promise<{ aborted: boolean; eventCount: number }> {
     // Abort any existing stream but do NOT clear saisUiCache or values
     if (this.abortController) {
       this.abortController.abort();
@@ -161,13 +161,18 @@ export class SaisStreamManager {
     this.abortController = controller;
     this.updateState({ isLoading: true, error: null });
 
+    let receivedEvents = 0;
+
     try {
       const generator = runFn(controller.signal);
+      console.log("[SaisStreamManager] rejoin: starting SSE generator");
 
       for await (const event of generator) {
         if (controller.signal.aborted) break;
+        receivedEvents++;
         this.processEvent(event.event, event.data);
       }
+      console.log("[SaisStreamManager] rejoin: SSE generator ended, receivedEvents:", receivedEvents);
     } catch (err) {
       // Use local `controller.signal` — NOT `this.abortController` which may be null
       // after clear() runs during a thread switch
@@ -177,7 +182,7 @@ export class SaisStreamManager {
         const msg = error.message;
         if (msg.includes("404") || msg.includes("410")) {
           // Run already completed — keep REST-fetched state, just stop loading
-          console.info("[SaisStreamManager] rejoin: run already finished, keeping REST state");
+          console.log("[SaisStreamManager] rejoin: run already finished, keeping REST state");
         } else {
           this.updateState({ error });
         }
@@ -192,10 +197,7 @@ export class SaisStreamManager {
       }
     }
 
-    // Signal whether stream was aborted (e.g., by thread switch).
-    // Callers use this to decide whether to unregister the run —
-    // an aborted stream means the backend run is still active.
-    return controller.signal.aborted;
+    return { aborted: controller.signal.aborted, eventCount: receivedEvents };
   }
 
   /**
@@ -206,6 +208,13 @@ export class SaisStreamManager {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  /**
+   * Manually set loading state (e.g., to keep stepper visible between rejoin retries).
+   */
+  setLoading(isLoading: boolean): void {
+    this.updateState({ isLoading });
   }
 
   /**
@@ -262,6 +271,11 @@ export class SaisStreamManager {
     // Extract namespace from event name (e.g., "values|subgraph_name")
     const namespace = event.includes("|") ? event.split("|").slice(1) : undefined;
 
+    // --- DIAGNOSTIC: log every event type and whether it carries sais_ui ---
+    const hasSaisUi = data && typeof data === "object" && "sais_ui" in (data as Record<string, unknown>);
+    console.debug("[SaisStreamManager] processEvent:", event, "| has sais_ui:", hasSaisUi);
+    // --- END DIAGNOSTIC ---
+
     // Error events
     if (event === "error") {
       const msg = data && typeof data === "object" && "message" in data
@@ -306,6 +320,9 @@ export class SaisStreamManager {
         // eslint-disable-next-line no-restricted-syntax -- stream manager IS the sais_ui source
         const currentSaisUi = (this._state.values?.sais_ui ?? {}) as Record<string, unknown>;
         const merged = { ...currentSaisUi, ...(subState.sais_ui as Record<string, unknown>) };
+        // --- DIAGNOSTIC: log sais_ui merge from subgraph ---
+        console.debug("[SaisStreamManager] values| sais_ui merged:", Object.keys(merged));
+        // --- END DIAGNOSTIC ---
         this._state.values = {
           ...(this._state.values ?? {}),
           sais_ui: merged,

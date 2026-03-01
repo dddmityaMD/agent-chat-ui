@@ -94,6 +94,8 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
   const managerRef = useRef<SaisStreamManager | null>(null);
   const threadClientRef = useRef<SaisThreadClient | null>(null);
   const branchRef = useRef<BranchContext | null>(null);
+  // Abort controller for async rejoin/retry work — cancelled on real thread changes only
+  const rejoinAbortRef = useRef<AbortController | null>(null);
 
   if (!managerRef.current) {
     managerRef.current = new SaisStreamManager();
@@ -163,6 +165,10 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
     if (threadId === prevThreadIdRef.current) return;
     prevThreadIdRef.current = threadId;
 
+    // Cancel any async rejoin/retry from the previous thread
+    rejoinAbortRef.current?.abort();
+    rejoinAbortRef.current = null;
+
     // If this threadId was just created by our own submit(), skip clear+fetch.
     // The submit flow already handles streaming on the new thread.
     if (threadId && selfCreatedThreadRef.current === threadId) {
@@ -178,6 +184,12 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
 
     if (!threadId) return;
 
+    // AbortController for this thread's async work — stored in a ref so it survives
+    // dep-change re-renders (where prevThreadIdRef bails early) without being aborted.
+    // Only aborted when threadId actually changes (above).
+    const rejoinAbort = new AbortController();
+    rejoinAbortRef.current = rejoinAbort;
+
     // Fetch thread state + history for the new thread (sais_ui + branching)
     // Messages are fetched by useMessages hook separately via REST
     (async () => {
@@ -187,32 +199,79 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
           threadClient.getHistory(threadId),
         ]);
 
+        if (rejoinAbort.signal.aborted) return;
+
         manager.setValues(state.values);
         branch.update(history);
 
         // If this thread has an active run, rejoin the SSE stream
         const active = activeRuns.getActiveRun(threadId);
         if (active) {
-          manager.rejoin((signal) =>
-            joinStream({
-              apiUrl,
-              threadId,
-              runId: active.runId,
-              streamMode: ["values", "custom"],
-              signal,
-              fetchImpl: credentialsFetch,
-            }),
-          ).then((aborted) => {
-            // Only unregister if rejoin completed naturally (not aborted by thread switch)
-            if (!aborted) {
-              activeRuns.unregisterRun(threadId);
+          const attemptRejoin = async (attempt = 0) => {
+            if (rejoinAbort.signal.aborted) return;
+
+            const { aborted, eventCount } = await manager.rejoin((signal) =>
+              joinStream({
+                apiUrl,
+                threadId,
+                runId: active.runId,
+                streamMode: ["values", "custom"],
+                signal,
+                fetchImpl: credentialsFetch,
+              }),
+            );
+
+            // Aborted by manager (another rejoin/start call) or thread switch
+            if (aborted || rejoinAbort.signal.aborted) return;
+
+            // Rejoin ended naturally — check if run actually finished
+            try {
+              const runResult = await threadClient.getRunStatus(threadId, active.runId);
+              if (rejoinAbort.signal.aborted) return;
+
+              const isTerminal = ["success", "error", "timeout"].includes(runResult.status);
+              console.log(`[useSaisStream] rejoin: eventCount=${eventCount}, runStatus=${runResult.status}, isTerminal=${isTerminal}`);
+
+              if (isTerminal) {
+                // Run finished — refresh everything
+                activeRuns.unregisterRun(threadId);
+                const [freshState, freshHistory] = await Promise.all([
+                  threadClient.getState(threadId),
+                  threadClient.getHistory(threadId),
+                ]);
+                if (rejoinAbort.signal.aborted) return;
+                manager.setValues(freshState.values);
+                branch.update(freshHistory);
+                refetchMessages();
+              } else if (attempt < 3) {
+                // Run still active but SSE closed with 0 events — retry after delay
+                console.log(`[useSaisStream] rejoin: run still active, retry ${attempt + 1}/3`);
+                manager.setLoading(true); // Keep stepper visible between retries
+                await new Promise((r) => setTimeout(r, 2000));
+                await attemptRejoin(attempt + 1);
+              } else {
+                // Max retries — fall back to ActiveRuns poller
+                // Keep run registered so poller tracks it
+                console.warn("[useSaisStream] rejoin: max retries, falling back to polling");
+              }
+            } catch (err) {
+              // Can't check status — unregister to be safe
+              console.warn("[useSaisStream] rejoin: getRunStatus failed:", err);
+              if (!rejoinAbort.signal.aborted) {
+                activeRuns.unregisterRun(threadId);
+              }
             }
-          });
+          };
+
+          attemptRejoin();
         }
       } catch (err) {
         console.warn("[useSaisStream] Failed to load thread state:", err);
       }
     })();
+    // No cleanup function — rejoinAbortRef is aborted at the top of the effect
+    // on real thread changes only. Effect cleanup would fire on ANY dep change,
+    // killing the retry loop even when threadId hasn't changed.
   }, [threadId, apiUrl, manager, threadClient, branch, activeRuns]);
 
   // ----- submit -----
