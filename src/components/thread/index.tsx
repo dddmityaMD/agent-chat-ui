@@ -1,5 +1,15 @@
+/**
+ * thread/index.tsx — Main Thread component.
+ *
+ * Sub-components extracted to:
+ *   scroll.tsx — StickyToBottomContent, ScrollToBottom, NewMessagesDetector
+ *   thread-header.tsx — EditableThreadTitle, OpenGitHubRepo
+ *   use-current-turn-delta.ts — useCurrentTurnDelta hook
+ *   message-error-boundary.tsx — MessageErrorBoundary
+ */
+
 import { v4 as uuidv4 } from "uuid";
-import { Component, ReactNode, useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useStreamContext } from "@/providers/Stream";
@@ -19,7 +29,6 @@ import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   AlertTriangle,
-  ArrowDown,
   PanelRightOpen,
   PanelRightClose,
   RotateCcw,
@@ -28,22 +37,14 @@ import {
   XIcon,
   Pencil,
   Plus,
-  Check,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
-import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
+import { StickToBottom } from "use-stick-to-bottom";
 import ThreadHistory from "./history";
 import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import { GitHubSVG } from "../icons/github";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import {
@@ -61,312 +62,11 @@ import { SettingsButton } from "@/components/settings-button";
 import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
 
-/**
- * Error boundary that catches render errors in individual messages,
- * preventing a single malformed message from crashing the entire thread.
- */
-class MessageErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean; error?: Error }
-> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          Failed to render this message.{" "}
-          <span className="text-xs text-red-500">
-            {this.state.error?.message}
-          </span>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-function StickyToBottomContent(props: {
-  content: ReactNode;
-  footer?: ReactNode;
-  className?: string;
-  contentClassName?: string;
-}) {
-  const context = useStickToBottomContext();
-  return (
-    <div
-      ref={context.scrollRef}
-      style={{ width: "100%", height: "100%" }}
-      className={props.className}
-    >
-      <div
-        ref={context.contentRef}
-        className={props.contentClassName}
-      >
-        {props.content}
-      </div>
-
-      {props.footer}
-    </div>
-  );
-}
-
-function ScrollToBottom(props: {
-  className?: string;
-  hasNewMessages?: boolean;
-  onScrollToBottom?: () => void;
-}) {
-  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
-
-  if (isAtBottom) return null;
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex items-center justify-center gap-1.5 rounded-full border bg-background shadow-md transition-all hover:bg-accent",
-        props.hasNewMessages ? "h-8 px-3" : "h-8 w-8",
-        props.className,
-      )}
-      onClick={() => {
-        scrollToBottom();
-        props.onScrollToBottom?.();
-      }}
-      aria-label={props.hasNewMessages ? "New messages - scroll to bottom" : "Scroll to bottom"}
-    >
-      {props.hasNewMessages && (
-        <span className="text-xs font-medium text-blue-600">New messages</span>
-      )}
-      <ArrowDown className="h-4 w-4" />
-    </button>
-  );
-}
-
-/**
- * Detects new messages arriving while user is scrolled up.
- * Must be rendered inside StickToBottom context.
- */
-function NewMessagesDetector({
-  messageCount,
-  onNewMessages,
-  onAtBottom,
-}: {
-  messageCount: number;
-  onNewMessages: () => void;
-  onAtBottom: () => void;
-}) {
-  const { isAtBottom } = useStickToBottomContext();
-  const prevCountRef = useRef(messageCount);
-
-  useEffect(() => {
-    if (messageCount > prevCountRef.current && !isAtBottom) {
-      onNewMessages();
-    }
-    prevCountRef.current = messageCount;
-  }, [messageCount, isAtBottom, onNewMessages]);
-
-  useEffect(() => {
-    if (isAtBottom) {
-      onAtBottom();
-    }
-  }, [isAtBottom, onAtBottom]);
-
-  return null;
-}
-
-function OpenGitHubRepo() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
-            target="_blank"
-            className="flex items-center justify-center"
-          >
-            <GitHubSVG
-              width="24"
-              height="24"
-            />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>Open GitHub repo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-/**
- * Editable thread title displayed in the header.
- * Shows thread title (or "New conversation") and allows inline editing.
- */
-function EditableThreadTitle({
-  threadId,
-  title,
-  preview,
-  onSave,
-}: {
-  threadId: string | null;
-  title: string | null;
-  /** Fallback display text when title is empty (e.g. last_message_preview). */
-  preview: string | null;
-  onSave: (newTitle: string) => void;
-}) {
-  const displayTitle =
-    title ||
-    (preview ? preview.slice(0, 60) : null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(displayTitle ?? "");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDraft(displayTitle ?? "");
-  }, [displayTitle]);
-
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editing]);
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== (displayTitle ?? "")) {
-      onSave(trimmed);
-    }
-  };
-
-  if (!threadId) {
-    return (
-      <span className="text-xl font-semibold tracking-tight">
-        Agent Chat
-      </span>
-    );
-  }
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") {
-              setDraft(displayTitle ?? "");
-              setEditing(false);
-            }
-          }}
-          className="max-w-[200px] rounded border bg-background px-1.5 py-0.5 text-sm font-medium outline-none focus:ring-1 focus:ring-blue-400"
-          data-testid="thread-title-input"
-        />
-        <button
-          type="button"
-          onClick={commit}
-          className="rounded p-0.5 hover:bg-gray-100"
-          title="Save title"
-        >
-          <Check className="size-3.5 text-green-600" />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => setEditing(true)}
-      className="cursor-pointer truncate text-sm font-semibold tracking-tight hover:underline"
-      title="Click to edit thread title"
-      data-testid="thread-title"
-    >
-      {displayTitle || "New conversation"}
-    </button>
-  );
-}
-
-/**
- * Fields used for streaming stage details. Delta comparison is applied to
- * these to filter out stale checkpoint data from previous turns.
- */
-const DETAIL_FIELDS = [
-  "resolved_entities",
-  "intent",
-  "intent_confidence",
-  "active_flow",
-  "evidence_result",
-  "findings",
-  "sais_ui",
-] as const;
-
-/**
- * Gate streaming values by turn_id match, then apply baseline-delta comparison
- * to filter out stale checkpoint fields from previous turns.
- *
- * Two-layer filter:
- * 1. turn_id gate — before the backend stamps this turn's ID, show nothing
- * 2. baseline delta — when turn_id first matches, snapshot the (stale) checkpoint
- *    values; only show fields whose deep value changed since that snapshot
- *
- * This handles the gap where _touch_thread sets turn_id but resolved_entities,
- * intent, evidence_result etc. still hold previous-turn data until their
- * respective nodes run and update them.
- */
-function useCurrentTurnDelta(
-  streamValues: StreamingStateValues,
-  currentTurnId: string | null,
-): StreamingStateValues {
-  const baselineRef = useRef<Record<string, string> | null>(null);
-  const prevMatchRef = useRef(false);
-
-  const matches = !!currentTurnId && streamValues.turn_id === currentTurnId;
-
-  // On first turn_id match: snapshot stale checkpoint values as baseline
-  if (matches && !prevMatchRef.current) {
-    const snap: Record<string, string> = {};
-    for (const f of DETAIL_FIELDS) {
-      snap[f] = JSON.stringify(streamValues[f]);
-    }
-    baselineRef.current = snap;
-  }
-
-  // When turn ends (no match after previously matching): clear baseline
-  if (!matches && prevMatchRef.current) {
-    baselineRef.current = null;
-  }
-
-  prevMatchRef.current = matches;
-
-  // Before turn_id matches: nothing to show
-  if (!matches) return {};
-
-  // No baseline (first turn, no stale data): return all values
-  if (!baselineRef.current) return streamValues;
-
-  // Delta: only include fields whose deep value changed since baseline
-  const baseline = baselineRef.current;
-  const delta: StreamingStateValues = {};
-
-  for (const f of DETAIL_FIELDS) {
-    if (JSON.stringify(streamValues[f]) !== baseline[f]) {
-      (delta as Record<string, unknown>)[f] = streamValues[f];
-    }
-  }
-
-  return delta;
-}
+// Sub-components extracted from this file
+import { MessageErrorBoundary } from "./message-error-boundary";
+import { StickyToBottomContent, ScrollToBottom, NewMessagesDetector } from "./scroll";
+import { EditableThreadTitle, OpenGitHubRepo } from "./thread-header";
+import { useCurrentTurnDelta } from "./use-current-turn-delta";
 
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
@@ -401,8 +101,6 @@ export function Thread() {
   // the message shows up in stream.messages (by ID match).
   const [pendingHumanMessage, setPendingHumanMessage] = useState<Message | null>(null);
   // Track the current turn's human message ID for the entire streaming duration.
-  // Unlike pendingHumanMessage (cleared early when the message appears in stream),
-  // this ref persists until streaming ends so the turn marker filter stays active.
   const currentTurnIdRef = useRef<string | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -416,21 +114,15 @@ export function Thread() {
   const saisUiData = useSaisUi();
 
   // Messages come from REST via useSaisStream hook (Phase 23.4).
-  // SSE carries only sais_ui signals; messages fetched from thread state API.
   const messages = stream.messages;
 
-  // Clear turn ID ref on streaming→idle transition
+  // Clear turn ID ref on streaming->idle transition
   const prevStreamingRef = useRef(false);
-  // Track last message ID at stream start to detect interrupt resume:
-  // during resume, the last AI message is from BEFORE the stream and should
-  // NOT be treated as a "final response" that suppresses the stepper.
   const preStreamLastMsgIdRef = useRef<string | null>(null);
   if (isLoading && !prevStreamingRef.current) {
-    // Stream just started — snapshot last message ID
     const lastMsg = messages[messages.length - 1];
     preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
 
-    // Handle rejoin: isLoading turned true but no currentTurnIdRef (rejoin, not user submit)
     if (!currentTurnIdRef.current) {
       const lastHuman = [...messages].reverse().find(m => m.type === "human");
       if (lastHuman?.id) {
@@ -451,8 +143,6 @@ export function Thread() {
   const currentTurnValues = useCurrentTurnDelta(rawStreamValues, currentTurnId);
 
   // Group messages into renderable units (UAT-4: thought process pane).
-  // With REST-sourced messages (Phase 23.4), all messages are final —
-  // no intermediate subgraph filtering needed.
   const messageGroups = useMemo(
     () => groupMessages(
       messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
@@ -465,21 +155,17 @@ export function Thread() {
   );
 
   // Sync permission grants from backend sais_ui state to local React state.
-  // When a stream completes (isLoading transitions false), reconcile local
-  // permissionState with the authoritative backend sais_ui.permissions.grants.
-  // This removes consumed once-scope grants after replay/auto-revoke. (9C-30 fix)
   const wasLoadingRef = useRef(false);
   useEffect(() => {
     if (isLoading) {
       wasLoadingRef.current = true;
       return;
     }
-    if (!wasLoadingRef.current) return; // only sync on loading→idle transition
+    if (!wasLoadingRef.current) return;
     wasLoadingRef.current = false;
 
     const backendGrants = saisUiData.permissionGrants;
 
-    // Reconcile: clear local state and re-add only what backend reports
     clearPermissionGrants();
     for (const g of backendGrants) {
       if (g && typeof g === "object" && "capability" in g) {
@@ -487,7 +173,6 @@ export function Thread() {
       }
     }
 
-    // Refresh thread list to pick up auto-generated titles from first AI response
     getThreads().then(setThreads).catch(console.error);
   }, [isLoading, saisUiData.permissionGrants, clearPermissionGrants, addPermissionGrant, getThreads, setThreads]);
 
@@ -497,7 +182,6 @@ export function Thread() {
     _setThreadId(id);
     clearPermissionGrants();
 
-    // close artifact and reset artifact context
     closeArtifact();
     setArtifactContext({});
   };
@@ -510,11 +194,9 @@ export function Thread() {
     try {
       const message = (stream.error as any).message;
       if (!message || lastError.current === message) {
-        // Message has already been logged. do not modify ref, return early.
         return;
       }
 
-      // Message is defined, and it has not been logged yet. Save it, and send the error
       lastError.current = message;
       toast.error("An error occurred. Please try again.", {
         description: (
@@ -548,8 +230,6 @@ export function Thread() {
     e.preventDefault();
     if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading || hasActiveInterrupt)
       return;
-    // Build the message first so we can use it for both optimistic render
-    // and the actual submit payload.
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
@@ -559,7 +239,6 @@ export function Thread() {
       ] as Message["content"],
     };
 
-    // Show the human message immediately so loading dots appear below it.
     setPendingHumanMessage(newHumanMessage);
     currentTurnIdRef.current = newHumanMessage.id ?? null;
 
@@ -568,9 +247,6 @@ export function Thread() {
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
-    // Include full message history so checkpointer persists all messages.
-    // The backend's add_messages reducer deduplicates by ID.
-    // toolMessages are synthetic responses for incomplete tool calls.
     stream.submit(
       {
         messages: [...stream.messages, ...toolMessages, newHumanMessage],
@@ -651,7 +327,6 @@ export function Thread() {
     const text = getLastUserMessageText();
     if (!text) return;
     setInput(text);
-    // Focus the textarea so the user can immediately edit
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
@@ -660,17 +335,11 @@ export function Thread() {
     (m) => m.type === "ai" || m.type === "tool",
   );
 
-  // Detect active interrupt — input should be disabled during interrupts
-  // per CONTEXT.md: "Input disabled with hint 'Approve or reject the pending decision to continue.'"
+  // Detect active interrupt
   const hasActiveInterrupt = !!stream.interrupt;
 
-  // "New messages" indicator: track message count and isAtBottom state
-  // to show a pill when new messages arrive while user has scrolled up.
+  // "New messages" indicator
   const [hasNewMessages, setHasNewMessages] = useState(false);
-  const prevMessageCountRef = useRef(messages.length);
-  // We'll use the StickToBottom context inside the scroll area,
-  // so we track a ref that gets updated by ScrollToBottom's parent.
-  const isAtBottomRef = useRef(true);
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -879,7 +548,7 @@ export function Thread() {
                         )}
                       </MessageErrorBoundary>
                     ))}
-                  {/* Optimistic human message: render if not yet in stream.messages */}
+                  {/* Optimistic human message */}
                   {pendingHumanMessage &&
                     !messages.some((m) => m.id === pendingHumanMessage.id) && (
                       <MessageErrorBoundary key={pendingHumanMessage.id}>
@@ -889,8 +558,7 @@ export function Thread() {
                         />
                       </MessageErrorBoundary>
                     )}
-                  {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
-                    We need to render it outside of the messages list, since there are no messages to render */}
+                  {/* Special rendering case: no AI/tool messages, but there is an interrupt */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
                     <MessageErrorBoundary>
                       <AssistantMessage
@@ -902,34 +570,18 @@ export function Thread() {
                     </MessageErrorBoundary>
                   )}
                   {isLoading && (() => {
-                    // Check if the current turn has a final AI response in messageGroups.
-                    // With REST messages, we show ThinkingIndicator until a new AI
-                    // message (with flow metadata) appears in the current turn.
                     const lastGroup = messageGroups[messageGroups.length - 1];
                     const lastIsAi = lastGroup && lastGroup.message.type === "ai";
-                    // Check if the last AI message is a genuine new response for this turn
-                    // (has active_flow metadata or non-empty stages).
                     const lastIsIntermediate = lastIsAi && lastGroup.stages.length === 0
                       && extractFlowFromResponseMeta(lastGroup.message) === null;
-                    // During interrupt resume, the last AI message is from BEFORE the
-                    // stream (the gate card).  Don't treat it as a "final response" —
-                    // the stepper must still render so users see build progress.
                     const lastIsPreStream = lastIsAi
                       && !!preStreamLastMsgIdRef.current
                       && lastGroup.message.id === preStreamLastMsgIdRef.current;
                     const hasFinalResponse = lastIsAi && !lastIsIntermediate && !lastIsPreStream;
                     if (!hasFinalResponse) {
-                      // currentTurnValues: only populated when stream.values.turn_id matches
-                      // the current turn's human message ID. Stale checkpoint data returns {}.
-                      // When empty (rejoin/REST restore), fall back to rawStreamValues which
-                      // has the full checkpoint state including resolved_entities, intent, etc.
                       const hasLiveData = Object.keys(currentTurnValues).length > 0;
                       const effectiveValues = hasLiveData ? currentTurnValues : rawStreamValues;
                       const streamFlow = effectiveValues.active_flow || inferFlowFromIntent(effectiveValues.intent) || saisUiData.flowType;
-                      // Fall back to saisUiData.raw so stage_definitions from the
-                      // build flow are available even before the delta filter
-                      // includes sais_ui (e.g. when stage_definitions hasn't changed
-                      // since the baseline snapshot).
                       const streamSaisUi = (effectiveValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
                       const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
                       const stageDetails = deriveStageDetails(effectiveValues);
@@ -937,16 +589,14 @@ export function Thread() {
                       const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
                       const staticReveal = computeDataDrivenReveal(effectiveValues, streamingStages);
                       const minReveal = Math.max(dynamicReveal, staticReveal);
-                      // --- DIAGNOSTIC: log reveal computation ---
                       console.debug("[ThinkingIndicator] currentTurnId:", currentTurnId, "| hasLiveData:", hasLiveData,
                         "| usingRawFallback:", !hasLiveData, "| dynamicReveal:", dynamicReveal, "| staticReveal:", staticReveal,
                         "| minReveal:", minReveal, "| stages:", enrichedStages.length, "| flow:", streamFlow);
-                      // --- END DIAGNOSTIC ---
                       return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} isPaused={hasActiveInterrupt} />;
                     }
                     return null;
                   })()}
-                  {/* Inline error indicator with Retry and Edit & Retry */}
+                  {/* Inline error indicator */}
                   {!isLoading && stream.error && (
                     <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />
