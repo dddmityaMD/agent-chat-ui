@@ -1,41 +1,10 @@
 /**
  * thread-header.tsx — Header components for the thread view.
- * EditableThreadTitle, OpenGitHubRepo.
+ * EditableThreadTitle.
  */
 
 import { useState, useRef, useEffect } from "react";
 import { Check, Pencil } from "lucide-react";
-import { GitHubSVG } from "../icons/github";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
-
-export function OpenGitHubRepo() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
-            target="_blank"
-            className="flex items-center justify-center"
-          >
-            <GitHubSVG
-              width="24"
-              height="24"
-            />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>Open GitHub repo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 /**
  * Editable thread title displayed in the header.
@@ -82,7 +51,7 @@ export function EditableThreadTitle({
   if (!threadId) {
     return (
       <span className="text-xl font-semibold tracking-tight">
-        Agent Chat
+        SAIS DataBI
       </span>
     );
   }

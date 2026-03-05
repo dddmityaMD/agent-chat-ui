@@ -3,7 +3,7 @@
  *
  * Sub-components extracted to:
  *   scroll.tsx — StickyToBottomContent, ScrollToBottom, NewMessagesDetector
- *   thread-header.tsx — EditableThreadTitle, OpenGitHubRepo
+ *   thread-header.tsx — EditableThreadTitle
  *   use-current-turn-delta.ts — useCurrentTurnDelta hook
  *   message-error-boundary.tsx — MessageErrorBoundary
  */
@@ -24,7 +24,7 @@ import {
 } from "@/lib/ensure-tool-responses";
 import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, computeDynamicStageReveal, inferFlowFromIntent, extractFlowFromResponseMeta, type StreamingStateValues } from "@/lib/message-groups";
 import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
-import { LangGraphLogoSVG } from "../icons/langgraph";
+import { SaisLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
@@ -65,7 +65,7 @@ import { EmptyState } from "./empty-state";
 // Sub-components extracted from this file
 import { MessageErrorBoundary } from "./message-error-boundary";
 import { StickyToBottomContent, ScrollToBottom, NewMessagesDetector } from "./scroll";
-import { EditableThreadTitle, OpenGitHubRepo } from "./thread-header";
+import { EditableThreadTitle } from "./thread-header";
 import { useCurrentTurnDelta } from "./use-current-turn-delta";
 
 export function Thread() {
@@ -415,7 +415,6 @@ export function Thread() {
                 <LogoutButton />
                 <SettingsButton />
                 <HealthDot />
-                <OpenGitHubRepo />
               </div>
             </div>
           )}
@@ -453,7 +452,7 @@ export function Thread() {
                     className="flex cursor-pointer items-center gap-2"
                     onClick={() => setThreadId(null)}
                   >
-                    <LangGraphLogoSVG
+                    <SaisLogoSVG
                       width={24}
                       height={24}
                     />
@@ -483,9 +482,6 @@ export function Thread() {
                 <BudgetIndicator />
                 <LogoutButton />
                 <SettingsButton />
-                <div className="flex items-center">
-                  <OpenGitHubRepo />
-                </div>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
@@ -630,9 +626,9 @@ export function Thread() {
                   {!chatStarted && (
                     <div className="flex flex-col items-center gap-4">
                       <div className="flex items-center gap-3">
-                        <LangGraphLogoSVG className="h-8 flex-shrink-0" />
+                        <SaisLogoSVG className="h-8 flex-shrink-0" />
                         <h1 className="text-2xl font-semibold tracking-tight">
-                          Agent Chat
+                          SAIS DataBI
                         </h1>
                       </div>
                       <EmptyState onSelect={setInput} />

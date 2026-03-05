@@ -1,3 +1,4 @@
+/** @deprecated No longer used in SAIS branding. Kept for potential OAuth UI. */
 export const GitHubSVG = ({ width = "100%", height = "100%" }) => (
   <svg
     role="img"
