@@ -13,6 +13,8 @@ const config: Config = {
     '^remark-math$': '<rootDir>/tests/__mocks__/remark-math.ts',
     '^react-syntax-highlighter$': '<rootDir>/tests/__mocks__/react-syntax-highlighter.tsx',
     '^react-syntax-highlighter/(.*)$': '<rootDir>/tests/__mocks__/react-syntax-highlighter.tsx',
+    '^react-hotkeys-hook$': '<rootDir>/tests/__mocks__/react-hotkeys-hook.ts',
+    '^cmdk$': '<rootDir>/tests/__mocks__/cmdk.tsx',
   },
   transformIgnorePatterns: [
     'node_modules/.pnpm/(?!(react-markdown|remark-|rehype-|vfile|unist|unified|mdast|micromark|hast|devlop|is-plain-obj|hast-util-|property-|space-|comma-|stringify-|character-|entities|to-|ccount|direction|longest-|markdown-|trim-|decode-|fault|gemoji|github-|zwitch|web-names|svg|trim|estree|acorn|escape|style)/)',

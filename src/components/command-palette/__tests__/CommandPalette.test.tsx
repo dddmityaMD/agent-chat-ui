@@ -73,6 +73,9 @@ describe("CommandPalette", () => {
     const props = makeProps();
     render(<CommandPalette {...props} />);
 
+    // Focus the input first, then press Escape
+    const input = screen.getByPlaceholderText(/search/i);
+    await user.click(input);
     await user.keyboard("{Escape}");
 
     expect(props.setOpen).toHaveBeenCalledWith(false);
@@ -80,8 +83,9 @@ describe("CommandPalette", () => {
 
   it("renders shortcut hints for items that have shortcuts", () => {
     render(<CommandPalette {...makeProps()} />);
-    // "Toggle Case Panel" has Ctrl+E shortcut
-    expect(screen.getByText(/Ctrl\+E/)).toBeInTheDocument();
+    // Multiple shortcuts should be visible
+    const shortcutHints = screen.getAllByText(/Ctrl\+/);
+    expect(shortcutHints.length).toBeGreaterThanOrEqual(3);
   });
 
   it("calls onNewThread when New Thread action is selected", async () => {

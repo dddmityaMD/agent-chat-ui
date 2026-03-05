@@ -68,6 +68,10 @@ import { StickyToBottomContent, ScrollToBottom, NewMessagesDetector } from "./sc
 import { EditableThreadTitle } from "./thread-header";
 import { useCurrentTurnDelta } from "./use-current-turn-delta";
 
+// Command palette and keyboard shortcuts (Phase 38.17-04)
+import { CommandPalette } from "@/components/command-palette/CommandPalette";
+import { useGlobalShortcuts } from "@/hooks/use-keyboard-shortcuts";
+
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
@@ -341,8 +345,58 @@ export function Thread() {
   // "New messages" indicator
   const [hasNewMessages, setHasNewMessages] = useState(false);
 
+  // Command palette state (Phase 38.17-04)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Map threads for command palette (thread_id -> id)
+  const paletteThreads = useMemo(
+    () =>
+      threads
+        .filter((t) => !t.is_archived)
+        .slice(0, 10)
+        .map((t) => ({ id: t.thread_id, title: t.title || "Untitled" })),
+    [threads],
+  );
+
+  // Global keyboard shortcuts
+  useGlobalShortcuts({
+    onFocusInput: () => textareaRef.current?.focus(),
+    onToggleCasePanel: () => setCasePanelOpen((p) => !p),
+    onToggleEvidence: () => {
+      setCasePanelOpen(true);
+      setCasePanelSection("evidence");
+    },
+    onApproveInterrupt: () => {
+      // If there's an active interrupt, approve it
+      if (hasActiveInterrupt && stream.interrupt) {
+        stream.submit(
+          { messages: [...stream.messages, { id: uuidv4(), type: "human", content: "approved" }] },
+        );
+      }
+    },
+  });
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
+      {/* Command Palette (Phase 38.17-04) */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        setOpen={setCommandPaletteOpen}
+        threads={paletteThreads}
+        onNewThread={() => setThreadId(null)}
+        onSelectThread={(id) => setThreadId(id)}
+        onToggleEvidence={() => {
+          setCasePanelOpen(true);
+          setCasePanelSection("evidence");
+        }}
+        onToggleCasePanel={() => setCasePanelOpen((p) => !p)}
+        onFocusInput={() => textareaRef.current?.focus()}
+        onSlashCommand={(cmd) => {
+          setInput(cmd + " ");
+          setTimeout(() => textareaRef.current?.focus(), 0);
+        }}
+      />
+
       <div className="relative hidden lg:flex">
         <motion.div
           className="absolute z-20 h-full overflow-hidden border-r bg-background"
