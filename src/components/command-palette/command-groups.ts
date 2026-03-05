@@ -9,10 +9,8 @@ import { SHORTCUTS, type ShortcutDefinition } from "@/lib/shortcuts";
 
 export type CommandCallbackType =
   | "newThread"
-  | "toggleEvidence"
   | "toggleCasePanel"
   | "focusInput"
-  | "approveInterrupt"
   | "slashCommand";
 
 export interface CommandItem {
@@ -23,7 +21,7 @@ export interface CommandItem {
   shortcut?: ShortcutDefinition;
   group: string;
   callbackType: CommandCallbackType;
-  /** For slash commands, the command string (e.g. "/investigate") */
+  /** For slash commands, the command string (e.g. "/list") */
   slashCommand?: string;
 }
 
@@ -34,14 +32,6 @@ export const ACTION_COMMANDS: CommandItem[] = [
     icon: "SquarePen",
     group: "Actions",
     callbackType: "newThread",
-  },
-  {
-    id: "toggle-evidence",
-    label: "Toggle Evidence",
-    icon: "FileSearch",
-    shortcut: SHORTCUTS.TOGGLE_EVIDENCE,
-    group: "Actions",
-    callbackType: "toggleEvidence",
   },
   {
     id: "toggle-case-panel",
@@ -59,48 +49,32 @@ export const ACTION_COMMANDS: CommandItem[] = [
     group: "Actions",
     callbackType: "focusInput",
   },
-  {
-    id: "approve-interrupt",
-    label: "Approve Interrupt",
-    icon: "CheckCircle",
-    shortcut: SHORTCUTS.APPROVE_INTERRUPT,
-    group: "Actions",
-    callbackType: "approveInterrupt",
-  },
 ];
 
 export const SLASH_COMMANDS: CommandItem[] = [
   {
-    id: "slash-investigate",
-    label: "/investigate",
+    id: "slash-list",
+    label: "/list",
     icon: "Search",
     group: "Slash Commands",
     callbackType: "slashCommand",
-    slashCommand: "/investigate",
+    slashCommand: "/list",
   },
   {
-    id: "slash-build",
-    label: "/build",
-    icon: "Hammer",
+    id: "slash-help",
+    label: "/help",
+    icon: "HelpCircle",
     group: "Slash Commands",
     callbackType: "slashCommand",
-    slashCommand: "/build",
+    slashCommand: "/help",
   },
   {
-    id: "slash-catalog",
-    label: "/catalog",
-    icon: "BookOpen",
+    id: "slash-approve",
+    label: "/approve",
+    icon: "CheckCircle",
     group: "Slash Commands",
     callbackType: "slashCommand",
-    slashCommand: "/catalog",
-  },
-  {
-    id: "slash-ops",
-    label: "/ops",
-    icon: "Terminal",
-    group: "Slash Commands",
-    callbackType: "slashCommand",
-    slashCommand: "/ops",
+    slashCommand: "/approve",
   },
 ];
 

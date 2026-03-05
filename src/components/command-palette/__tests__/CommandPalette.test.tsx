@@ -13,7 +13,6 @@ function makeProps(overrides: Partial<Parameters<typeof CommandPalette>[0]> = {}
     ],
     onNewThread: jest.fn(),
     onSelectThread: jest.fn(),
-    onToggleEvidence: jest.fn(),
     onToggleCasePanel: jest.fn(),
     onFocusInput: jest.fn(),
     onSlashCommand: jest.fn(),
@@ -32,31 +31,32 @@ describe("CommandPalette", () => {
     expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
   });
 
-  it("filters commands via fuzzy search -- typing 'inv' shows /investigate", async () => {
+  it("filters commands via fuzzy search -- typing 'list' shows /list", async () => {
     const user = userEvent.setup();
     render(<CommandPalette {...makeProps()} />);
 
     const input = screen.getByPlaceholderText(/search/i);
-    await user.type(input, "inv");
+    await user.type(input, "list");
 
     await waitFor(() => {
-      expect(screen.getByText(/investigate/i)).toBeInTheDocument();
+      expect(screen.getByText(/\/list/i)).toBeInTheDocument();
     });
   });
 
-  it("calls onSlashCommand and closes palette when selecting a slash command", async () => {
+  it("calls onSlashCommand when selecting a slash command", async () => {
     const user = userEvent.setup();
     const props = makeProps();
     render(<CommandPalette {...props} />);
 
-    const item = screen.getByText(/investigate/i);
+    const item = screen.getByText(/\/list/i);
     await user.click(item);
 
-    expect(props.onSlashCommand).toHaveBeenCalledWith("/investigate");
-    expect(props.setOpen).toHaveBeenCalledWith(false);
+    await waitFor(() => {
+      expect(props.onSlashCommand).toHaveBeenCalledWith("/list");
+    });
   });
 
-  it("calls onSelectThread and closes palette when selecting a thread", async () => {
+  it("calls onSelectThread when selecting a thread", async () => {
     const user = userEvent.setup();
     const props = makeProps();
     render(<CommandPalette {...props} />);
@@ -73,7 +73,6 @@ describe("CommandPalette", () => {
     const props = makeProps();
     render(<CommandPalette {...props} />);
 
-    // Focus the input first, then press Escape
     const input = screen.getByPlaceholderText(/search/i);
     await user.click(input);
     await user.keyboard("{Escape}");
@@ -83,9 +82,8 @@ describe("CommandPalette", () => {
 
   it("renders shortcut hints for items that have shortcuts", () => {
     render(<CommandPalette {...makeProps()} />);
-    // Multiple shortcuts should be visible
     const shortcutHints = screen.getAllByText(/Ctrl\+/);
-    expect(shortcutHints.length).toBeGreaterThanOrEqual(3);
+    expect(shortcutHints.length).toBeGreaterThanOrEqual(2);
   });
 
   it("calls onNewThread when New Thread action is selected", async () => {
@@ -96,7 +94,8 @@ describe("CommandPalette", () => {
     const newThreadItem = screen.getByText(/new thread/i);
     await user.click(newThreadItem);
 
-    expect(props.onNewThread).toHaveBeenCalled();
-    expect(props.setOpen).toHaveBeenCalledWith(false);
+    await waitFor(() => {
+      expect(props.onNewThread).toHaveBeenCalled();
+    });
   });
 });

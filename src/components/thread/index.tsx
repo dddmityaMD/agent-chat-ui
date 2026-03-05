@@ -354,7 +354,10 @@ export function Thread() {
       threads
         .filter((t) => !t.is_archived)
         .slice(0, 10)
-        .map((t) => ({ id: t.thread_id, title: t.title || "Untitled" })),
+        .map((t) => ({
+          id: t.thread_id,
+          title: t.title || t.last_message_preview?.slice(0, 60) || "Untitled",
+        })),
     [threads],
   );
 
@@ -385,10 +388,6 @@ export function Thread() {
         threads={paletteThreads}
         onNewThread={() => setThreadId(null)}
         onSelectThread={(id) => setThreadId(id)}
-        onToggleEvidence={() => {
-          setCasePanelOpen(true);
-          setCasePanelSection("evidence");
-        }}
         onToggleCasePanel={() => setCasePanelOpen((p) => !p)}
         onFocusInput={() => textareaRef.current?.focus()}
         onSlashCommand={(cmd) => {
@@ -679,12 +678,9 @@ export function Thread() {
                 <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
                   {!chatStarted && (
                     <div className="flex flex-col items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <SaisLogoSVG className="h-8 flex-shrink-0" />
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                          SAIS DataBI
-                        </h1>
-                      </div>
+                      <h1 className="text-2xl font-semibold tracking-tight">
+                        SAIS DataBI
+                      </h1>
                       <EmptyState onSelect={setInput} />
                     </div>
                   )}

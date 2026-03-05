@@ -6,8 +6,8 @@
  * pass callbacks through this hook.
  */
 
+import { useEffect, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { SHORTCUTS } from "@/lib/shortcuts";
 
 export interface GlobalShortcutHandlers {
   onFocusInput: () => void;
@@ -21,19 +21,30 @@ export interface GlobalShortcutHandlers {
  *
  * Note: Mod+K is handled by the CommandPalette component itself (cmdk manages it).
  * Escape is handled by cmdk dialog. This hook handles the remaining shortcuts.
+ *
+ * Ctrl+/ uses a raw keydown listener because react-hotkeys-hook doesn't
+ * reliably capture the "/" key with modifiers on all browsers/platforms.
  */
 export function useGlobalShortcuts(handlers: GlobalShortcutHandlers): void {
-  useHotkeys(
-    SHORTCUTS.FOCUS_INPUT.key,
-    (e) => {
-      e.preventDefault();
-      handlers.onFocusInput();
+  // Ctrl+/ (or Cmd+/) — raw listener for reliability
+  const focusHandler = useCallback(
+    (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        e.stopPropagation();
+        setTimeout(() => handlers.onFocusInput(), 0);
+      }
     },
-    { enableOnFormTags: true },
+    [handlers],
   );
 
+  useEffect(() => {
+    document.addEventListener("keydown", focusHandler, true);
+    return () => document.removeEventListener("keydown", focusHandler, true);
+  }, [focusHandler]);
+
   useHotkeys(
-    SHORTCUTS.TOGGLE_CASE_PANEL.key,
+    "mod+e",
     (e) => {
       e.preventDefault();
       handlers.onToggleCasePanel();
@@ -42,7 +53,7 @@ export function useGlobalShortcuts(handlers: GlobalShortcutHandlers): void {
   );
 
   useHotkeys(
-    SHORTCUTS.TOGGLE_EVIDENCE.key,
+    "mod+shift+e",
     (e) => {
       e.preventDefault();
       handlers.onToggleEvidence();
@@ -51,7 +62,7 @@ export function useGlobalShortcuts(handlers: GlobalShortcutHandlers): void {
   );
 
   useHotkeys(
-    SHORTCUTS.APPROVE_INTERRUPT.key,
+    "mod+enter",
     (e) => {
       e.preventDefault();
       handlers.onApproveInterrupt();
