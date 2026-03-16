@@ -77,7 +77,7 @@ export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
 
                 {/* Active Flow */}
                 <ActiveFlowSection
-                  flowType={saisUi.flowType}
+                  methodologyType={saisUi.methodologyType}
                   rpabvStage={extractStringField(saisUi.raw, "rpabv_stage")}
                 />
 
@@ -165,10 +165,10 @@ function DetectedIntentSection({
 }
 
 function ActiveFlowSection({
-  flowType,
+  methodologyType,
   rpabvStage,
 }: {
-  flowType: string | null;
+  methodologyType: string | null;
   rpabvStage: string | null;
 }) {
   return (
@@ -176,15 +176,15 @@ function ActiveFlowSection({
       <div className="mb-1.5 flex items-center gap-1.5">
         <GitBranch className="size-3.5 text-purple-500" />
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Active Flow
+          Active Methodology
         </h3>
       </div>
-      {!flowType ? (
-        <p className="text-xs text-muted-foreground">No active flow</p>
+      {!methodologyType ? (
+        <p className="text-xs text-muted-foreground">No active methodology</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
-            {flowType}
+            {methodologyType}
           </span>
           {rpabvStage && rpabvStage.length > 0 && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">

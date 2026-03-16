@@ -34,7 +34,7 @@ jest.mock("@/lib/api-url", () => ({
 
 // Mock useSaisUi extractors (used by Thread.tsx for extractFlowInfo)
 jest.mock("@/hooks/useSaisUi", () => ({
-  extractFlowType: jest.fn(() => null),
+  extractMethodologyType: jest.fn(() => null),
   extractHandoffProposal: jest.fn(() => null),
 }));
 

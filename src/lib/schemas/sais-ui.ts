@@ -34,7 +34,7 @@ export const SaisUiSchema = z
   .object({
     blockers: z.array(BlockerSchema).nullable().optional(),
     case_status: z.string().nullable().optional(),
-    active_flow: z.string().nullable().optional(),
+    active_methodology: z.string().nullable().optional(),
     handoff: z.record(z.string(), z.unknown()).nullable().optional(),
     evidence: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
     findings: z.record(z.string(), z.unknown()).nullable().optional(),

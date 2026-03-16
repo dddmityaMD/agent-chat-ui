@@ -3,7 +3,7 @@
  *
  * Shows a subtle pill badge with an icon and label indicating which
  * flow is currently active (Catalog, Investigation, Remediation, or Operations).
- * Renders nothing if flowType is null/empty.
+ * Renders nothing if methodologyType is null/empty.
  */
 
 import { BookOpen, Search, Wrench, Settings, type LucideIcon } from "lucide-react";
@@ -14,7 +14,7 @@ interface FlowConfig {
   className: string;
 }
 
-const FLOW_CONFIGS: Record<string, FlowConfig> = {
+const METHODOLOGY_CONFIGS: Record<string, FlowConfig> = {
   catalog: {
     label: "Catalog",
     icon: BookOpen,
@@ -42,13 +42,13 @@ const FLOW_CONFIGS: Record<string, FlowConfig> = {
 };
 
 export interface FlowBadgeProps {
-  flowType: string | null;
+  methodologyType: string | null;
 }
 
-export function FlowBadge({ flowType }: FlowBadgeProps) {
-  if (!flowType) return null;
+export function FlowBadge({ methodologyType }: FlowBadgeProps) {
+  if (!methodologyType) return null;
 
-  const config = FLOW_CONFIGS[flowType];
+  const config = METHODOLOGY_CONFIGS[methodologyType];
   if (!config) return null;
 
   const Icon = config.icon;

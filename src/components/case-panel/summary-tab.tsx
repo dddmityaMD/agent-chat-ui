@@ -4,7 +4,7 @@
  * Summary tab - Thread overview with context and permissions.
  *
  * PRIMARY source for flow status: block messages from REST (flow_summary blocks).
- * LIVE streaming state: useSaisUi via ContextPanelSection (active_flow, intent, entities).
+ * LIVE streaming state: useSaisUi via ContextPanelSection (active_methodology, intent, entities).
  * FALLBACK: sais_ui for legacy threads without block data.
  *
  * Historical data comes from persisted messages; live context from sais_ui.

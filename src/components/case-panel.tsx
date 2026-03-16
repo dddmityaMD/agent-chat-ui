@@ -355,16 +355,16 @@ export function CasePanel({ className }: { className?: string }) {
   // Auto-switch to Flow tab when any flow starts
   const prevFlowTypeRef = useRef<string | null>(null);
   useEffect(() => {
-    const flowType = saisUiData.flowType;
-    if (flowType && !prevFlowTypeRef.current) {
+    const methodologyType = saisUiData.methodologyType;
+    if (methodologyType && !prevFlowTypeRef.current) {
       // Defer to next frame so the Flow tab trigger is in the DOM
       // before Radix Tabs processes the value change.
       requestAnimationFrame(() => {
         setActiveTab("flow");
       });
     }
-    prevFlowTypeRef.current = flowType;
-  }, [saisUiData.flowType, setActiveTab]);
+    prevFlowTypeRef.current = methodologyType;
+  }, [saisUiData.methodologyType, setActiveTab]);
 
   const getBadgeCount = (tabValue: string): number | undefined => {
     switch (tabValue) {

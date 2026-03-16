@@ -44,7 +44,7 @@ export interface UseSaisUiResult {
 
   // Flow type
   /** Currently active flow type (catalog | investigation | remediation | ops | build) */
-  flowType: string | null;
+  methodologyType: string | null;
   /** Case status string from backend */
   caseStatus: string | null;
 
@@ -55,8 +55,6 @@ export interface UseSaisUiResult {
   blockers: SaisUiBlocker[];
 
   // Investigation flow
-  /** True if active_flow === "investigation" */
-  isInvestigating: boolean;
   /** True if evidence array is non-empty
    * @deprecated Phase 23.4: evidence now sourced from block messages (data_table blocks). Use extractSummaryData() from summary-tab.tsx or read blocks directly.
    */
@@ -71,8 +69,6 @@ export interface UseSaisUiResult {
   findings: Record<string, unknown> | null;
 
   // Catalog flow
-  /** True if active_flow === "catalog" */
-  isCatalog: boolean;
   /** Metadata results from catalog flow
    * @deprecated Phase 23.4: metadata results now sourced from block messages (data_table blocks).
    */
@@ -87,8 +83,6 @@ export interface UseSaisUiResult {
   remediationProposals: Array<Record<string, unknown>>;
 
   // Build flow
-  /** True if active_flow === "build" */
-  isBuild: boolean;
   /** True if build_plan object exists
    * @deprecated Phase 23.4: build plan now sourced from interrupt_card blocks. Use extractBuildData() from build-tab.tsx.
    */
@@ -144,14 +138,13 @@ export function extractSaisUi(values: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Extract flow_type from raw sais_ui.
- * Corresponds to extractActiveFlow from ai.tsx.
+ * Extract methodology type from raw sais_ui.
  */
-export function extractFlowType(saisUi: unknown): string | null {
+export function extractMethodologyType(saisUi: unknown): string | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
-  const flow = obj.active_flow;
-  return typeof flow === "string" && flow.length > 0 ? flow : null;
+  const val = obj.active_methodology;
+  return typeof val === "string" && val.length > 0 ? val : null;
 }
 
 /**
@@ -302,8 +295,8 @@ export function extractResolutionSteps(saisUi: unknown): Record<string, unknown>
  * This hook should be used by ALL components that need to access sais_ui data.
  * It provides:
  * - Zod-validated parsing with fallback
- * - Normalized booleans (hasBlockers, isInvestigating, etc.)
- * - Derived enums (flowType, caseStatus)
+ * - Normalized booleans (hasBlockers, hasEvidence, etc.)
+ * - Derived enums (methodologyType, caseStatus)
  * - Memoized recomputation (only when sais_ui reference changes)
  */
 export function useSaisUi(): UseSaisUiResult {
@@ -338,7 +331,7 @@ export function useSaisUi(): UseSaisUiResult {
     const parsed = parseSaisUi(effectiveRaw);
 
     // Extract all derived state
-    const flowType = extractFlowType(parsed);
+    const methodologyType = extractMethodologyType(parsed);
     const caseStatus = parsed?.case_status ?? null;
     const blockers = extractBlockers(parsed);
     const evidence = extractEvidence(parsed);
@@ -388,19 +381,16 @@ export function useSaisUi(): UseSaisUiResult {
 
     return {
       raw: parsed,
-      flowType,
+      methodologyType,
       caseStatus,
       hasBlockers: blockers.length > 0,
       blockers,
-      isInvestigating: flowType === "investigation",
       hasEvidence: evidence.length > 0,
       evidence,
       findings,
-      isCatalog: flowType === "catalog",
       metadataResults,
       disambiguation,
       remediationProposals,
-      isBuild: flowType === "build",
       hasBuildPlan: buildPlan !== null,
       buildPlanStatus,
       buildVerificationResult,

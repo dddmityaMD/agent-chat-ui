@@ -103,7 +103,7 @@ export function LastMessageDecorations({
   }
 
   // Extract all sais_ui-dependent data for the last message
-  const activeFlow = saisUiData.flowType;
+  const activeMethodology = saisUiData.methodologyType;
   const handoffProposal = getHandoffProposal(saisUiData.raw);
   const remediationProposals = getRemediationProposals(saisUiData.raw);
   const blockers = getBlockers(saisUiData.raw);
@@ -187,9 +187,9 @@ export function LastMessageDecorations({
   return (
     <>
       {/* Flow badge above message content */}
-      {activeFlow && (
+      {activeMethodology && (
         <div className="mb-1">
-          <FlowBadge flowType={activeFlow} />
+          <FlowBadge methodologyType={activeMethodology} />
         </div>
       )}
 
@@ -197,7 +197,7 @@ export function LastMessageDecorations({
       {(() => {
         const effectiveStages = (stages && stages.length > 0)
           ? stages
-          : deriveStagesFromFlow(activeFlow, saisUiData.raw as Record<string, unknown> | null);
+          : deriveStagesFromFlow(activeMethodology, saisUiData.raw as Record<string, unknown> | null);
         if (effectiveStages.length === 0) return null;
 
         let stageDetails: Record<string, string>;
@@ -415,7 +415,7 @@ export function LastMessageDecorations({
           {handoffProposal && !handoffProposal.confirmed && (
             <HandoffConfirmationCard
               handoff={handoffProposal}
-              currentFlow={activeFlow}
+              currentFlow={activeMethodology}
               onConfirm={handleHandoffConfirm}
               onDismiss={() => setHandoffDismissed(true)}
               dismissed={handoffDismissed}

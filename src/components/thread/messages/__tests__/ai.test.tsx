@@ -36,19 +36,16 @@ jest.mock("@/providers/Stream", () => ({
 // Mock useSaisUi hook
 const mockSaisUiResult = {
   raw: null,
-  flowType: null,
+  methodologyType: null,
   caseStatus: null,
   hasBlockers: false,
   blockers: [],
-  isInvestigating: false,
   hasEvidence: false,
   evidence: [],
   findings: null,
-  isCatalog: false,
   metadataResults: [],
   disambiguation: null,
   remediationProposals: [],
-  isBuild: false,
   hasBuildPlan: false,
   buildPlanStatus: null,
   buildVerificationResult: null,
@@ -63,7 +60,7 @@ const mockSaisUiResult = {
 
 jest.mock("@/hooks/useSaisUi", () => ({
   useSaisUi: jest.fn(() => mockSaisUiResult),
-  extractFlowType: jest.fn(() => null),
+  extractMethodologyType: jest.fn(() => null),
   extractHandoffProposal: jest.fn(() => null),
   extractRemediationProposals: jest.fn(() => []),
   extractBlockers: jest.fn(() => []),
@@ -128,8 +125,8 @@ jest.mock("@/components/query", () => ({
 }));
 
 jest.mock("@/components/flow-indicator/FlowBadge", () => ({
-  FlowBadge: ({ flowType }: { flowType: string }) => (
-    <div data-testid="flow-badge">{flowType}</div>
+  FlowBadge: ({ methodologyType }: { methodologyType: string }) => (
+    <div data-testid="flow-badge">{methodologyType}</div>
   ),
 }));
 

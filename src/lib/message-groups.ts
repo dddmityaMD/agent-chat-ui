@@ -7,13 +7,13 @@
  *
  * Filtering strategy (metadata-driven, no content inspection):
  *
- * Final AI messages are identified by `response_metadata.active_flow`, which
+ * Final AI messages are identified by `response_metadata.active_methodology`, which
  * is set exclusively by `build_respond_payload()` in the respond node.
  * Intermediate node outputs (from intent_router, evidence_agent, etc.) that
  * surface via `streamSubgraphs` during streaming never carry this marker.
  *
  * During streaming:
- *   - Messages WITH `response_metadata.active_flow` → confirmed final → render
+ *   - Messages WITH `response_metadata.active_methodology` → confirmed final → render
  *   - Messages BEFORE the last human message → historical (always final) → render
  *   - Messages AFTER last human WITHOUT metadata → intermediate streaming → skip
  *
@@ -21,8 +21,8 @@
  *   - All messages are from persisted checkpoints → all final → render
  *
  * The flow type comes from:
- * - sais_ui.active_flow (last message, via useSaisUi)
- * - response_metadata.active_flow (historical messages)
+ * - sais_ui.active_methodology (last message, via useSaisUi)
+ * - response_metadata.active_methodology (historical messages)
  */
 
 import type { Message, AIMessage } from "@langchain/langgraph-sdk";
@@ -54,7 +54,7 @@ export interface GroupMessagesOptions {
   /**
    * Whether the agent is currently streaming a response.
    * When true, AI messages after the last human message that lack
-   * `response_metadata.active_flow` are treated as intermediate
+   * `response_metadata.active_methodology` are treated as intermediate
    * subgraph outputs and filtered out.
    */
   isStreaming?: boolean;
@@ -231,7 +231,7 @@ export function deriveStagesFromFlow(
 /**
  * Deterministic intent→flow mapping matching backend flow_router.
  * Used during streaming to derive the correct flow stages before
- * flow_router sets active_flow (which arrives too late for fast flows).
+ * flow_router sets active_methodology (which arrives too late for fast flows).
  */
 const INTENT_TO_FLOW: Record<string, string> = {
   investigate: "investigation",
@@ -273,7 +273,7 @@ export interface StreamingStateValues {
   resolved_entities?: Record<string, { name?: string; entity_type?: string }>;
   intent?: string;
   intent_confidence?: number;
-  active_flow?: string;
+  active_methodology?: string;
   evidence_result?: {
     evidence?: Array<{ type?: string; title?: string }>;
     still_missing?: string[];
@@ -284,7 +284,7 @@ export interface StreamingStateValues {
     root_cause?: { statement?: string; confidence?: number };
   };
   sais_ui?: {
-    active_flow?: string;
+    active_methodology?: string;
     rpabv_stage?: string;
     research_progress?: {
       iteration?: number;
@@ -469,7 +469,7 @@ export function computeDataDrivenReveal(
       }
     } else if (id === "verify" && saisUi?.rpabv_stage === "verify") {
       lastCompletedIdx = i;
-    } else if (values.active_flow !== undefined && !["resolve", "intent", "respond"].includes(id)) {
+    } else if (values.active_methodology !== undefined && !["resolve", "intent", "respond"].includes(id)) {
       if (values.evidence_result !== undefined || values.findings !== undefined) {
         lastCompletedIdx = i;
       } else {
@@ -513,7 +513,7 @@ export function extractFlowFromResponseMeta(
     ? (message as AIMessage).response_metadata
     : undefined;
   if (!meta || typeof meta !== "object") return null;
-  const flow = (meta as Record<string, unknown>).active_flow;
+  const flow = (meta as Record<string, unknown>).active_methodology;
   return typeof flow === "string" && flow.length > 0 ? flow : null;
 }
 

@@ -12,14 +12,14 @@
 
 import { useMemo } from "react";
 
-/** Flow display configuration */
-interface FlowConfig {
+/** Methodology display configuration */
+interface MethodologyConfig {
   label: string;
   /** Tailwind classes for the pill background and text */
   classes: string;
 }
 
-const FLOW_CONFIG: Record<string, FlowConfig> = {
+const METHODOLOGY_CONFIG: Record<string, MethodologyConfig> = {
   catalog: {
     label: "Catalog",
     classes: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
@@ -43,8 +43,8 @@ const FLOW_CONFIG: Record<string, FlowConfig> = {
 };
 
 interface FlowIndicatorProps {
-  /** Current active flow name from sais_ui (e.g., "catalog", "investigation") */
-  activeFlow: string | null;
+  /** Current active methodology name from sais_ui (e.g., "catalog", "investigation") */
+  activeMethodology: string | null;
   /** Optional flow transition metadata */
   flowTransition?: {
     from: string;
@@ -53,14 +53,14 @@ interface FlowIndicatorProps {
   } | null;
 }
 
-export function FlowIndicator({ activeFlow, flowTransition }: FlowIndicatorProps) {
+export function FlowIndicator({ activeMethodology, flowTransition }: FlowIndicatorProps) {
   const config = useMemo(() => {
-    if (!activeFlow) return null;
-    return FLOW_CONFIG[activeFlow] ?? {
-      label: activeFlow.charAt(0).toUpperCase() + activeFlow.slice(1),
+    if (!activeMethodology) return null;
+    return METHODOLOGY_CONFIG[activeMethodology] ?? {
+      label: activeMethodology.charAt(0).toUpperCase() + activeMethodology.slice(1),
       classes: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
     };
-  }, [activeFlow]);
+  }, [activeMethodology]);
 
   if (!config) return null;
 
@@ -80,10 +80,10 @@ export function FlowIndicator({ activeFlow, flowTransition }: FlowIndicatorProps
       <span
         className={`
           inline-block w-1.5 h-1.5 rounded-full
-          ${activeFlow === "investigation" ? "bg-amber-500" : ""}
-          ${activeFlow === "catalog" ? "bg-blue-500" : ""}
-          ${activeFlow === "build" || activeFlow === "remediation" ? "bg-green-500" : ""}
-          ${activeFlow === "ops" ? "bg-purple-500" : ""}
+          ${activeMethodology === "investigation" ? "bg-amber-500" : ""}
+          ${activeMethodology === "catalog" ? "bg-blue-500" : ""}
+          ${activeMethodology === "build" || activeMethodology === "remediation" ? "bg-green-500" : ""}
+          ${activeMethodology === "ops" ? "bg-purple-500" : ""}
         `}
       />
       {config.label}

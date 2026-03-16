@@ -16,7 +16,7 @@ jest.mock("@/providers/Stream", () => ({
 }));
 
 import {
-  extractFlowType,
+  extractMethodologyType,
   extractBlockers,
   extractEvidence,
   extractConfidence,
@@ -36,37 +36,37 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("useSaisUi accessors", () => {
-  describe("extractFlowType", () => {
+  describe("extractMethodologyType", () => {
     it("returns null for null input", () => {
-      expect(extractFlowType(null)).toBeNull();
+      expect(extractMethodologyType(null)).toBeNull();
     });
 
     it("returns null for undefined input", () => {
-      expect(extractFlowType(undefined)).toBeNull();
+      expect(extractMethodologyType(undefined)).toBeNull();
     });
 
     it("returns null for non-object input", () => {
-      expect(extractFlowType("string")).toBeNull();
+      expect(extractMethodologyType("string")).toBeNull();
     });
 
-    it("returns null when active_flow is missing", () => {
-      expect(extractFlowType({})).toBeNull();
+    it("returns null when active_methodology is missing", () => {
+      expect(extractMethodologyType({})).toBeNull();
     });
 
-    it("returns null for empty string active_flow", () => {
-      expect(extractFlowType({ active_flow: "" })).toBeNull();
+    it("returns null for empty string active_methodology", () => {
+      expect(extractMethodologyType({ active_methodology: "" })).toBeNull();
     });
 
     it("returns flow type string", () => {
-      expect(extractFlowType({ active_flow: "investigation" })).toBe("investigation");
+      expect(extractMethodologyType({ active_methodology: "investigation" })).toBe("investigation");
     });
 
     it("returns catalog flow type", () => {
-      expect(extractFlowType({ active_flow: "catalog" })).toBe("catalog");
+      expect(extractMethodologyType({ active_methodology: "catalog" })).toBe("catalog");
     });
 
     it("returns build flow type", () => {
-      expect(extractFlowType({ active_flow: "build" })).toBe("build");
+      expect(extractMethodologyType({ active_methodology: "build" })).toBe("build");
     });
   });
 

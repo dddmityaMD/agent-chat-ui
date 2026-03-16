@@ -14,7 +14,7 @@ const DETAIL_FIELDS = [
   "resolved_entities",
   "intent",
   "intent_confidence",
-  "active_flow",
+  "active_methodology",
   "evidence_result",
   "findings",
   "sais_ui",

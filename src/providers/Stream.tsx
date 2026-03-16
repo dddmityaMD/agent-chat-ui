@@ -36,7 +36,7 @@ export type StateType = {
   resolved_entities?: Record<string, { name?: string; entity_type?: string; canonical_key?: string }>;
   intent?: string;
   intent_confidence?: number;
-  active_flow?: string;
+  active_methodology?: string;
   evidence_result?: {
     evidence?: Array<{ type?: string; title?: string }>;
     still_missing?: string[];
@@ -46,7 +46,7 @@ export type StateType = {
   findings?: { root_cause?: { statement?: string; confidence?: number } };
   // RPABV research/validate progress (Phase 23.1.1-07)
   sais_ui?: {
-    active_flow?: string;
+    active_methodology?: string;
     rpabv_stage?: string;
     research_progress?: {
       iteration?: number;

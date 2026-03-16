@@ -630,7 +630,7 @@ export function Thread() {
                     if (!hasFinalResponse) {
                       const hasLiveData = Object.keys(currentTurnValues).length > 0;
                       const effectiveValues = hasLiveData ? currentTurnValues : rawStreamValues;
-                      const streamFlow = effectiveValues.active_flow || inferFlowFromIntent(effectiveValues.intent) || saisUiData.flowType;
+                      const streamFlow = effectiveValues.active_methodology || inferFlowFromIntent(effectiveValues.intent) || saisUiData.methodologyType;
                       const streamSaisUi = (effectiveValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
                       const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
                       const stageDetails = deriveStageDetails(effectiveValues);

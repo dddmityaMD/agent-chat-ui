@@ -10,7 +10,7 @@
  * PRIMARY source: block messages from REST (interrupt_card, interrupt_decision,
  * flow_summary blocks). These persist across page refresh.
  *
- * LIVE state: sais_ui.active_flow for currently running flow.
+ * LIVE state: sais_ui.active_methodology for currently running methodology.
  *
  * FALLBACK: useSaisUi() for legacy threads that predate block messages (23.4).
  */
@@ -230,8 +230,8 @@ function formatRelativeTime(timestamp: string): string {
 }
 
 /** Format a flow type string for display */
-function formatFlowType(flowType: string): string {
-  return flowType
+function formatMethodologyType(methodologyType: string): string {
+  return methodologyType
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -656,7 +656,7 @@ function CompletedFlowEntry({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
-  const label = summary.flow_type ? formatFlowType(summary.flow_type) : "Flow";
+  const label = summary.flow_type ? formatMethodologyType(summary.flow_type) : "Flow";
 
   return (
     <div className="rounded-md border bg-card">
@@ -719,8 +719,8 @@ function CompletedFlowEntry({
 // Active Non-Build Flow Entry
 // ---------------------------------------------------------------------------
 
-function ActiveNonBuildFlowEntry({ flowType }: { flowType: string }) {
-  const label = formatFlowType(flowType);
+function ActiveNonBuildFlowEntry({ methodologyType }: { methodologyType: string }) {
+  const label = formatMethodologyType(methodologyType);
 
   return (
     <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
@@ -749,7 +749,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   );
 
   const useBlocks = flowData.hasBlockData;
-  const activeFlowType = saisUi.flowType;
+  const activeMethodologyType = saisUi.methodologyType;
 
   // --- sais_ui data for stage timeline ---
   const stageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
@@ -760,7 +760,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   const hasActiveInterrupt = !!stream.interrupt;
   const flowFinished = buildPlanStatus
     ? buildPlanStatus === "completed" || buildPlanStatus === "failed"
-    : !stream.isLoading && !hasActiveInterrupt && !!activeFlowType;
+    : !stream.isLoading && !hasActiveInterrupt && !!activeMethodologyType;
   const rpabvArtifacts = extractObject(raw, "rpabv_artifacts");
   const rpabvDecisions = extractArray(raw, "rpabv_decisions") as RpabvDecision[];
 
@@ -768,7 +768,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   const completedFlows = flowData.flowSummaries;
 
   // No flow data at all
-  const hasAnyFlowData = useBlocks || stageDefs.length > 0 || activeFlowType != null || completedFlows.length > 0;
+  const hasAnyFlowData = useBlocks || stageDefs.length > 0 || activeMethodologyType != null || completedFlows.length > 0;
 
   if (!threadId || !hasAnyFlowData) {
     return (
@@ -789,7 +789,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
   return (
     <div className="p-4 space-y-4">
       {/* Active flow — unified stage timeline for ALL flow types */}
-      {activeFlowType && stageDefs.length > 0 && (stream.isLoading || hasActiveInterrupt || !flowFinished) && (
+      {activeMethodologyType && stageDefs.length > 0 && (stream.isLoading || hasActiveInterrupt || !flowFinished) && (
         <div>
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 mb-3">
             <div className="flex items-center gap-2">
@@ -800,7 +800,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
               ) : (
                 <div className="h-3.5 w-3.5 rounded-full bg-blue-600" />
               )}
-              <span className="text-sm font-medium text-blue-700">{formatFlowType(activeFlowType)}</span>
+              <span className="text-sm font-medium text-blue-700">{formatMethodologyType(activeMethodologyType)}</span>
               <span className="text-xs text-blue-600">{stream.isLoading ? "in progress" : hasActiveInterrupt ? "awaiting input" : ""}</span>
             </div>
           </div>
@@ -831,8 +831,8 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
       )}
 
       {/* Active flow without stages (fallback — spinner only) */}
-      {activeFlowType && stageDefs.length === 0 && (stream.isLoading || hasActiveInterrupt) && (
-        <ActiveNonBuildFlowEntry flowType={activeFlowType} />
+      {activeMethodologyType && stageDefs.length === 0 && (stream.isLoading || hasActiveInterrupt) && (
+        <ActiveNonBuildFlowEntry methodologyType={activeMethodologyType} />
       )}
 
       {/* Completed flows (stacked, latest on top, collapsed by default) */}

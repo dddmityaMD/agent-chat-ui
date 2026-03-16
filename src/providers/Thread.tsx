@@ -10,7 +10,7 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
-import { extractFlowType, extractHandoffProposal } from "@/hooks/useSaisUi";
+import { extractMethodologyType, extractHandoffProposal } from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ export interface FlowTransition {
 /** Convenience type for active flow state. */
 export interface FlowInfo {
   /** Currently active flow name (catalog | investigation | remediation | ops) or null. */
-  activeFlow: string | null;
+  activeMethodology: string | null;
   /** Pending handoff proposal, if any. */
   handoff: HandoffInfo | null;
   /** Flow transition metadata, if a transition just occurred. */
@@ -229,7 +229,7 @@ export function usePermissionState() {
 }
 
 /**
- * Extract FlowInfo (active_flow + handoff) from a raw sais_ui payload.
+ * Extract FlowInfo (active_methodology + handoff) from a raw sais_ui payload.
  *
  * This is a pure helper -- it does not use hooks or context.  Components
  * that already have access to `sais_ui` (e.g. from `useStreamContext`) can
@@ -239,10 +239,10 @@ export function usePermissionState() {
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function extractFlowInfo(saisUi: unknown): FlowInfo {
-  const empty: FlowInfo = { activeFlow: null, handoff: null, flowTransition: null };
+  const empty: FlowInfo = { activeMethodology: null, handoff: null, flowTransition: null };
   if (!saisUi || typeof saisUi !== "object") return empty;
 
-  const activeFlow = extractFlowType(saisUi);
+  const activeMethodology = extractMethodologyType(saisUi);
 
   let handoff: HandoffInfo | null = null;
   const handoffData = extractHandoffProposal(saisUi);
@@ -274,5 +274,5 @@ export function extractFlowInfo(saisUi: unknown): FlowInfo {
     }
   }
 
-  return { activeFlow, handoff, flowTransition };
+  return { activeMethodology, handoff, flowTransition };
 }
