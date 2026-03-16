@@ -180,7 +180,7 @@ export type BuildPlanStatus = "proposed" | "approved" | "rejected" | "executing"
 
 export interface BuildStep {
   step_number: number;
-  action: "create_file" | "modify_file" | "create_card" | "run_dbt" | "run_test" | "verify";
+  action: "write" | "run" | "verify" | "gather_info";
   target: string;
   description: string;
   content_preview?: string;

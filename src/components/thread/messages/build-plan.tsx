@@ -6,8 +6,8 @@ import type { BuildPlan, BuildStep } from "@/lib/types";
 import {
   FileText,
   Database,
-  BarChart3,
   CheckCircle2,
+  FileSearch,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -20,16 +20,14 @@ interface BuildPlanDisplayProps {
 // Get icon for step action type
 function getStepIcon(action: BuildStep["action"]) {
   switch (action) {
-    case "create_file":
-    case "modify_file":
+    case "write":
       return FileText;
-    case "run_dbt":
-    case "run_test":
+    case "run":
       return Database;
-    case "create_card":
-      return BarChart3;
     case "verify":
       return CheckCircle2;
+    case "gather_info":
+      return FileSearch;
   }
 }
 
