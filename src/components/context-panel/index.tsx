@@ -78,7 +78,7 @@ export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
                 {/* Active Flow */}
                 <ActiveFlowSection
                   methodologyType={saisUi.methodologyType}
-                  rpabvStage={extractStringField(saisUi.raw, "rpabv_stage")}
+                  methodologyStage={extractStringField(saisUi.raw, "methodology_stage")}
                 />
 
                 {/* Key Decisions */}
@@ -166,10 +166,10 @@ function DetectedIntentSection({
 
 function ActiveFlowSection({
   methodologyType,
-  rpabvStage,
+  methodologyStage,
 }: {
   methodologyType: string | null;
-  rpabvStage: string | null;
+  methodologyStage: string | null;
 }) {
   return (
     <section>
@@ -186,9 +186,9 @@ function ActiveFlowSection({
           <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
             {methodologyType}
           </span>
-          {rpabvStage && rpabvStage.length > 0 && (
+          {methodologyStage && methodologyStage.length > 0 && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-              {rpabvStage}
+              {methodologyStage}
             </span>
           )}
         </div>

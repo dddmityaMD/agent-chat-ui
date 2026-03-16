@@ -145,7 +145,7 @@ export function deriveStagesFromSaisUi(
   return defs.map((def, idx) => {
     // Two subtitle sources:
     // 1. stage_subtitles[stage_id] — accumulated by backend, persists across stages
-    // 2. rpabv_stage_subtitle — current active stage's live subtitle (most recent)
+    // 2. methodology_stage_subtitle — current active stage's live subtitle (most recent)
     // For the active stage, prefer the live subtitle (more up-to-date).
     // For completed stages, use the accumulated map.
     let detail: string | undefined;
@@ -285,7 +285,7 @@ export interface StreamingStateValues {
   };
   sais_ui?: {
     active_methodology?: string;
-    rpabv_stage?: string;
+    methodology_stage?: string;
     research_progress?: {
       iteration?: number;
       max_iterations?: number;
@@ -389,7 +389,7 @@ export function deriveStageDetails(
         .join(" — ") || "Evaluating";
     }
   }
-  if (saisUi?.rpabv_stage === "plan") {
+  if (saisUi?.methodology_stage === "plan") {
     const level = (values as Record<string, unknown>).rpabv_level;
     if (typeof level === "number" && level > 0) {
       details.plan = `L${level} execution plan`;
@@ -449,25 +449,25 @@ export function computeDataDrivenReveal(
       } else {
         return i + 1; // research in progress
       }
-    } else if (id === "plan" && (saisUi?.rpabv_stage === "plan" || saisUi?.rpabv_stage === "approve" || saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
-      if (saisUi?.rpabv_stage !== "plan") {
+    } else if (id === "plan" && (saisUi?.methodology_stage === "plan" || saisUi?.methodology_stage === "approve" || saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+      if (saisUi?.methodology_stage !== "plan") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // plan in progress
       }
-    } else if (id === "approve" && (saisUi?.rpabv_stage === "approve" || saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
-      if (saisUi?.rpabv_stage !== "approve") {
+    } else if (id === "approve" && (saisUi?.methodology_stage === "approve" || saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+      if (saisUi?.methodology_stage !== "approve") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // approve in progress
       }
-    } else if (id === "build" && (saisUi?.rpabv_stage === "build" || saisUi?.rpabv_stage === "verify")) {
-      if (saisUi?.rpabv_stage === "verify") {
+    } else if (id === "build" && (saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+      if (saisUi?.methodology_stage === "verify") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // build in progress
       }
-    } else if (id === "verify" && saisUi?.rpabv_stage === "verify") {
+    } else if (id === "verify" && saisUi?.methodology_stage === "verify") {
       lastCompletedIdx = i;
     } else if (values.active_methodology !== undefined && !["resolve", "intent", "respond"].includes(id)) {
       if (values.evidence_result !== undefined || values.findings !== undefined) {
@@ -588,7 +588,7 @@ export function groupMessages(
   const saisUiStructureOnly = saisUi ? (() => {
     const copy = { ...saisUi };
     delete copy.stage_subtitles;
-    delete copy.rpabv_stage_subtitle;
+    delete copy.methodology_stage_subtitle;
     return copy;
   })() : null;
 

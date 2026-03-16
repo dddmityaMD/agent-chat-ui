@@ -753,7 +753,7 @@ export function FlowTab({ threadId }: { threadId?: string | null }) {
 
   // --- sais_ui data for stage timeline ---
   const stageDefs = extractArray(raw, "stage_definitions") as StageDefinition[];
-  const currentStage = extractString(raw, "rpabv_stage");
+  const currentStage = extractString(raw, "methodology_stage");
   const buildPlanStatus = extractString(raw, "build_plan_status");
   // Build flows have explicit status; non-build flows finish when stream ends.
   // During an interrupt, stream.isLoading is false but the flow is NOT finished.

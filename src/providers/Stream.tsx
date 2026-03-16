@@ -47,7 +47,7 @@ export type StateType = {
   // RPABV research/validate progress (Phase 23.1.1-07)
   sais_ui?: {
     active_methodology?: string;
-    rpabv_stage?: string;
+    methodology_stage?: string;
     research_progress?: {
       iteration?: number;
       max_iterations?: number;
