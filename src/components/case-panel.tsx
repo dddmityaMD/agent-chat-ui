@@ -27,6 +27,7 @@ import { SummaryTab } from "@/components/case-panel/summary-tab";
 import { CostTab } from "@/components/case-panel/cost-tab";
 import { BuildArtifactsTab } from "@/components/case-panel/build-tab";
 import { FlowTab } from "@/components/case-panel/flow-tab";
+import { WorkspaceTab } from "@/components/case-panel/workspace-tab";
 import { LINEAGE_NAVIGATE_EVENT } from "@/components/lineage-link";
 import type { LineageNavigateDetail } from "@/components/lineage-link";
 
@@ -184,7 +185,8 @@ export function CasePanel({ className }: { className?: string }) {
   const [findings, setFindings] = useState<Findings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const VALID_TABS: readonly TabValue[] = ["summary", "flow", "build", "investigation", "cost"] as const;
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  const VALID_TABS: readonly TabValue[] = ["summary", "flow", "build", "workspace", "investigation", "cost"] as const;
   const [activeTab, setActiveTabState] = useState<TabValue>("summary");
   // Read the deep-link tab from URL once (client-only, captured at module eval time)
   const deepLinkTabRef = useRef<TabValue | null>(null);
@@ -317,6 +319,7 @@ export function CasePanel({ className }: { className?: string }) {
 
     if (streamJustFinished) {
       wasStreamingRef.current = false;
+      setWorkspaceRefreshKey((k) => k + 1);
     }
     prevThreadIdRef.current = threadId;
 
@@ -612,6 +615,11 @@ export function CasePanel({ className }: { className?: string }) {
           {/* Build Tab (artifacts only) */}
           <Tabs.Content value="build" className="p-0">
             <BuildArtifactsTab threadId={threadId} />
+          </Tabs.Content>
+
+          {/* Workspace Tab (agent workspace files) */}
+          <Tabs.Content value="workspace" className="p-0 h-[calc(100vh-8rem)]">
+            <WorkspaceTab threadId={threadId} refreshKey={workspaceRefreshKey} />
           </Tabs.Content>
 
           {/* Cost Tab */}
