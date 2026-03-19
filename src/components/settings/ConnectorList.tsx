@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Database, BarChart3, GitBranch, FolderCode } from "lucide-react";
+import { Plus, Database, BarChart3, GitBranch, FolderCode, FileSpreadsheet } from "lucide-react";
 import type { ConnectorConfigResponse, ConnectorType } from "@/hooks/useConnectorConfig";
 
 // ---------------------------------------------------------------------------
@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<ConnectorType, string> = {
   metabase: "Metabase",
   dbt: "dbt",
   git: "Git",
+  csv: "CSV",
 };
 
 const TYPE_ICONS: Record<ConnectorType, React.ReactNode> = {
@@ -20,6 +21,7 @@ const TYPE_ICONS: Record<ConnectorType, React.ReactNode> = {
   metabase: <BarChart3 className="h-4 w-4" />,
   dbt: <FolderCode className="h-4 w-4" />,
   git: <GitBranch className="h-4 w-4" />,
+  csv: <FileSpreadsheet className="h-4 w-4" />,
 };
 
 function statusColor(status: string | null): string {

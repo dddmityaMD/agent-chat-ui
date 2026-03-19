@@ -234,6 +234,7 @@ function getConnectorIcon(type: string): React.ReactNode {
     database: <DatabaseIcon />,
     dbt: <FileCodeIcon />,
     git: <GitBranchIcon />,
+    csv: <FileCodeIcon />,
     api: <GlobeIcon />,
   };
   return icons[type.toLowerCase()] || <GlobeIcon />;

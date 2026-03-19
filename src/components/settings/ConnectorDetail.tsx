@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-url";
 import type {
   ConnectorConfigResponse,
@@ -16,6 +16,7 @@ import { PostgresForm } from "./forms/PostgresForm";
 import { MetabaseForm } from "./forms/MetabaseForm";
 import { DbtForm } from "./forms/DbtForm";
 import { GitForm } from "./forms/GitForm";
+import { CsvForm } from "./forms/CsvForm";
 import { ConnectorTestResult } from "./ConnectorTestResult";
 import { ConnectorSyncProgress, type SyncStatus } from "./ConnectorSyncProgress";
 import { DeleteConnectorDialog } from "./DeleteConnectorDialog";
@@ -53,6 +54,12 @@ const CONNECTOR_TYPES: {
     label: "Git",
     description: "Connect to a Git repository",
     icon: <GitBranch className="h-6 w-6" />,
+  },
+  {
+    type: "csv",
+    label: "CSV",
+    description: "Load CSV files into PostgreSQL",
+    icon: <FileSpreadsheet className="h-6 w-6" />,
   },
 ];
 
@@ -349,6 +356,8 @@ export function ConnectorDetail({
         );
       case "git":
         return <GitForm {...commonProps} />;
+      case "csv":
+        return <CsvForm {...commonProps} />;
       default:
         return (
           <p className="text-sm text-muted-foreground">

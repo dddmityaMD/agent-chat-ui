@@ -8,7 +8,7 @@ import { useAuth } from "@/providers/Auth";
 // Types matching backend ConnectorConfigResponse / TestConnectionResponse / SyncResponse
 // ---------------------------------------------------------------------------
 
-export type ConnectorType = "postgres" | "metabase" | "dbt" | "git";
+export type ConnectorType = "postgres" | "metabase" | "dbt" | "git" | "csv";
 
 export interface ConnectorConfigResponse {
   name: string;
