@@ -4,12 +4,9 @@ import React from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   LayoutDashboard,
-  FileSearch,
   DollarSign,
   FolderOpen,
-  Hammer,
   Workflow,
-  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +15,7 @@ import { cn } from "@/lib/utils";
 // Tab configuration
 // ---------------------------------------------------------------------------
 
-export type TabValue = "summary" | "flow" | "build" | "workspace" | "investigation" | "cost";
+export type TabValue = "summary" | "flow" | "workspace" | "cost";
 
 export interface TabConfig {
   value: TabValue;
@@ -30,8 +27,6 @@ export const TAB_CONFIG: TabConfig[] = [
   { value: "workspace", label: "Workspace", icon: FolderOpen },
   { value: "summary", label: "Summary", icon: LayoutDashboard },
   { value: "flow", label: "Flow", icon: Workflow },
-  { value: "build", label: "Build", icon: Wrench },
-  { value: "investigation", label: "Investigation", icon: FileSearch },
   { value: "cost", label: "Cost", icon: DollarSign },
 ];
 
