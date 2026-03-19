@@ -33,7 +33,6 @@ import {
   PanelRightClose,
   RotateCcw,
   Square,
-  SquarePen,
   XIcon,
   Pencil,
   Plus,
@@ -353,10 +352,14 @@ export function Thread() {
     // 1. Create thread via LangGraph API
     const { thread_id: newId } = await client.createThread();
     // 2. Register with project_id via SAIS backend
-    await registerThread(newId, undefined, undefined, projectId);
-    // 3. Set active thread via URL param (nuqs)
+    const registered = await registerThread(newId, undefined, undefined, projectId);
+    // 3. Optimistically add thread to list so currentThread is immediately available
+    if (registered) {
+      setThreads((prev) => [registered, ...prev.filter((t) => t.thread_id !== registered.thread_id)]);
+    }
+    // 4. Set active thread via URL param (nuqs)
     setThreadId(newId);
-  }, [registerThread, setThreadId]);
+  }, [registerThread, setThreadId, setThreads]);
 
   const chatStarted = !!threadId || !!messages.length;
   const hasNoAIOrToolMessages = !messages.find(
@@ -444,8 +447,10 @@ export function Thread() {
       <div
         className={cn(
           "grid w-full transition-all duration-500",
-          !artifactOpen && "grid-cols-[3fr_2fr_0fr]",
-          artifactOpen && "grid-cols-[2fr_1fr_1fr]",
+          !artifactOpen && casePanelOpen && "grid-cols-[3fr_2fr_0fr]",
+          !artifactOpen && !casePanelOpen && "grid-cols-[1fr_0fr_0fr]",
+          artifactOpen && casePanelOpen && "grid-cols-[2fr_1fr_1fr]",
+          artifactOpen && !casePanelOpen && "grid-cols-[2fr_0fr_1fr]",
         )}
       >
         <motion.div
@@ -560,11 +565,15 @@ export function Thread() {
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
-                  tooltip="New thread"
+                  tooltip={casePanelOpen ? "Hide workspace" : "Show workspace"}
                   variant="ghost"
-                  onClick={() => setThreadId(null)}
+                  onClick={() => setCasePanelOpen((p) => !p)}
                 >
-                  <SquarePen className="size-5" />
+                  {casePanelOpen ? (
+                    <PanelRightClose className="size-5" />
+                  ) : (
+                    <PanelRightOpen className="size-5" />
+                  )}
                 </TooltipIconButton>
               </div>
 
