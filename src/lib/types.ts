@@ -111,12 +111,24 @@ export interface MultiIntentPayload {
 export interface ThreadWithMeta {
   thread_id: string;
   workspace_id: string | null;
+  project_id: string | null;
+  project_name: string | null;
   title: string | null;
   is_pinned: boolean;
   is_archived: boolean;
   created_at: string;
   last_activity_at: string;
   last_message_preview: string | null;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  status: string;
+  created_at: string;
+  thread_count: number;
 }
 
 // --- Disambiguation types (restored, aligned with backend shape from 9B-08) ---

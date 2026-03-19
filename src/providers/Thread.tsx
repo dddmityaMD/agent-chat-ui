@@ -47,7 +47,7 @@ interface ThreadContextType {
   setThreads: Dispatch<SetStateAction<ThreadWithMeta[]>>;
   threadsLoading: boolean;
   setThreadsLoading: Dispatch<SetStateAction<boolean>>;
-  registerThread: (threadId: string, title?: string, preview?: string) => Promise<ThreadWithMeta | null>;
+  registerThread: (threadId: string, title?: string, preview?: string, projectId?: string) => Promise<ThreadWithMeta | null>;
   updateThread: (threadId: string, updates: { title?: string; is_pinned?: boolean }) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   permissionState: PermissionState;
@@ -87,12 +87,14 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     threadId: string,
     title?: string,
     preview?: string,
+    projectId?: string,
   ): Promise<ThreadWithMeta | null> => {
     const baseUrl = getApiBaseUrl();
     try {
       const body: Record<string, string> = {};
       if (title) body.title = title;
       if (preview) body.last_message_preview = preview;
+      if (projectId) body.project_id = projectId;
       const res = await fetch(`${baseUrl}/api/threads/${threadId}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

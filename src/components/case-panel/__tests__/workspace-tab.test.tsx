@@ -25,7 +25,21 @@ jest.mock("lucide-react", () => ({
   Folder: ({ className }: { className?: string }) => (
     <span data-testid="folder-icon" className={className} />
   ),
+  Loader2: ({ className }: { className?: string }) => (
+    <span data-testid="loader-icon" className={className} />
+  ),
+  Plus: ({ className }: { className?: string }) => (
+    <span data-testid="plus-icon" className={className} />
+  ),
+  Check: ({ className }: { className?: string }) => (
+    <span data-testid="check-icon" className={className} />
+  ),
 }));
+
+const defaultProps = {
+  onStartThread: jest.fn().mockResolvedValue(undefined),
+  currentThread: null,
+};
 
 describe("WorkspaceTab", () => {
   beforeEach(() => {
@@ -46,7 +60,7 @@ describe("WorkspaceTab", () => {
       }),
     });
 
-    render(<WorkspaceTab threadId="t1" />);
+    render(<WorkspaceTab threadId="t1" {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText("No workspace files yet.")).toBeInTheDocument();
@@ -65,7 +79,7 @@ describe("WorkspaceTab", () => {
       }),
     });
 
-    render(<WorkspaceTab threadId="t1" />);
+    render(<WorkspaceTab threadId="t1" {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText("stg_orders.sql")).toBeInTheDocument();
@@ -87,7 +101,7 @@ describe("WorkspaceTab", () => {
       }),
     });
 
-    render(<WorkspaceTab threadId="t1" />);
+    render(<WorkspaceTab threadId="t1" {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText("stg_orders.sql")).toBeInTheDocument();
@@ -128,7 +142,7 @@ describe("WorkspaceTab", () => {
       }),
     });
 
-    const { rerender } = render(<WorkspaceTab threadId="t1" refreshKey={1} />);
+    const { rerender } = render(<WorkspaceTab threadId="t1" refreshKey={1} {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText("notes.md")).toBeInTheDocument();
@@ -141,7 +155,7 @@ describe("WorkspaceTab", () => {
     expect(listCalls).toHaveLength(1);
 
     // Re-render with new refreshKey
-    rerender(<WorkspaceTab threadId="t1" refreshKey={2} />);
+    rerender(<WorkspaceTab threadId="t1" refreshKey={2} {...defaultProps} />);
 
     await waitFor(() => {
       const allListCalls = (global.fetch as jest.Mock).mock.calls.filter(

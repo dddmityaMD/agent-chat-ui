@@ -328,24 +328,12 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
         }
       };
 
-      if (threadId) {
-        doSubmit(threadId);
-      } else {
-        // Create thread first
-        threadClient
-          .createThread()
-          .then((result) => {
-            const newId = result.thread_id;
-            // Mark as self-created so the threadId effect skips clear+fetch
-            selfCreatedThreadRef.current = newId;
-            onThreadId?.(newId);
-            return doSubmit(newId);
-          })
-          .catch((err) => {
-            console.error("[useSaisStream] Failed to create thread:", err);
-            onError?.(err instanceof Error ? err : new Error(String(err)));
-          });
+      if (!threadId) {
+        // No thread — submit is a no-op. Thread must be created explicitly
+        // via the workspace tab "Start thread" button.
+        return;
       }
+      doSubmit(threadId);
     },
     [apiUrl, assistantId, threadId, manager, threadClient, branch, activeRuns, onThreadId, onError],
   );

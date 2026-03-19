@@ -27,10 +27,10 @@ export interface TabConfig {
 }
 
 export const TAB_CONFIG: TabConfig[] = [
+  { value: "workspace", label: "Workspace", icon: FolderOpen },
   { value: "summary", label: "Summary", icon: LayoutDashboard },
   { value: "flow", label: "Flow", icon: Workflow },
   { value: "build", label: "Build", icon: Wrench },
-  { value: "workspace", label: "Workspace", icon: FolderOpen },
   { value: "investigation", label: "Investigation", icon: FileSearch },
   { value: "cost", label: "Cost", icon: DollarSign },
 ];

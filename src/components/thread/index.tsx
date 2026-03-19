@@ -56,6 +56,7 @@ import {
 import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState, useThreads } from "@/providers/Thread";
+import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { LogoutButton } from "@/components/logout-button";
 import { SettingsButton } from "@/components/settings-button";
@@ -334,6 +335,29 @@ export function Thread() {
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
+  // Stable thread client ref for explicit thread creation (workspace Start thread)
+  const threadClientRef = useRef<SaisThreadClient | null>(null);
+  if (!threadClientRef.current) {
+    const langgraphUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2024";
+    threadClientRef.current = new SaisThreadClient(
+      langgraphUrl,
+      (input, init) => fetch(input, { ...init, credentials: "include" }),
+    );
+  }
+
+  const { registerThread } = useThreads();
+
+  const handleStartThread = useCallback(async (projectId: string) => {
+    const client = threadClientRef.current;
+    if (!client) return;
+    // 1. Create thread via LangGraph API
+    const { thread_id: newId } = await client.createThread();
+    // 2. Register with project_id via SAIS backend
+    await registerThread(newId, undefined, undefined, projectId);
+    // 3. Set active thread via URL param (nuqs)
+    setThreadId(newId);
+  }, [registerThread, setThreadId]);
+
   const chatStarted = !!threadId || !!messages.length;
   const hasNoAIOrToolMessages = !messages.find(
     (m) => m.type === "ai" || m.type === "tool",
@@ -420,10 +444,8 @@ export function Thread() {
       <div
         className={cn(
           "grid w-full transition-all duration-500",
-          !casePanelOpen && !artifactOpen && "grid-cols-[1fr_0fr_0fr]",
-          casePanelOpen && !artifactOpen && "grid-cols-[3fr_2fr_0fr]",
-          !casePanelOpen && artifactOpen && "grid-cols-[3fr_0fr_2fr]",
-          casePanelOpen && artifactOpen && "grid-cols-[2fr_1fr_1fr]",
+          !artifactOpen && "grid-cols-[3fr_2fr_0fr]",
+          artifactOpen && "grid-cols-[2fr_1fr_1fr]",
         )}
       >
         <motion.div
@@ -535,19 +557,6 @@ export function Thread() {
                 <BudgetIndicator />
                 <LogoutButton />
                 <SettingsButton />
-                <TooltipIconButton
-                  size="lg"
-                  className="p-4"
-                  tooltip={casePanelOpen ? "Hide thread panel" : "Show thread panel"}
-                  variant="ghost"
-                  onClick={() => setCasePanelOpen((p) => !p)}
-                >
-                  {casePanelOpen ? (
-                    <PanelRightClose className="size-5" />
-                  ) : (
-                    <PanelRightOpen className="size-5" />
-                  )}
-                </TooltipIconButton>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
@@ -728,14 +737,16 @@ export function Thread() {
                           }
                         }}
                         placeholder={
-                          hasActiveInterrupt
-                            ? "Approve or reject the pending decision to continue."
-                            : "Type your message..."
+                          !threadId
+                            ? "Select a project and start a thread to begin."
+                            : hasActiveInterrupt
+                              ? "Approve or reject the pending decision to continue."
+                              : "Type your message..."
                         }
-                        disabled={hasActiveInterrupt}
+                        disabled={hasActiveInterrupt || !threadId}
                         className={cn(
                           "field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none",
-                          hasActiveInterrupt && "cursor-not-allowed opacity-50",
+                          (hasActiveInterrupt || !threadId) && "cursor-not-allowed opacity-50",
                         )}
                       />
 
@@ -792,6 +803,7 @@ export function Thread() {
                             disabled={
                               isLoading ||
                               hasActiveInterrupt ||
+                              !threadId ||
                               (!input.trim() && contentBlocks.length === 0)
                             }
                           >
@@ -806,18 +818,19 @@ export function Thread() {
             />
           </StickToBottom>
         </motion.div>
-        <div className={cn("relative flex flex-col border-l", !casePanelOpen && "hidden")}>
+        <div className="relative flex flex-col border-l">
           <div className="absolute inset-0 flex min-w-[30vw] flex-col">
             <div className="grid grid-cols-[1fr_auto] border-b p-4">
-              <div className="truncate overflow-hidden text-sm font-semibold">Thread Summary</div>
-              <button
-                onClick={() => setCasePanelOpen(false)}
-                className="cursor-pointer"
-              >
-                <XIcon className="size-5" />
-              </button>
+              <div className="truncate overflow-hidden text-sm font-semibold">
+                {threadId ? "Thread Summary" : "Workspace"}
+              </div>
             </div>
-            <CasePanel className="flex-grow" />
+            <CasePanel
+              className="flex-grow"
+              threadId={threadId}
+              onStartThread={handleStartThread}
+              currentThread={currentThread}
+            />
           </div>
         </div>
 

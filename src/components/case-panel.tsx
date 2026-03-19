@@ -174,7 +174,14 @@ async function fetchThreadSummary(
 // CasePanel (thread-scoped)
 // ---------------------------------------------------------------------------
 
-export function CasePanel({ className }: { className?: string }) {
+interface CasePanelProps {
+  className?: string;
+  threadId?: string | null;
+  onStartThread?: (projectId: string) => Promise<void>;
+  currentThread?: import("@/lib/types").ThreadWithMeta | null;
+}
+
+export function CasePanel({ className, threadId: propThreadId, onStartThread, currentThread }: CasePanelProps) {
   const stream = useStreamContext();
   const { permissionState, revokePermissionGrant } = usePermissionState();
   const { setSessionExpired } = useAuth();
@@ -186,15 +193,15 @@ export function CasePanel({ className }: { className?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
-  const VALID_TABS: readonly TabValue[] = ["summary", "flow", "build", "workspace", "investigation", "cost"] as const;
-  const [activeTab, setActiveTabState] = useState<TabValue>("summary");
+  const VALID_TABS: readonly TabValue[] = ["workspace", "summary", "flow", "build", "investigation", "cost"] as const;
+  const [activeTab, setActiveTabState] = useState<TabValue>("workspace");
   // Read the deep-link tab from URL once (client-only, captured at module eval time)
   const deepLinkTabRef = useRef<TabValue | null>(null);
   const deepLinkConsumed = useRef(false);
 
   const setActiveTab = useCallback((tab: string | null) => {
-    const value = tab ?? "summary";
-    const valid = VALID_TABS.includes(value as TabValue) ? (value as TabValue) : "summary";
+    const value = tab ?? "workspace";
+    const valid = VALID_TABS.includes(value as TabValue) ? (value as TabValue) : "workspace";
     setActiveTabState(valid);
     // Sync to URL
     if (typeof window !== "undefined") {
@@ -383,12 +390,14 @@ export function CasePanel({ className }: { className?: string }) {
         onValueChange={(v: string) => setActiveTab(v)}
         className="flex h-full flex-col"
       >
-        {/* Tab bar */}
+        {/* Tab bar — Workspace always visible, others only when thread active */}
         <Tabs.List
           className="flex shrink-0 gap-0 overflow-x-auto border-b px-2"
           aria-label="Thread details"
         >
-          {TAB_CONFIG.map((tab) => (
+          {TAB_CONFIG.filter((tab) =>
+            tab.value === "workspace" || !!threadId
+          ).map((tab) => (
             <TabTrigger
               key={tab.value}
               config={tab}
@@ -617,9 +626,14 @@ export function CasePanel({ className }: { className?: string }) {
             <BuildArtifactsTab threadId={threadId} />
           </Tabs.Content>
 
-          {/* Workspace Tab (agent workspace files) */}
+          {/* Workspace Tab (agent workspace files / project selector) */}
           <Tabs.Content value="workspace" className="p-0 h-[calc(100vh-8rem)]">
-            <WorkspaceTab threadId={threadId} refreshKey={workspaceRefreshKey} />
+            <WorkspaceTab
+              threadId={threadId}
+              refreshKey={workspaceRefreshKey}
+              onStartThread={onStartThread ?? (async () => {})}
+              currentThread={currentThread ?? null}
+            />
           </Tabs.Content>
 
           {/* Cost Tab */}
