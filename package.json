@@ -54,6 +54,7 @@
     "react-dom": "^19.0.0",
     "react-hotkeys-hook": "^5.2.4",
     "react-markdown": "^10.0.1",
+    "react-resizable-panels": "^4.7.3",
     "react-syntax-highlighter": "^15.5.0",
     "recharts": "^2.15.1",
     "rehype-katex": "^7.0.1",
@@ -64,7 +65,8 @@
     "tailwindcss-animate": "^1.0.7",
     "use-stick-to-bottom": "^1.0.46",
     "uuid": "^11.1.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
