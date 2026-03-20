@@ -24,17 +24,9 @@ import {
 } from "@/lib/ensure-tool-responses";
 import {
   groupMessages,
-  deriveStagesFromFlow,
-  deriveStageDetails,
-  applyStageDetails,
-  computeDataDrivenReveal,
-  computeDynamicStageReveal,
-  extractFlowFromResponseMeta,
   type StreamingStateValues,
 } from "@/lib/message-groups";
-import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
 import { SaisLogoSVG } from "../icons/langgraph";
-import { CasePanel } from "@/components/case-panel";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   AlertTriangle,
@@ -42,11 +34,15 @@ import {
   PanelRightClose,
   RotateCcw,
   Square,
-  XIcon,
   Pencil,
   Plus,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
+import { DualSurfaceLayout } from "@/components/layout/dual-surface-layout";
+import { BlockPanel } from "@/components/panel/block-panel";
+import { CanvasPane } from "@/components/canvas/canvas-pane";
+import { useCanvasStore } from "@/stores/canvas-store";
+import type { CanvasContentType } from "@/stores/canvas-store";
 import { StickToBottom } from "use-stick-to-bottom";
 import ThreadHistory from "./history";
 import { toast } from "sonner";
@@ -57,8 +53,6 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import {
   useArtifactOpen,
-  ArtifactContent,
-  ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
 import { HealthDot } from "./health-dot";
@@ -71,6 +65,7 @@ import { SettingsButton } from "@/components/settings-button";
 import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
 import { useBlockSync } from "@/hooks/useBlockSync";
+import { useBlockStore } from "@/stores/block-store";
 import { ChatActivityIndicator } from "./chat-activity-indicator";
 
 // Sub-components extracted from this file
@@ -80,7 +75,7 @@ import {
   ScrollToBottom,
   NewMessagesDetector,
 } from "./scroll";
-import { EditableThreadTitle } from "./thread-header";
+import { EditableThreadTitle, ThreadCostLabel } from "./thread-header";
 import { useCurrentTurnDelta } from "./use-current-turn-delta";
 
 // Command palette and keyboard shortcuts (Phase 38.17-04)
@@ -144,6 +139,26 @@ export function Thread() {
     stream.values as Record<string, unknown> | null,
     threadId,
     isLoading,
+  );
+
+  // Canvas store (Phase 49-07)
+  const canvasStore = useCanvasStore();
+
+  // Block store thread hydration (Phase 49-07)
+  const blockStore = useBlockStore();
+  const prevHydrationThreadId = useRef<string | null>(null);
+  useEffect(() => {
+    if (threadId === prevHydrationThreadId.current) return;
+    prevHydrationThreadId.current = threadId;
+    blockStore.switchThread(threadId);
+  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Canvas open handler — wired to BlockPanel's onCanvasOpen
+  const handleCanvasOpen = useCallback(
+    (contentType: string, contentData: unknown) => {
+      canvasStore.open(contentType as CanvasContentType, contentData, contentType);
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Messages come from REST via useSaisStream hook (Phase 23.4).
@@ -535,18 +550,21 @@ export function Thread() {
         </motion.div>
       </div>
 
-      <div
-        className={cn(
-          "grid w-full transition-all duration-500",
-          !artifactOpen && casePanelOpen && "grid-cols-[3fr_2fr_0fr]",
-          !artifactOpen && !casePanelOpen && "grid-cols-[1fr_0fr_0fr]",
-          artifactOpen && casePanelOpen && "grid-cols-[2fr_1fr_1fr]",
-          artifactOpen && !casePanelOpen && "grid-cols-[2fr_0fr_1fr]",
-        )}
-      >
+      <DualSurfaceLayout
+        panelOpen={casePanelOpen ?? true}
+        canvasOpen={canvasStore.isOpen}
+        onPanelCollapse={() => setCasePanelOpen(false)}
+        onPanelExpand={() => setCasePanelOpen(true)}
+        panel={
+          <BlockPanel
+            onCanvasOpen={handleCanvasOpen}
+          />
+        }
+        canvasContent={<CanvasPane />}
+        chat={
         <motion.div
           className={cn(
-            "relative flex min-w-0 flex-1 flex-col overflow-hidden",
+            "relative flex min-w-0 flex-1 flex-col overflow-hidden h-full",
             !chatStarted && "grid-rows-[1fr]",
           )}
           layout={isLargeScreen}
@@ -638,6 +656,7 @@ export function Thread() {
                       }
                     }}
                   />
+                  <ThreadCostLabel threadId={threadId} isStreaming={isLoading} />
                 </motion.div>
                 <HealthDot />
                 <PermissionPill
@@ -733,82 +752,7 @@ export function Thread() {
                       />
                     </MessageErrorBoundary>
                   )}
-                  {isLoading &&
-                    (() => {
-                      const lastGroup = messageGroups[messageGroups.length - 1];
-                      const lastIsAi =
-                        lastGroup && lastGroup.message.type === "ai";
-                      const lastIsIntermediate =
-                        lastIsAi &&
-                        lastGroup.stages.length === 0 &&
-                        extractFlowFromResponseMeta(lastGroup.message) === null;
-                      const lastIsPreStream =
-                        lastIsAi &&
-                        !!preStreamLastMsgIdRef.current &&
-                        lastGroup.message.id === preStreamLastMsgIdRef.current;
-                      const hasFinalResponse =
-                        lastIsAi && !lastIsIntermediate && !lastIsPreStream;
-                      if (!hasFinalResponse) {
-                        const hasLiveData =
-                          Object.keys(currentTurnValues).length > 0;
-                        const effectiveValues = hasLiveData
-                          ? currentTurnValues
-                          : rawStreamValues;
-                        const streamFlow =
-                          effectiveValues.active_methodology ||
-                          saisUiData.methodologyType;
-                        const streamSaisUi = (effectiveValues.sais_ui ??
-                          saisUiData.raw) as
-                          | Record<string, unknown>
-                          | undefined;
-                        const streamingStages = deriveStagesFromFlow(
-                          streamFlow,
-                          streamSaisUi,
-                        );
-                        const stageDetails =
-                          deriveStageDetails(effectiveValues);
-                        const enrichedStages = applyStageDetails(
-                          streamingStages,
-                          stageDetails,
-                        );
-                        const dynamicReveal = computeDynamicStageReveal(
-                          streamSaisUi,
-                          streamingStages,
-                        );
-                        const staticReveal = computeDataDrivenReveal(
-                          effectiveValues,
-                          streamingStages,
-                        );
-                        const minReveal = Math.max(dynamicReveal, staticReveal);
-                        console.debug(
-                          "[ThinkingIndicator] currentTurnId:",
-                          currentTurnId,
-                          "| hasLiveData:",
-                          hasLiveData,
-                          "| usingRawFallback:",
-                          !hasLiveData,
-                          "| dynamicReveal:",
-                          dynamicReveal,
-                          "| staticReveal:",
-                          staticReveal,
-                          "| minReveal:",
-                          minReveal,
-                          "| stages:",
-                          enrichedStages.length,
-                          "| flow:",
-                          streamFlow,
-                        );
-                        return (
-                          <ThinkingIndicator
-                            stages={enrichedStages}
-                            minRevealCount={minReveal}
-                            isPaused={hasActiveInterrupt}
-                          />
-                        );
-                      }
-                      return null;
-                    })()}
-                  {/* Tool execution activity indicator (Phase 49-05) */}
+                  {/* Tool execution activity indicator — replaces ThinkingIndicator (D-17, Phase 49-07) */}
                   {isLoading && activityState.toolHistory.length > 0 && (
                     <ChatActivityIndicator
                       activity={activityState}
@@ -985,43 +929,8 @@ export function Thread() {
             />
           </StickToBottom>
         </motion.div>
-        <div className="relative flex flex-col border-l">
-          <div className="absolute inset-0 flex min-w-[30vw] flex-col">
-            <div className="grid grid-cols-[1fr_auto] border-b p-4">
-              <div className="truncate overflow-hidden text-sm font-semibold">
-                {threadId ? "Thread Summary" : "Workspace"}
-              </div>
-            </div>
-            <CasePanel
-              className="flex-grow"
-              threadId={threadId}
-              onStartThread={handleStartThread}
-              onProjectSelect={setSelectedProject}
-              currentThread={currentThread}
-            />
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "relative flex flex-col border-l",
-            !artifactOpen && "hidden",
-          )}
-        >
-          <div className="absolute inset-0 flex min-w-[30vw] flex-col">
-            <div className="grid grid-cols-[1fr_auto] border-b p-4">
-              <ArtifactTitle className="truncate overflow-hidden" />
-              <button
-                onClick={closeArtifact}
-                className="cursor-pointer"
-              >
-                <XIcon className="size-5" />
-              </button>
-            </div>
-            <ArtifactContent className="relative flex-grow" />
-          </div>
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 }
