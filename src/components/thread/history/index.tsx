@@ -30,6 +30,7 @@ import {
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useActiveRuns } from "@/providers/ActiveRuns";
 import { toast } from "sonner";
+import { ProjectSelector } from "@/components/sidebar/project-selector";
 
 // ---------------------------------------------------------------------------
 // Thread kebab / context menu (lightweight, no Radix DropdownMenu needed)
@@ -56,8 +57,10 @@ function ThreadContextMenu({
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
       }
@@ -75,64 +78,66 @@ function ThreadContextMenu({
     setOpen((prev) => !prev);
   };
 
-  const dropdown = open ? createPortal(
-    <div
-      ref={menuRef}
-      className="fixed z-[9999] w-40 rounded-md border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
-      style={{ top: menuPos.top, left: menuPos.left }}
-    >
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(false);
-          onRename(thread.thread_id);
-        }}
-      >
-        <Pencil className="size-3.5" />
-        Rename
-      </button>
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(false);
-          onTogglePin(thread.thread_id, thread.is_pinned);
-        }}
-      >
-        {thread.is_pinned ? (
-          <>
-            <PinOff className="size-3.5" />
-            Unpin
-          </>
-        ) : (
-          <>
-            <Pin className="size-3.5" />
-            Pin
-          </>
-        )}
-      </button>
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(false);
-          onArchive(thread.thread_id);
-        }}
-      >
-        <Archive className="size-3.5" />
-        Archive
-      </button>
-    </div>,
-    document.body,
-  ) : null;
+  const dropdown = open
+    ? createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[9999] w-40 rounded-md border bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+          style={{ top: menuPos.top, left: menuPos.left }}
+        >
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onRename(thread.thread_id);
+            }}
+          >
+            <Pencil className="size-3.5" />
+            Rename
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onTogglePin(thread.thread_id, thread.is_pinned);
+            }}
+          >
+            {thread.is_pinned ? (
+              <>
+                <PinOff className="size-3.5" />
+                Unpin
+              </>
+            ) : (
+              <>
+                <Pin className="size-3.5" />
+                Pin
+              </>
+            )}
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onArchive(thread.thread_id);
+            }}
+          >
+            <Archive className="size-3.5" />
+            Archive
+          </button>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <div className="shrink-0">
       <button
         ref={buttonRef}
         onClick={handleToggle}
-        className="rounded p-1 text-muted-foreground hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-700"
+        className="text-muted-foreground hover:text-foreground rounded p-1 hover:bg-slate-200 dark:hover:bg-slate-700"
         aria-label="Thread actions"
       >
         <MoreVertical className="size-4" />
@@ -197,9 +202,7 @@ function ThreadEntry({
       />
 
       {/* Pin indicator */}
-      {thread.is_pinned && (
-        <Pin className="size-3 shrink-0 text-amber-500" />
-      )}
+      {thread.is_pinned && <Pin className="size-3 shrink-0 text-amber-500" />}
 
       {/* Running indicator */}
       {isRunning && (
@@ -209,7 +212,7 @@ function ThreadEntry({
       {/* Title + timestamp */}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{displayTitle}</span>
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="text-muted-foreground truncate text-xs">
           {relativeTime}
         </span>
       </div>
@@ -239,7 +242,7 @@ function ThreadList({
   return (
     <div className="flex h-full w-full flex-col items-start gap-1 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
       {threads.length === 0 ? (
-        <div className="w-full py-8 text-center text-sm text-muted-foreground">
+        <div className="text-muted-foreground w-full py-8 text-center text-sm">
           No threads found
         </div>
       ) : (
@@ -279,7 +282,10 @@ function ThreadHistoryLoading() {
   return (
     <div className="flex h-full w-full flex-col items-start gap-2 overflow-y-auto px-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
       {Array.from({ length: 12 }).map((_, i) => (
-        <Skeleton key={`skeleton-${i}`} className="h-12 w-full rounded-md" />
+        <Skeleton
+          key={`skeleton-${i}`}
+          className="h-12 w-full rounded-md"
+        />
       ))}
     </div>
   );
@@ -394,13 +400,18 @@ export default function ThreadHistory() {
 
       {/* Search bar */}
       <div className="relative px-3 pt-2">
-        <Search className="absolute left-5 top-4.5 size-4 text-muted-foreground" />
+        <Search className="text-muted-foreground absolute top-4.5 left-5 size-4" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search threads..."
           className="pl-8 text-sm"
         />
+      </div>
+
+      {/* Project selector (D-07, Phase 49-07) */}
+      <div className="border-b">
+        <ProjectSelector />
       </div>
 
       {/* Show archived toggle */}
@@ -418,7 +429,7 @@ export default function ThreadHistory() {
         />
         <label
           htmlFor="show-archived"
-          className="cursor-pointer text-xs text-muted-foreground"
+          className="text-muted-foreground cursor-pointer text-xs"
         >
           Show archived
         </label>
@@ -456,13 +467,16 @@ export default function ThreadHistory() {
             setChatHistoryOpen(open);
           }}
         >
-          <SheetContent side="left" className="flex flex-col lg:hidden">
+          <SheetContent
+            side="left"
+            className="flex flex-col lg:hidden"
+          >
             <SheetHeader>
               <SheetTitle>Threads</SheetTitle>
             </SheetHeader>
             {/* Re-use same content with thread click closing sheet */}
             <div className="relative px-3 pt-2">
-              <Search className="absolute left-5 top-4.5 size-4 text-muted-foreground" />
+              <Search className="text-muted-foreground absolute top-4.5 left-5 size-4" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -483,7 +497,7 @@ export default function ThreadHistory() {
               />
               <label
                 htmlFor="show-archived-mobile"
-                className="cursor-pointer text-xs text-muted-foreground"
+                className="text-muted-foreground cursor-pointer text-xs"
               >
                 Show archived
               </label>
