@@ -183,7 +183,7 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
     );
   }
 
-  // Action blocks: amber header when present
+  // Action blocks: amber header, scale + border glow animation (250ms)
   if (level === "action") {
     return (
       <div className="space-y-2">
@@ -196,10 +196,19 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
           <motion.div
             key={block.id}
             layout
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              boxShadow: [
+                "0 0 0 0 rgba(251, 191, 36, 0)",
+                "0 0 0 3px rgba(251, 191, 36, 0.3)",
+                "0 0 0 0 rgba(251, 191, 36, 0)",
+              ],
+            }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            className="rounded-lg"
           >
             <BlockRenderer
               block={block}
@@ -212,7 +221,7 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
     );
   }
 
-  // L2/L3 blocks: subtle group header + slide-in animation
+  // L2/L3 blocks: slide in from top with fade (300ms), layout for position changes
   return (
     <div className="space-y-2">
       {label && (
@@ -226,10 +235,10 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
         <motion.div
           key={block.id}
           layout
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 12 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           className="relative group"
         >
           <BlockRenderer
