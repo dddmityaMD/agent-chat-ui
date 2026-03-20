@@ -22,7 +22,16 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
-import { groupMessages, deriveStagesFromFlow, deriveStageDetails, applyStageDetails, computeDataDrivenReveal, computeDynamicStageReveal, inferFlowFromIntent, extractFlowFromResponseMeta, type StreamingStateValues } from "@/lib/message-groups";
+import {
+  groupMessages,
+  deriveStagesFromFlow,
+  deriveStageDetails,
+  applyStageDetails,
+  computeDataDrivenReveal,
+  computeDynamicStageReveal,
+  extractFlowFromResponseMeta,
+  type StreamingStateValues,
+} from "@/lib/message-groups";
 import { ThinkingIndicator } from "@/components/thread/thought-process-pane";
 import { SaisLogoSVG } from "../icons/langgraph";
 import { CasePanel } from "@/components/case-panel";
@@ -61,10 +70,16 @@ import { LogoutButton } from "@/components/logout-button";
 import { SettingsButton } from "@/components/settings-button";
 import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
+import { useBlockSync } from "@/hooks/useBlockSync";
+import { ChatActivityIndicator } from "./chat-activity-indicator";
 
 // Sub-components extracted from this file
 import { MessageErrorBoundary } from "./message-error-boundary";
-import { StickyToBottomContent, ScrollToBottom, NewMessagesDetector } from "./scroll";
+import {
+  StickyToBottomContent,
+  ScrollToBottom,
+  NewMessagesDetector,
+} from "./scroll";
 import { EditableThreadTitle } from "./thread-header";
 import { useCurrentTurnDelta } from "./use-current-turn-delta";
 
@@ -97,13 +112,20 @@ export function Thread() {
     dragOver,
     handlePaste,
   } = useFileUpload();
-  const { permissionState, addPermissionGrant, clearPermissionGrants } = usePermissionState();
+  const { permissionState, addPermissionGrant, clearPermissionGrants } =
+    usePermissionState();
   const { threads, updateThread, getThreads, setThreads } = useThreads();
   const currentThread = threads.find((t) => t.thread_id === threadId) ?? null;
+  // Selected project from workspace panel (before thread is created)
+  const [selectedProject, setSelectedProject] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   // Optimistic human message: shown immediately on submit so the loading
   // dots appear below it, not below the previous AI message.  Cleared once
   // the message shows up in stream.messages (by ID match).
-  const [pendingHumanMessage, setPendingHumanMessage] = useState<Message | null>(null);
+  const [pendingHumanMessage, setPendingHumanMessage] =
+    useState<Message | null>(null);
   // Track the current turn's human message ID for the entire streaming duration.
   const currentTurnIdRef = useRef<string | null>(null);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
@@ -117,6 +139,13 @@ export function Thread() {
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
 
+  // Wire SSE events to block store (Phase 49-05)
+  const activityState = useBlockSync(
+    stream.values as Record<string, unknown> | null,
+    threadId,
+    isLoading,
+  );
+
   // Messages come from REST via useSaisStream hook (Phase 23.4).
   const messages = stream.messages;
 
@@ -128,9 +157,12 @@ export function Thread() {
     preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
 
     if (!currentTurnIdRef.current) {
-      const lastHuman = [...messages].reverse().find(m => m.type === "human");
+      const lastHuman = [...messages].reverse().find((m) => m.type === "human");
       if (lastHuman?.id) {
-        console.debug("[Thread] rejoin: setting currentTurnIdRef to last human message:", lastHuman.id);
+        console.debug(
+          "[Thread] rejoin: setting currentTurnIdRef to last human message:",
+          lastHuman.id,
+        );
         currentTurnIdRef.current = lastHuman.id;
       }
     }
@@ -148,13 +180,14 @@ export function Thread() {
 
   // Group messages into renderable units (UAT-4: thought process pane).
   const messageGroups = useMemo(
-    () => groupMessages(
-      messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
-      {
-        isStreaming: isLoading,
-        saisUi: saisUiData.raw as Record<string, unknown> | null,
-      },
-    ),
+    () =>
+      groupMessages(
+        messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
+        {
+          isStreaming: isLoading,
+          saisUi: saisUiData.raw as Record<string, unknown> | null,
+        },
+      ),
     [messages, isLoading, saisUiData.raw],
   );
 
@@ -178,7 +211,14 @@ export function Thread() {
     }
 
     getThreads().then(setThreads).catch(console.error);
-  }, [isLoading, saisUiData.permissionGrants, clearPermissionGrants, addPermissionGrant, getThreads, setThreads]);
+  }, [
+    isLoading,
+    saisUiData.permissionGrants,
+    clearPermissionGrants,
+    addPermissionGrant,
+    getThreads,
+    setThreads,
+  ]);
 
   const lastError = useRef<string | undefined>(undefined);
 
@@ -230,10 +270,40 @@ export function Thread() {
     }
   }, [messages, pendingHumanMessage]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading || hasActiveInterrupt)
+    if (
+      (input.trim().length === 0 && contentBlocks.length === 0) ||
+      isLoading ||
+      hasActiveInterrupt
+    )
       return;
+
+    let effectiveThreadId = threadId;
+
+    // No thread yet but project selected — create thread first
+    if (!effectiveThreadId && selectedProject) {
+      const client = threadClientRef.current;
+      if (!client) return;
+      const { thread_id: newId } = await client.createThread();
+      const registered = await registerThread(
+        newId,
+        undefined,
+        undefined,
+        selectedProject.id,
+      );
+      if (registered) {
+        setThreads((prev) => [
+          registered,
+          ...prev.filter((t) => t.thread_id !== registered.thread_id),
+        ]);
+      }
+      setThreadId(newId);
+      effectiveThreadId = newId;
+    }
+
+    if (!effectiveThreadId) return;
+
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
@@ -257,6 +327,8 @@ export function Thread() {
         context,
       },
       {
+        threadId:
+          effectiveThreadId !== threadId ? effectiveThreadId : undefined,
         optimisticValues: (prev) => ({
           ...prev,
           context,
@@ -320,7 +392,11 @@ export function Thread() {
       {
         optimisticValues: (prev) => ({
           ...prev,
-          messages: [...((prev.messages ?? []) as Message[]), ...toolMessages, retryMessage],
+          messages: [
+            ...((prev.messages ?? []) as Message[]),
+            ...toolMessages,
+            retryMessage,
+          ],
         }),
       },
     );
@@ -337,7 +413,8 @@ export function Thread() {
   // Stable thread client ref for explicit thread creation (workspace Start thread)
   const threadClientRef = useRef<SaisThreadClient | null>(null);
   if (!threadClientRef.current) {
-    const langgraphUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:2024";
+    const langgraphUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:2024";
     threadClientRef.current = new SaisThreadClient(
       langgraphUrl,
       (input, init) => fetch(input, { ...init, credentials: "include" }),
@@ -346,20 +423,31 @@ export function Thread() {
 
   const { registerThread } = useThreads();
 
-  const handleStartThread = useCallback(async (projectId: string) => {
-    const client = threadClientRef.current;
-    if (!client) return;
-    // 1. Create thread via LangGraph API
-    const { thread_id: newId } = await client.createThread();
-    // 2. Register with project_id via SAIS backend
-    const registered = await registerThread(newId, undefined, undefined, projectId);
-    // 3. Optimistically add thread to list so currentThread is immediately available
-    if (registered) {
-      setThreads((prev) => [registered, ...prev.filter((t) => t.thread_id !== registered.thread_id)]);
-    }
-    // 4. Set active thread via URL param (nuqs)
-    setThreadId(newId);
-  }, [registerThread, setThreadId, setThreads]);
+  const handleStartThread = useCallback(
+    async (projectId: string) => {
+      const client = threadClientRef.current;
+      if (!client) return;
+      // 1. Create thread via LangGraph API
+      const { thread_id: newId } = await client.createThread();
+      // 2. Register with project_id via SAIS backend
+      const registered = await registerThread(
+        newId,
+        undefined,
+        undefined,
+        projectId,
+      );
+      // 3. Optimistically add thread to list so currentThread is immediately available
+      if (registered) {
+        setThreads((prev) => [
+          registered,
+          ...prev.filter((t) => t.thread_id !== registered.thread_id),
+        ]);
+      }
+      // 4. Set active thread via URL param (nuqs)
+      setThreadId(newId);
+    },
+    [registerThread, setThreadId, setThreads],
+  );
 
   const chatStarted = !!threadId || !!messages.length;
   const hasNoAIOrToolMessages = !messages.find(
@@ -399,9 +487,12 @@ export function Thread() {
     onApproveInterrupt: () => {
       // If there's an active interrupt, approve it
       if (hasActiveInterrupt && stream.interrupt) {
-        stream.submit(
-          { messages: [...stream.messages, { id: uuidv4(), type: "human", content: "approved" }] },
-        );
+        stream.submit({
+          messages: [
+            ...stream.messages,
+            { id: uuidv4(), type: "human", content: "approved" },
+          ],
+        });
       }
     },
   });
@@ -425,7 +516,7 @@ export function Thread() {
 
       <div className="relative hidden lg:flex">
         <motion.div
-          className="absolute z-20 h-full overflow-hidden border-r bg-background"
+          className="bg-background absolute z-20 h-full overflow-hidden border-r"
           style={{ width: 300 }}
           animate={{ x: chatHistoryOpen ? 0 : -300 }}
           initial={{ x: -300 }}
@@ -597,24 +688,30 @@ export function Thread() {
               content={
                 <>
                   {messageGroups.map((group, index) => (
-                      <MessageErrorBoundary key={group.message.id || `${group.message.type}-${index}`}>
-                        {group.message.type === "human" ? (
-                          <HumanMessage
-                            message={group.message}
-                            isLoading={isLoading}
-                          />
-                        ) : (
-                          <AssistantMessage
-                            message={group.message}
-                            isLoading={isLoading}
-                            handleRegenerate={handleRegenerate}
-                            stages={group.stages}
-                            nextHumanMessage={group.nextHumanMessage}
-                            streamingValues={isLoading && index === messageGroups.length - 1 ? currentTurnValues : undefined}
-                          />
-                        )}
-                      </MessageErrorBoundary>
-                    ))}
+                    <MessageErrorBoundary
+                      key={group.message.id || `${group.message.type}-${index}`}
+                    >
+                      {group.message.type === "human" ? (
+                        <HumanMessage
+                          message={group.message}
+                          isLoading={isLoading}
+                        />
+                      ) : (
+                        <AssistantMessage
+                          message={group.message}
+                          isLoading={isLoading}
+                          handleRegenerate={handleRegenerate}
+                          stages={group.stages}
+                          nextHumanMessage={group.nextHumanMessage}
+                          streamingValues={
+                            isLoading && index === messageGroups.length - 1
+                              ? currentTurnValues
+                              : undefined
+                          }
+                        />
+                      )}
+                    </MessageErrorBoundary>
+                  ))}
                   {/* Optimistic human message */}
                   {pendingHumanMessage &&
                     !messages.some((m) => m.id === pendingHumanMessage.id) && (
@@ -636,33 +733,88 @@ export function Thread() {
                       />
                     </MessageErrorBoundary>
                   )}
-                  {isLoading && (() => {
-                    const lastGroup = messageGroups[messageGroups.length - 1];
-                    const lastIsAi = lastGroup && lastGroup.message.type === "ai";
-                    const lastIsIntermediate = lastIsAi && lastGroup.stages.length === 0
-                      && extractFlowFromResponseMeta(lastGroup.message) === null;
-                    const lastIsPreStream = lastIsAi
-                      && !!preStreamLastMsgIdRef.current
-                      && lastGroup.message.id === preStreamLastMsgIdRef.current;
-                    const hasFinalResponse = lastIsAi && !lastIsIntermediate && !lastIsPreStream;
-                    if (!hasFinalResponse) {
-                      const hasLiveData = Object.keys(currentTurnValues).length > 0;
-                      const effectiveValues = hasLiveData ? currentTurnValues : rawStreamValues;
-                      const streamFlow = effectiveValues.active_methodology || inferFlowFromIntent(effectiveValues.intent) || saisUiData.methodologyType;
-                      const streamSaisUi = (effectiveValues.sais_ui ?? saisUiData.raw) as Record<string, unknown> | undefined;
-                      const streamingStages = deriveStagesFromFlow(streamFlow, streamSaisUi);
-                      const stageDetails = deriveStageDetails(effectiveValues);
-                      const enrichedStages = applyStageDetails(streamingStages, stageDetails);
-                      const dynamicReveal = computeDynamicStageReveal(streamSaisUi, streamingStages);
-                      const staticReveal = computeDataDrivenReveal(effectiveValues, streamingStages);
-                      const minReveal = Math.max(dynamicReveal, staticReveal);
-                      console.debug("[ThinkingIndicator] currentTurnId:", currentTurnId, "| hasLiveData:", hasLiveData,
-                        "| usingRawFallback:", !hasLiveData, "| dynamicReveal:", dynamicReveal, "| staticReveal:", staticReveal,
-                        "| minReveal:", minReveal, "| stages:", enrichedStages.length, "| flow:", streamFlow);
-                      return <ThinkingIndicator stages={enrichedStages} minRevealCount={minReveal} isPaused={hasActiveInterrupt} />;
-                    }
-                    return null;
-                  })()}
+                  {isLoading &&
+                    (() => {
+                      const lastGroup = messageGroups[messageGroups.length - 1];
+                      const lastIsAi =
+                        lastGroup && lastGroup.message.type === "ai";
+                      const lastIsIntermediate =
+                        lastIsAi &&
+                        lastGroup.stages.length === 0 &&
+                        extractFlowFromResponseMeta(lastGroup.message) === null;
+                      const lastIsPreStream =
+                        lastIsAi &&
+                        !!preStreamLastMsgIdRef.current &&
+                        lastGroup.message.id === preStreamLastMsgIdRef.current;
+                      const hasFinalResponse =
+                        lastIsAi && !lastIsIntermediate && !lastIsPreStream;
+                      if (!hasFinalResponse) {
+                        const hasLiveData =
+                          Object.keys(currentTurnValues).length > 0;
+                        const effectiveValues = hasLiveData
+                          ? currentTurnValues
+                          : rawStreamValues;
+                        const streamFlow =
+                          effectiveValues.active_methodology ||
+                          saisUiData.methodologyType;
+                        const streamSaisUi = (effectiveValues.sais_ui ??
+                          saisUiData.raw) as
+                          | Record<string, unknown>
+                          | undefined;
+                        const streamingStages = deriveStagesFromFlow(
+                          streamFlow,
+                          streamSaisUi,
+                        );
+                        const stageDetails =
+                          deriveStageDetails(effectiveValues);
+                        const enrichedStages = applyStageDetails(
+                          streamingStages,
+                          stageDetails,
+                        );
+                        const dynamicReveal = computeDynamicStageReveal(
+                          streamSaisUi,
+                          streamingStages,
+                        );
+                        const staticReveal = computeDataDrivenReveal(
+                          effectiveValues,
+                          streamingStages,
+                        );
+                        const minReveal = Math.max(dynamicReveal, staticReveal);
+                        console.debug(
+                          "[ThinkingIndicator] currentTurnId:",
+                          currentTurnId,
+                          "| hasLiveData:",
+                          hasLiveData,
+                          "| usingRawFallback:",
+                          !hasLiveData,
+                          "| dynamicReveal:",
+                          dynamicReveal,
+                          "| staticReveal:",
+                          staticReveal,
+                          "| minReveal:",
+                          minReveal,
+                          "| stages:",
+                          enrichedStages.length,
+                          "| flow:",
+                          streamFlow,
+                        );
+                        return (
+                          <ThinkingIndicator
+                            stages={enrichedStages}
+                            minRevealCount={minReveal}
+                            isPaused={hasActiveInterrupt}
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                  {/* Tool execution activity indicator (Phase 49-05) */}
+                  {isLoading && activityState.toolHistory.length > 0 && (
+                    <ChatActivityIndicator
+                      activity={activityState}
+                      isStreaming={isLoading}
+                    />
+                  )}
                   {/* Inline error indicator */}
                   {!isLoading && stream.error && (
                     <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
@@ -746,16 +898,20 @@ export function Thread() {
                           }
                         }}
                         placeholder={
-                          !threadId
-                            ? "Select a project and start a thread to begin."
+                          !threadId && !selectedProject
+                            ? "Select a project to begin."
                             : hasActiveInterrupt
                               ? "Approve or reject the pending decision to continue."
                               : "Type your message..."
                         }
-                        disabled={hasActiveInterrupt || !threadId}
+                        disabled={
+                          hasActiveInterrupt || (!threadId && !selectedProject)
+                        }
                         className={cn(
                           "field-sizing-content resize-none border-none bg-transparent p-3.5 pb-0 shadow-none ring-0 outline-none focus:ring-0 focus:outline-none",
-                          (hasActiveInterrupt || !threadId) && "cursor-not-allowed opacity-50",
+                          (hasActiveInterrupt ||
+                            (!threadId && !selectedProject)) &&
+                            "cursor-not-allowed opacity-50",
                         )}
                       />
 
@@ -812,11 +968,13 @@ export function Thread() {
                             disabled={
                               isLoading ||
                               hasActiveInterrupt ||
-                              !threadId ||
+                              (!threadId && !selectedProject) ||
                               (!input.trim() && contentBlocks.length === 0)
                             }
                           >
-                            Send
+                            {!threadId && selectedProject
+                              ? `Start thread in ${selectedProject.name}`
+                              : "Send"}
                           </Button>
                         )}
                       </div>
@@ -838,12 +996,18 @@ export function Thread() {
               className="flex-grow"
               threadId={threadId}
               onStartThread={handleStartThread}
+              onProjectSelect={setSelectedProject}
               currentThread={currentThread}
             />
           </div>
         </div>
 
-        <div className={cn("relative flex flex-col border-l", !artifactOpen && "hidden")}>
+        <div
+          className={cn(
+            "relative flex flex-col border-l",
+            !artifactOpen && "hidden",
+          )}
+        >
           <div className="absolute inset-0 flex min-w-[30vw] flex-col">
             <div className="grid grid-cols-[1fr_auto] border-b p-4">
               <ArtifactTitle className="truncate overflow-hidden" />

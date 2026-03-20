@@ -18,6 +18,8 @@ import { parseAnthropicStreamedToolCalls } from "./ai-helpers";
 import { CustomComponent, Interrupt } from "./ai-cards";
 import { LastMessageDecorations } from "./ai-decorations";
 import { HistoricalMessageContent } from "./ai-historical";
+import { TOOL_BLOCK_MAP, TOOL_CHAT_TEMPLATE } from "@/lib/panel-blocks/constants";
+import { PointerCard } from "./pointer-card";
 
 export function AssistantMessage({
   message,
@@ -73,20 +75,61 @@ export function AssistantMessage({
   const isToolResult = message?.type === "tool";
 
   // Extract response_metadata for per-message data (metadata grids, disambiguation)
-  const msgResponseMeta = message && "response_metadata" in message
-    ? (message as AIMessage).response_metadata
-    : undefined;
+  const msgResponseMeta =
+    message && "response_metadata" in message
+      ? (message as AIMessage).response_metadata
+      : undefined;
 
   if (isToolResult && hideToolCalls) {
     return null;
   }
 
   return (
-    <div className="group mr-auto flex w-full items-start gap-2" data-testid="ai-message">
+    <div
+      className="group mr-auto flex w-full items-start gap-2"
+      data-testid="ai-message"
+    >
       <div className="flex w-full flex-col gap-2">
         {isToolResult ? (
           <>
-            <ToolResult message={message} />
+            {/* Phase 49-05: Show PointerCard for tools that route to panel blocks */}
+            {message.name &&
+            message.name in TOOL_BLOCK_MAP ? (
+              <PointerCard
+                blockId={
+                  TOOL_BLOCK_MAP[
+                    message.name as keyof typeof TOOL_BLOCK_MAP
+                  ].blockId
+                }
+                summary={(() => {
+                  const template =
+                    TOOL_CHAT_TEMPLATE[
+                      message.name as keyof typeof TOOL_CHAT_TEMPLATE
+                    ];
+                  if (!template) return `${message.name} result`;
+                  try {
+                    const data =
+                      typeof message.content === "string"
+                        ? JSON.parse(message.content)
+                        : null;
+                    if (!data || typeof data !== "object") return template;
+                    return template.replace(
+                      /\{([^}]+)\}/g,
+                      (_: string, key: string) => {
+                        const val = (data as Record<string, unknown>)[key];
+                        return val !== undefined && val !== null
+                          ? String(val)
+                          : "?";
+                      },
+                    );
+                  } catch {
+                    return template.replace(/\{[^}]+\}/g, "?");
+                  }
+                })()}
+              />
+            ) : (
+              <ToolResult message={message} />
+            )}
             <Interrupt
               interrupt={threadInterrupt}
               isLastMessage={isLastMessage}
@@ -103,7 +146,9 @@ export function AssistantMessage({
                 message={message}
                 contentString={contentString}
                 isLoading={isLoading}
-                msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
+                msgResponseMeta={
+                  msgResponseMeta as Record<string, unknown> | undefined
+                }
                 stages={stages}
                 streamingValues={streamingValues}
               />
@@ -111,31 +156,37 @@ export function AssistantMessage({
               <HistoricalMessageContent
                 message={message}
                 contentString={contentString}
-                msgResponseMeta={msgResponseMeta as Record<string, unknown> | undefined}
+                msgResponseMeta={
+                  msgResponseMeta as Record<string, unknown> | undefined
+                }
                 stages={stages}
                 nextHumanMessage={nextHumanMessage}
               />
             )}
 
             {/* Tool calls: show inline only when no stages are available (fallback) */}
-            {!(stages && stages.length > 0) && !hideToolCalls && (hasToolCalls || hasAnthropicToolCalls) && (() => {
-              const toolCalls = (hasToolCalls && toolCallsHaveContents)
-                ? message.tool_calls
-                : hasAnthropicToolCalls
-                  ? anthropicStreamedToolCalls
-                  : undefined;
-              if (!toolCalls || toolCalls.length === 0) return null;
-              return (
-                <details className="mt-1">
-                  <summary className="cursor-pointer text-xs text-muted-foreground">
-                    Internal discussion ({toolCalls.length})
-                  </summary>
-                  <div className="mt-1 space-y-1">
-                    <ToolCalls toolCalls={toolCalls} />
-                  </div>
-                </details>
-              );
-            })()}
+            {!(stages && stages.length > 0) &&
+              !hideToolCalls &&
+              (hasToolCalls || hasAnthropicToolCalls) &&
+              (() => {
+                const toolCalls =
+                  hasToolCalls && toolCallsHaveContents
+                    ? message.tool_calls
+                    : hasAnthropicToolCalls
+                      ? anthropicStreamedToolCalls
+                      : undefined;
+                if (!toolCalls || toolCalls.length === 0) return null;
+                return (
+                  <details className="mt-1">
+                    <summary className="text-muted-foreground cursor-pointer text-xs">
+                      Internal discussion ({toolCalls.length})
+                    </summary>
+                    <div className="mt-1 space-y-1">
+                      <ToolCalls toolCalls={toolCalls} />
+                    </div>
+                  </details>
+                );
+              })()}
 
             {message && (
               <CustomComponent
