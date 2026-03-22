@@ -1,9 +1,8 @@
 /**
  * Message grouping and stage derivation for the thought process pane (UAT-4).
  *
- * SAIS uses a LangGraph node-based architecture (not LangChain tool-calling),
- * so every turn produces exactly one AIMessage. Stages are derived from the
- * deterministic graph flow: ground_entities → intent_router → [flow] → respond.
+ * SAIS uses a direct loop-entry architecture. Stages are derived from the
+ * deterministic runtime path plus focused-mode state emitted by the backend.
  *
  * Filtering strategy (metadata-driven, no content inspection):
  *
@@ -77,14 +76,16 @@ export interface GroupMessagesOptions {
 // Stage derivation from flow type
 // ---------------------------------------------------------------------------
 
-/** Standard stages that always run before any flow. */
+/** Standard stages that always run before any focused work. */
 const PRE_FLOW_STAGES: ThoughtStage[] = [
   { id: "resolve", label: "Resolving entities" },
-  { id: "intent", label: "Understanding intent" },
 ];
 
 /** The final stage that always runs. */
-const RESPOND_STAGE: ThoughtStage = { id: "respond", label: "Composing response" };
+const RESPOND_STAGE: ThoughtStage = {
+  id: "respond",
+  label: "Composing response",
+};
 
 // Fallback for threads without stage_definitions -- Phase 23.3 dynamic stages take priority
 // Flow-specific stages are now delivered dynamically via sais_ui.stage_definitions
@@ -140,7 +141,10 @@ export function deriveStagesFromSaisUi(
     : -1;
 
   // Read accumulated per-stage subtitles (backend accumulates in stage_subtitles map)
-  const stageSubtitles = (saisUi.stage_subtitles ?? {}) as Record<string, string>;
+  const stageSubtitles = (saisUi.stage_subtitles ?? {}) as Record<
+    string,
+    string
+  >;
 
   return defs.map((def, idx) => {
     // Two subtitle sources:
@@ -152,7 +156,10 @@ export function deriveStagesFromSaisUi(
     if (idx === currentIdx) {
       const subtitleKey = `${def.data_key}_subtitle`;
       const subtitle = saisUi[subtitleKey];
-      detail = typeof subtitle === "string" && subtitle.length > 0 ? subtitle : undefined;
+      detail =
+        typeof subtitle === "string" && subtitle.length > 0
+          ? subtitle
+          : undefined;
     }
     if (!detail && stageSubtitles[def.id]) {
       detail = stageSubtitles[def.id];
@@ -221,48 +228,22 @@ export function deriveStagesFromFlow(
   }
 
   // Fallback: generic single stage (dynamic stages not yet received from backend)
-  return [...PRE_FLOW_STAGES, { id: "flow-processing", label: "Processing" }, RESPOND_STAGE];
+  return [
+    ...PRE_FLOW_STAGES,
+    { id: "flow-processing", label: "Processing" },
+    RESPOND_STAGE,
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // Stage detail derivation from streaming state
 // ---------------------------------------------------------------------------
 
-/**
- * Deterministic intent→flow mapping matching backend flow_router.
- * Used during streaming to derive the correct flow stages before
- * flow_router sets active_methodology (which arrives too late for fast flows).
- */
-const INTENT_TO_FLOW: Record<string, string> = {
-  investigate: "investigation",
-  ask_question: "investigation",
-  ask_metadata: "catalog",
-  ask_status: "catalog",
-  recommend_next: "catalog",
-  general: "catalog",
-  build: "build",
-  refresh: "ops",
-  close_case: "ops",
-};
-
-/** Infer flow type from classified intent (available before flow_router runs). */
+/** Intent-based flow inference is removed in the post-classifier UI contract. */
 export function inferFlowFromIntent(intent: string | undefined): string | null {
-  if (!intent) return null;
-  return INTENT_TO_FLOW[intent] ?? null;
+  void intent;
+  return null;
 }
-
-/** Human-readable intent labels for display in the thought pane. */
-const INTENT_LABELS: Record<string, string> = {
-  investigate: "Investigation",
-  ask_question: "Data question",
-  ask_metadata: "Catalog query",
-  ask_status: "Status check",
-  recommend_next: "Recommendation",
-  general: "General",
-  build: "Build request",
-  refresh: "Refresh",
-  close_case: "Close case",
-};
 
 /**
  * Streaming state values used to derive stage details.
@@ -271,8 +252,6 @@ const INTENT_LABELS: Record<string, string> = {
 export interface StreamingStateValues {
   turn_id?: string;
   resolved_entities?: Record<string, { name?: string; entity_type?: string }>;
-  intent?: string;
-  intent_confidence?: number;
   active_methodology?: string;
   evidence_result?: {
     evidence?: Array<{ type?: string; title?: string }>;
@@ -320,21 +299,11 @@ export function deriveStageDetails(
       .map((e) => e?.name)
       .filter(Boolean);
     if (names.length > 0) {
-      const display = names.length <= 3
-        ? names.join(", ")
-        : `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
+      const display =
+        names.length <= 3
+          ? names.join(", ")
+          : `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
       details.resolve = `Found: ${display}`;
-    }
-  }
-
-  // Intent stage: show classified intent + confidence
-  if (values.intent) {
-    const label = INTENT_LABELS[values.intent] || values.intent;
-    const conf = values.intent_confidence;
-    if (conf && conf > 0) {
-      details.intent = `${label} (${Math.round(conf * 100)}%)`;
-    } else {
-      details.intent = label;
     }
   }
 
@@ -342,9 +311,9 @@ export function deriveStageDetails(
   // Stage ID "collecting" matches backend StageDefinition in investigation_flow.py
   const evidenceResult = values.evidence_result;
   if (evidenceResult?.evidence && evidenceResult.evidence.length > 0) {
-    const types = [...new Set(
-      evidenceResult.evidence.map((e) => e.type).filter(Boolean),
-    )];
+    const types = [
+      ...new Set(evidenceResult.evidence.map((e) => e.type).filter(Boolean)),
+    ];
     const count = evidenceResult.evidence.length;
     details.collecting = `${count} piece${count !== 1 ? "s" : ""}: ${types.join(", ")}`;
   }
@@ -357,7 +326,10 @@ export function deriveStageDetails(
       const typeLabel = cc.entity_type || "items";
       details.scanning = `${cc.count} ${typeLabel} found`;
     }
-  } else if (evidenceResult?.metadata_results && evidenceResult.metadata_results.length > 0) {
+  } else if (
+    evidenceResult?.metadata_results &&
+    evidenceResult.metadata_results.length > 0
+  ) {
     const count = evidenceResult.metadata_results.length;
     details.scanning = `${count} result${count !== 1 ? "s" : ""} found`;
   }
@@ -379,22 +351,20 @@ export function deriveStageDetails(
     }
     if (rp.status === "evaluating" && rp.verdict) {
       const v = rp.verdict;
-      const confPct = v.confidence != null ? `${Math.round(v.confidence * 100)}%` : "";
-      const iterLabel = rp.iteration != null && rp.max_iterations
-        ? `${rp.iteration + 1}/${rp.max_iterations}`
-        : "";
+      const confPct =
+        v.confidence != null ? `${Math.round(v.confidence * 100)}%` : "";
+      const iterLabel =
+        rp.iteration != null && rp.max_iterations
+          ? `${rp.iteration + 1}/${rp.max_iterations}`
+          : "";
       // Eval is part of the research stage
-      details.research = [iterLabel, confPct ? `confidence ${confPct}` : ""]
-        .filter(Boolean)
-        .join(" — ") || "Evaluating";
+      details.research =
+        [iterLabel, confPct ? `confidence ${confPct}` : ""]
+          .filter(Boolean)
+          .join(" — ") || "Evaluating";
     }
   }
-  if (saisUi?.methodology_stage === "plan") {
-    const level = (values as Record<string, unknown>).rpabv_level;
-    if (typeof level === "number" && level > 0) {
-      details.plan = `L${level} execution plan`;
-    }
-  }
+  // Phase 62-05: rpabv_level plan stage display removed (dead persisted state)
   if (saisUi?.validation_progress) {
     const vp = saisUi.validation_progress;
     if (vp.steps_checked != null) {
@@ -441,27 +411,40 @@ export function computeDataDrivenReveal(
     const id = stages[i].id;
     if (id === "resolve" && values.resolved_entities !== undefined) {
       lastCompletedIdx = i;
-    } else if (id === "intent" && values.intent !== undefined) {
-      lastCompletedIdx = i;
     } else if (id === "research" && saisUi?.research_progress !== undefined) {
       if (saisUi.research_progress.status === "evaluating") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // research in progress
       }
-    } else if (id === "plan" && (saisUi?.methodology_stage === "plan" || saisUi?.methodology_stage === "approve" || saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+    } else if (
+      id === "plan" &&
+      (saisUi?.methodology_stage === "plan" ||
+        saisUi?.methodology_stage === "approve" ||
+        saisUi?.methodology_stage === "build" ||
+        saisUi?.methodology_stage === "verify")
+    ) {
       if (saisUi?.methodology_stage !== "plan") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // plan in progress
       }
-    } else if (id === "approve" && (saisUi?.methodology_stage === "approve" || saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+    } else if (
+      id === "approve" &&
+      (saisUi?.methodology_stage === "approve" ||
+        saisUi?.methodology_stage === "build" ||
+        saisUi?.methodology_stage === "verify")
+    ) {
       if (saisUi?.methodology_stage !== "approve") {
         lastCompletedIdx = i;
       } else {
         return i + 1; // approve in progress
       }
-    } else if (id === "build" && (saisUi?.methodology_stage === "build" || saisUi?.methodology_stage === "verify")) {
+    } else if (
+      id === "build" &&
+      (saisUi?.methodology_stage === "build" ||
+        saisUi?.methodology_stage === "verify")
+    ) {
       if (saisUi?.methodology_stage === "verify") {
         lastCompletedIdx = i;
       } else {
@@ -469,8 +452,14 @@ export function computeDataDrivenReveal(
       }
     } else if (id === "verify" && saisUi?.methodology_stage === "verify") {
       lastCompletedIdx = i;
-    } else if (values.active_methodology !== undefined && !["resolve", "intent", "respond"].includes(id)) {
-      if (values.evidence_result !== undefined || values.findings !== undefined) {
+    } else if (
+      values.active_methodology !== undefined &&
+      !["resolve", "intent", "respond"].includes(id)
+    ) {
+      if (
+        values.evidence_result !== undefined ||
+        values.findings !== undefined
+      ) {
         lastCompletedIdx = i;
       } else {
         return i + 1;
@@ -509,9 +498,10 @@ export function extractFlowFromResponseMeta(
   message: Message | undefined,
 ): string | null {
   if (!message || message.type !== "ai") return null;
-  const meta = "response_metadata" in message
-    ? (message as AIMessage).response_metadata
-    : undefined;
+  const meta =
+    "response_metadata" in message
+      ? (message as AIMessage).response_metadata
+      : undefined;
   if (!meta || typeof meta !== "object") return null;
   const flow = (meta as Record<string, unknown>).active_methodology;
   return typeof flow === "string" && flow.length > 0 ? flow : null;
@@ -570,12 +560,15 @@ export function groupMessages(
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].type === "ai") {
       const c = getContentString(messages[i].content ?? []);
-      const m = "response_metadata" in messages[i]
-        ? (messages[i] as AIMessage).response_metadata
-        : undefined;
-      const hb = m && typeof m === "object"
-        && Array.isArray((m as Record<string, unknown>).blocks)
-        && ((m as Record<string, unknown>).blocks as unknown[]).length > 0;
+      const m =
+        "response_metadata" in messages[i]
+          ? (messages[i] as AIMessage).response_metadata
+          : undefined;
+      const hb =
+        m &&
+        typeof m === "object" &&
+        Array.isArray((m as Record<string, unknown>).blocks) &&
+        ((m as Record<string, unknown>).blocks as unknown[]).length > 0;
       if (c.trim().length > 0 || hb) {
         lastRenderableAiIdx = i;
         break;
@@ -585,12 +578,14 @@ export function groupMessages(
 
   // saisUi with stage_subtitles stripped — provides stage definitions without
   // cross-contaminating subtitles from later stages onto earlier messages.
-  const saisUiStructureOnly = saisUi ? (() => {
-    const copy = { ...saisUi };
-    delete copy.stage_subtitles;
-    delete copy.methodology_stage_subtitle;
-    return copy;
-  })() : null;
+  const saisUiStructureOnly = saisUi
+    ? (() => {
+        const copy = { ...saisUi };
+        delete copy.stage_subtitles;
+        delete copy.methodology_stage_subtitle;
+        return copy;
+      })()
+    : null;
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
@@ -608,12 +603,15 @@ export function groupMessages(
     if (msg.type === "ai") {
       const content = getContentString(msg.content ?? []);
       // Check for blocks in response_metadata (Phase 23.4 blocks model)
-      const meta = "response_metadata" in msg
-        ? (msg as AIMessage).response_metadata
-        : undefined;
-      const hasBlocks = meta && typeof meta === "object"
-        && Array.isArray((meta as Record<string, unknown>).blocks)
-        && ((meta as Record<string, unknown>).blocks as unknown[]).length > 0;
+      const meta =
+        "response_metadata" in msg
+          ? (msg as AIMessage).response_metadata
+          : undefined;
+      const hasBlocks =
+        meta &&
+        typeof meta === "object" &&
+        Array.isArray((meta as Record<string, unknown>).blocks) &&
+        ((meta as Record<string, unknown>).blocks as unknown[]).length > 0;
 
       if (content.trim().length === 0 && !hasBlocks) {
         // Tool-only AI messages with no text content and no blocks — skip
@@ -630,7 +628,9 @@ export function groupMessages(
       const isCurrentTurn = i >= lastHumanIdx;
       const isLastAi = i === lastRenderableAiIdx;
       const uiForStages = isCurrentTurn
-        ? (isLastAi ? saisUi : saisUiStructureOnly)
+        ? isLastAi
+          ? saisUi
+          : saisUiStructureOnly
         : null;
 
       // All REST-sourced messages are final — render with stages
@@ -651,9 +651,10 @@ export function groupMessages(
     const grp = groups[i];
     if (grp.message.type !== "ai") continue;
 
-    const meta = "response_metadata" in grp.message
-      ? (grp.message as AIMessage).response_metadata
-      : undefined;
+    const meta =
+      "response_metadata" in grp.message
+        ? (grp.message as AIMessage).response_metadata
+        : undefined;
     if (!meta || typeof meta !== "object") continue;
 
     const blocks = (meta as Record<string, unknown>).blocks as
@@ -662,7 +663,9 @@ export function groupMessages(
     if (!Array.isArray(blocks)) continue;
 
     const decisionBlock = blocks.find(
-      (b) => b.type === "interrupt_decision" || b.block_type === "interrupt_decision",
+      (b) =>
+        b.type === "interrupt_decision" ||
+        b.block_type === "interrupt_decision",
     );
     if (!decisionBlock) continue;
 
@@ -671,9 +674,10 @@ export function groupMessages(
       const cardGrp = groups[j];
       if (cardGrp.message.type !== "ai") continue;
 
-      const cardMeta = "response_metadata" in cardGrp.message
-        ? (cardGrp.message as AIMessage).response_metadata
-        : undefined;
+      const cardMeta =
+        "response_metadata" in cardGrp.message
+          ? (cardGrp.message as AIMessage).response_metadata
+          : undefined;
       if (!cardMeta || typeof cardMeta !== "object") continue;
 
       const cardBlocks = (cardMeta as Record<string, unknown>).blocks as

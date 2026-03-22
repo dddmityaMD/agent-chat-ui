@@ -16,7 +16,13 @@ import {
   extractBuildPlanStatus,
   extractBuildVerification,
 } from "@/hooks/useSaisUi";
-import type { Blocker, MultiIntentPayload, BuildPlan, BuildPlanStatus, VerificationResult } from "@/lib/types";
+import type {
+  Blocker,
+  MultiIntentPayload,
+  BuildPlan,
+  BuildPlanStatus,
+  VerificationResult,
+} from "@/lib/types";
 import type { RemediationProposalData } from "@/components/remediation/DiffCard";
 import { EntityType } from "@/components/query";
 
@@ -29,9 +35,7 @@ export interface InterruptDecisionRecord {
   decision: "approved" | "rejected";
   feedback?: string | null;
   artifacts?: any[];
-  rpabv_level?: number;
   rpabv_progress?: any;
-  rpabv_status?: string;
   plan?: any;
   intent?: string;
   entities?: string[];
@@ -47,7 +51,10 @@ export interface MetadataSection {
 }
 
 /** metadata_results from sais_ui payload — list (new), flat (legacy single type), or sectioned (legacy mixed) */
-export type MetadataResults = MetadataSection[] | MetadataSection | { sections: MetadataSection[] };
+export type MetadataResults =
+  | MetadataSection[]
+  | MetadataSection
+  | { sections: MetadataSection[] };
 
 /** Handoff proposal from sais_ui payload */
 export interface HandoffProposal {
@@ -83,7 +90,11 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
 export function isValidSection(s: unknown): s is MetadataSection {
   if (!s || typeof s !== "object") return false;
   const obj = s as Record<string, unknown>;
-  return typeof obj.entity_type === "string" && Array.isArray(obj.items) && typeof obj.total === "number";
+  return (
+    typeof obj.entity_type === "string" &&
+    Array.isArray(obj.items) &&
+    typeof obj.total === "number"
+  );
 }
 
 /** Type guard for sais_ui payload — accepts list (new), flat (legacy single type), or sectioned (legacy mixed) */
@@ -109,7 +120,8 @@ export function toSections(mr: MetadataResults): MetadataSection[] {
   // New list format: already an array of sections
   if (Array.isArray(mr)) return mr.filter(isValidSection);
   // Legacy sectioned format: { sections: [...] }
-  if ("sections" in mr && Array.isArray(mr.sections)) return mr.sections.filter(isValidSection);
+  if ("sections" in mr && Array.isArray(mr.sections))
+    return mr.sections.filter(isValidSection);
   // Legacy flat format: single MetadataSection
   if (isValidSection(mr)) return [mr];
   return [];
@@ -118,12 +130,19 @@ export function toSections(mr: MetadataResults): MetadataSection[] {
 // ---- Extractor / adapter functions ----
 
 /** Extract an interrupt decision record from response_metadata, if present */
-export function getInterruptDecision(meta: Record<string, unknown> | undefined): InterruptDecisionRecord | null {
+export function getInterruptDecision(
+  meta: Record<string, unknown> | undefined,
+): InterruptDecisionRecord | null {
   if (!meta || typeof meta !== "object") return null;
   const decision = meta.interrupt_decision;
   if (!decision || typeof decision !== "object") return null;
   const d = decision as Record<string, unknown>;
-  if (typeof d.type !== "string" || typeof d.message !== "string" || typeof d.decision !== "string") return null;
+  if (
+    typeof d.type !== "string" ||
+    typeof d.message !== "string" ||
+    typeof d.decision !== "string"
+  )
+    return null;
   if (d.decision !== "approved" && d.decision !== "rejected") return null;
   return d as unknown as InterruptDecisionRecord;
 }
@@ -141,7 +160,9 @@ export function getHandoffProposal(saisUi: unknown): HandoffProposal | null {
   };
 }
 
-export function getRemediationProposals(saisUi: unknown): RemediationProposalData[] | null {
+export function getRemediationProposals(
+  saisUi: unknown,
+): RemediationProposalData[] | null {
   const proposals = extractRemediationProposals(saisUi);
   if (proposals.length === 0) return null;
   const valid = proposals.every(
@@ -160,7 +181,9 @@ export function getBlockers(saisUi: unknown): Blocker[] | null {
   return blockers as Blocker[];
 }
 
-export function getConfidenceData(saisUi: unknown): { level: "high" | "medium" | "low"; reason?: string } | null {
+export function getConfidenceData(
+  saisUi: unknown,
+): { level: "high" | "medium" | "low"; reason?: string } | null {
   const confidence = extractConfidence(saisUi);
   if (!confidence) return null;
   const c = confidence as Record<string, unknown>;
@@ -173,11 +196,14 @@ export function getConfidenceData(saisUi: unknown): { level: "high" | "medium" |
   };
 }
 
-export function getMultiIntentPayload(saisUi: unknown): MultiIntentPayload | null {
+export function getMultiIntentPayload(
+  saisUi: unknown,
+): MultiIntentPayload | null {
   const mi = extractMultiIntent(saisUi);
   if (!mi) return null;
   const payload = mi as Record<string, unknown>;
-  if (!Array.isArray(payload.intents) || !Array.isArray(payload.results)) return null;
+  if (!Array.isArray(payload.intents) || !Array.isArray(payload.results))
+    return null;
   if (payload.intents.length < 2) return null;
   return {
     intents: payload.intents as MultiIntentPayload["intents"],
@@ -206,11 +232,22 @@ export function getBuildPlan(saisUi: unknown): BuildPlan | null {
 export function getBuildPlanStatus(saisUi: unknown): BuildPlanStatus | null {
   const status = extractBuildPlanStatus(saisUi);
   if (!status) return null;
-  const validStatuses: BuildPlanStatus[] = ["proposed", "approved", "rejected", "executing", "completed", "failed"];
-  return validStatuses.includes(status as BuildPlanStatus) ? (status as BuildPlanStatus) : null;
+  const validStatuses: BuildPlanStatus[] = [
+    "proposed",
+    "approved",
+    "rejected",
+    "executing",
+    "completed",
+    "failed",
+  ];
+  return validStatuses.includes(status as BuildPlanStatus)
+    ? (status as BuildPlanStatus)
+    : null;
 }
 
-export function getBuildVerificationResult(saisUi: unknown): VerificationResult | null {
+export function getBuildVerificationResult(
+  saisUi: unknown,
+): VerificationResult | null {
   const verificationResult = extractBuildVerification(saisUi);
   if (!verificationResult) return null;
   const result = verificationResult as Record<string, unknown>;

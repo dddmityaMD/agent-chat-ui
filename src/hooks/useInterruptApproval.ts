@@ -12,18 +12,17 @@ export type SaisInterruptType =
   | "discussion_approval";
 
 export interface SaisInterruptArtifact {
-  type: string;         // e.g., "models_found", "schema_discovered", "dbt_run_output"
-  label: string;        // Human-readable label
-  items?: any[];        // Optional list of items
-  summary?: string;     // Optional summary text
+  type: string; // e.g., "models_found", "schema_discovered", "dbt_run_output"
+  label: string; // Human-readable label
+  items?: any[]; // Optional list of items
+  summary?: string; // Optional summary text
 }
 
 export interface SaisInterruptValue {
   type: SaisInterruptType;
   message: string;
   plan?: Record<string, any>;
-  artifacts?: SaisInterruptArtifact[];  // Gate-specific artifacts (research, verify)
-  rpabv_level?: number;
+  artifacts?: SaisInterruptArtifact[]; // Gate-specific artifacts (research, verify)
   rpabv_progress?: {
     level: number;
     stage: string;
@@ -32,7 +31,6 @@ export interface SaisInterruptValue {
     completed_steps: number[];
     failed_step: number | null;
   };
-  rpabv_status?: string;
   intent?: string;
   entities?: string[];
   step_index?: number;
@@ -44,12 +42,22 @@ export interface SaisInterruptValue {
  * (plan_approval, gate_confirmation, pipeline_resumption, research_approval, verify_approval).
  * Returns false for HITLRequest-shaped interrupts (those go to agent-inbox).
  */
-export function isSaisInterruptSchema(value: unknown): value is SaisInterruptValue {
+export function isSaisInterruptSchema(
+  value: unknown,
+): value is SaisInterruptValue {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.type === "string" &&
-    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval", "assumptions_approval", "discussion_approval"].includes(v.type) &&
+    [
+      "plan_approval",
+      "gate_confirmation",
+      "pipeline_resumption",
+      "research_approval",
+      "verify_approval",
+      "assumptions_approval",
+      "discussion_approval",
+    ].includes(v.type) &&
     typeof v.message === "string"
   );
 }
@@ -59,12 +67,22 @@ export function isSaisInterruptSchema(value: unknown): value is SaisInterruptVal
  * `type` field (the new pre-gate/gate split emits minimal interrupt payloads
  * that may not include `message`).
  */
-export function isSaisInterruptType(value: unknown): value is { type: SaisInterruptType } {
+export function isSaisInterruptType(
+  value: unknown,
+): value is { type: SaisInterruptType } {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.type === "string" &&
-    ["plan_approval", "gate_confirmation", "pipeline_resumption", "research_approval", "verify_approval", "assumptions_approval", "discussion_approval"].includes(v.type)
+    [
+      "plan_approval",
+      "gate_confirmation",
+      "pipeline_resumption",
+      "research_approval",
+      "verify_approval",
+      "assumptions_approval",
+      "discussion_approval",
+    ].includes(v.type)
   );
 }
 
@@ -117,17 +135,28 @@ export function useInterruptApproval() {
   const handleApprove = () => {
     try {
       setLoading(true);
-      thread.submit({}, {
-        command: { resume: { approved: true } },
-        optimisticValues: (prev) => ({
-          ...prev,
-          messages: prev.messages ?? [],
-        }),
+      thread.submit(
+        {},
+        {
+          command: { resume: { approved: true } },
+          optimisticValues: (prev) => ({
+            ...prev,
+            messages: prev.messages ?? [],
+          }),
+        },
+      );
+      toast("Approved", {
+        description: "Proceeding with the action.",
+        duration: 3000,
       });
-      toast("Approved", { description: "Proceeding with the action.", duration: 3000 });
     } catch (error) {
       console.error("Error sending approval", error);
-      toast.error("Error", { description: "Failed to submit approval.", richColors: true, closeButton: true, duration: 5000 });
+      toast.error("Error", {
+        description: "Failed to submit approval.",
+        richColors: true,
+        closeButton: true,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -140,17 +169,25 @@ export function useInterruptApproval() {
       if (feedback?.trim()) {
         resumeValue.feedback = feedback.trim();
       }
-      thread.submit({}, {
-        command: { resume: resumeValue },
-        optimisticValues: (prev) => ({
-          ...prev,
-          messages: prev.messages ?? [],
-        }),
-      });
+      thread.submit(
+        {},
+        {
+          command: { resume: resumeValue },
+          optimisticValues: (prev) => ({
+            ...prev,
+            messages: prev.messages ?? [],
+          }),
+        },
+      );
       toast("Rejected", { description: "Action cancelled.", duration: 3000 });
     } catch (error) {
       console.error("Error sending rejection", error);
-      toast.error("Error", { description: "Failed to submit rejection.", richColors: true, closeButton: true, duration: 5000 });
+      toast.error("Error", {
+        description: "Failed to submit rejection.",
+        richColors: true,
+        closeButton: true,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -164,17 +201,25 @@ export function useInterruptApproval() {
   const handleSubmit = (payload: Record<string, unknown>) => {
     try {
       setLoading(true);
-      thread.submit({}, {
-        command: { resume: payload },
-        optimisticValues: (prev) => ({
-          ...prev,
-          messages: prev.messages ?? [],
-        }),
-      });
+      thread.submit(
+        {},
+        {
+          command: { resume: payload },
+          optimisticValues: (prev) => ({
+            ...prev,
+            messages: prev.messages ?? [],
+          }),
+        },
+      );
       toast("Submitted", { description: "Response sent.", duration: 3000 });
     } catch (error) {
       console.error("Error sending submit", error);
-      toast.error("Error", { description: "Failed to submit response.", richColors: true, closeButton: true, duration: 5000 });
+      toast.error("Error", {
+        description: "Failed to submit response.",
+        richColors: true,
+        closeButton: true,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
