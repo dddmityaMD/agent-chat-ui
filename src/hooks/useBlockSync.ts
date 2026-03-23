@@ -235,11 +235,11 @@ export function useBlockSync(
     }
   }, [threadId]);
 
-  // Process streaming values for block-relevant events
+  // Process streaming values for block-relevant events.
+  // Hydrate during streaming AND when streaming ends (final state).
   useEffect(() => {
-    if (!streamValues || !isStreaming) return;
+    if (!streamValues) return;
 
-    // sais_ui hydration (backward compat)
     const saisUi = streamValues.sais_ui as Record<string, unknown> | undefined;
     if (saisUi && typeof saisUi === "object") {
       hydrateBlocksFromSaisUi(saisUi, actions);

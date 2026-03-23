@@ -24,6 +24,7 @@ export const SA_LEVEL_ORDER: SALevel[] = ["action", "l1", "l2", "l3"];
  * Explicit block_update in tool return takes priority over this map.
  */
 export const TOOL_BLOCK_MAP = {
+  browse_catalog: { blockId: "entity-map", level: "l2" },
   resolve_entity: { blockId: "entity-map", level: "l2" },
   confirm_entity: { blockId: "entity-map", level: "l2" },
   describe_columns: { blockId: "data-profile", level: "l2" },
@@ -38,22 +39,39 @@ export const TOOL_BLOCK_MAP = {
 } as const satisfies Record<string, { blockId: string; level: SALevel }>;
 
 // ---------------------------------------------------------------------------
-// Chat one-liner templates (D-13)
+// Chat one-liner derivation
 // ---------------------------------------------------------------------------
 
 /**
- * Maps tool names to human-readable one-liner templates for chat display.
- * Placeholders in {braces} are filled from tool result data.
+ * Derive a one-liner summary from tool result content.
+ * Extracts the first meaningful line, truncated to maxLen chars.
  */
-export const TOOL_CHAT_TEMPLATE = {
-  resolve_entity: "Found {name} ({type}), confidence {score}",
-  describe_columns: "{table}: {col_count} columns, {null_pct}% avg nulls",
-  postgres_query: "Query returned {row_count} rows",
-  metabase_query: "Fetched {item_count} items from Metabase",
-  dbt_query: "Found {model_count} dbt models",
-  trace_lineage: "Traced lineage: {hop_count} hops",
-  submit_plan: "Plan proposed: {step_count} steps -> see panel",
-  write_file: "Created {path} ({line_count} lines)",
-  submit_findings: "Findings ready -> see panel",
-  build_dashboard: "Dashboard created: {dashboard_name}",
-} as const;
+export function deriveOneLiner(
+  content: string | unknown,
+  maxLen = 120,
+): string | null {
+  const str = typeof content === "string" ? content : null;
+  if (!str || str.trim().length === 0) return null;
+
+  // Try to parse as JSON and extract a meaningful field
+  try {
+    const parsed = JSON.parse(str);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      // Look for common summary fields
+      const summaryField = parsed.summary ?? parsed.message ?? parsed.result ?? parsed.status;
+      if (typeof summaryField === "string" && summaryField.length > 0) {
+        return summaryField.length > maxLen
+          ? summaryField.slice(0, maxLen) + "..."
+          : summaryField;
+      }
+    }
+  } catch {
+    // Not JSON — use first line
+  }
+
+  const firstLine = str.split("\n")[0].trim();
+  if (firstLine.length === 0) return null;
+  return firstLine.length > maxLen
+    ? firstLine.slice(0, maxLen) + "..."
+    : firstLine;
+}

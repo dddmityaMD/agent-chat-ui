@@ -27,5 +27,5 @@ export type {
 export {
   SA_LEVEL_ORDER,
   TOOL_BLOCK_MAP,
-  TOOL_CHAT_TEMPLATE,
+  deriveOneLiner,
 } from "./constants";

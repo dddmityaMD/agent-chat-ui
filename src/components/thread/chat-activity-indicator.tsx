@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Wrench,
 } from "lucide-react";
-import { TOOL_CHAT_TEMPLATE } from "@/lib/panel-blocks/constants";
+import { deriveOneLiner } from "@/lib/panel-blocks/constants";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -54,21 +54,14 @@ function getSubagentLabel(id: string | null): string {
 }
 
 /**
- * Fill a TOOL_CHAT_TEMPLATE template with tool result data.
- * Missing placeholders are replaced with "?".
+ * Derive a one-liner from tool result data.
  */
-function fillChatTemplate(
-  toolName: string,
+function getToolSummary(
+  _toolName: string,
   resultData?: Record<string, unknown>,
 ): string | null {
-  const template =
-    TOOL_CHAT_TEMPLATE[toolName as keyof typeof TOOL_CHAT_TEMPLATE];
-  if (!template) return null;
-  if (!resultData) return template.replace(/\{[^}]+\}/g, "?");
-  return template.replace(/\{([^}]+)\}/g, (_, key: string) => {
-    const val = resultData[key];
-    return val !== undefined && val !== null ? String(val) : "?";
-  });
+  if (!resultData) return null;
+  return deriveOneLiner(JSON.stringify(resultData));
 }
 
 function formatDuration(ms: number): string {
@@ -91,7 +84,7 @@ function ToolExecutionLine({
   tool: ToolExecution;
   index: number;
 }) {
-  const summary = fillChatTemplate(tool.name, tool.resultData);
+  const summary = getToolSummary(tool.name, tool.resultData);
 
   return (
     <div className="flex items-start gap-2 py-0.5 text-xs">
@@ -135,7 +128,7 @@ interface ChatActivityIndicatorProps {
  * Replaces the old thought-process-pane (D-17).
  *
  * During execution: Shows subagent name, iteration, current tool with spinner,
- * and last 2 completed tools with one-liner summaries from TOOL_CHAT_TEMPLATE.
+ * and last 2 completed tools with one-liner summaries derived from result content.
  * Expandable to show full tool trace.
  *
  * After execution: Collapses to single-line summary "N tools executed (Xs)".

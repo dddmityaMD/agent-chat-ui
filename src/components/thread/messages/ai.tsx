@@ -7,19 +7,22 @@
 
 import React from "react";
 import { useStreamContext } from "@/providers/Stream";
-import { AIMessage, Message } from "@langchain/langgraph-sdk";
+import { AIMessage, Message, ToolMessage } from "@langchain/langgraph-sdk";
 import { getContentString } from "../utils";
 import { BranchSwitcher, CommandBar } from "./shared";
-import { ToolCalls, ToolResult } from "./tool-calls";
+import { ToolResult } from "./tool-calls";
 import { cn } from "@/lib/utils";
 import { useQueryState, parseAsBoolean } from "nuqs";
-import type { ThoughtStage, StreamingStateValues } from "@/lib/message-groups";
+import type { ThoughtStage, StreamingStateValues, ToolInteraction } from "@/lib/message-groups";
 import { parseAnthropicStreamedToolCalls } from "./ai-helpers";
 import { CustomComponent, Interrupt } from "./ai-cards";
 import { LastMessageDecorations } from "./ai-decorations";
 import { HistoricalMessageContent } from "./ai-historical";
-import { TOOL_BLOCK_MAP, TOOL_CHAT_TEMPLATE } from "@/lib/panel-blocks/constants";
-import { PointerCard } from "./pointer-card";
+
+function formatToolSectionLabel(displayName: string | undefined, toolCount: number): string {
+  const suffix = `${toolCount} tool${toolCount !== 1 ? "s" : ""}`;
+  return displayName ? `${displayName} (${suffix})` : suffix;
+}
 
 export function AssistantMessage({
   message,
@@ -28,6 +31,8 @@ export function AssistantMessage({
   stages,
   nextHumanMessage,
   streamingValues,
+  toolInteractions,
+  methodologyDisplayName,
 }: {
   message: Message | undefined;
   isLoading: boolean;
@@ -38,6 +43,10 @@ export function AssistantMessage({
   nextHumanMessage?: Message;
   /** Live streaming state values — only passed to the last message during streaming */
   streamingValues?: StreamingStateValues;
+  /** Collected tool interactions from intermediate messages in this turn */
+  toolInteractions?: ToolInteraction[];
+  /** Backend-provided display name for the methodology */
+  methodologyDisplayName?: string;
 }) {
   const content = message?.content ?? [];
   const contentString = getContentString(content);
@@ -57,22 +66,6 @@ export function AssistantMessage({
   const threadInterrupt = thread.interrupt;
 
   const parentCheckpoint = meta?.firstSeenState?.parent_checkpoint;
-  const anthropicStreamedToolCalls = Array.isArray(content)
-    ? parseAnthropicStreamedToolCalls(content)
-    : undefined;
-
-  const hasToolCalls =
-    message &&
-    "tool_calls" in message &&
-    message.tool_calls &&
-    message.tool_calls.length > 0;
-  const toolCallsHaveContents =
-    hasToolCalls &&
-    message.tool_calls?.some(
-      (tc) => tc.args && Object.keys(tc.args).length > 0,
-    );
-  const hasAnthropicToolCalls = !!anthropicStreamedToolCalls?.length;
-  const isToolResult = message?.type === "tool";
 
   // Extract response_metadata for per-message data (metadata grids, disambiguation)
   const msgResponseMeta =
@@ -80,146 +73,109 @@ export function AssistantMessage({
       ? (message as AIMessage).response_metadata
       : undefined;
 
-  if (isToolResult && hideToolCalls) {
-    return null;
-  }
-
   return (
     <div
       className="group mr-auto flex w-full items-start gap-2"
       data-testid="ai-message"
     >
       <div className="flex w-full flex-col gap-2">
-        {isToolResult ? (
-          <>
-            {/* Phase 49-05: Show PointerCard for tools that route to panel blocks */}
-            {message.name &&
-            message.name in TOOL_BLOCK_MAP ? (
-              <PointerCard
-                blockId={
-                  TOOL_BLOCK_MAP[
-                    message.name as keyof typeof TOOL_BLOCK_MAP
-                  ].blockId
-                }
-                summary={(() => {
-                  const template =
-                    TOOL_CHAT_TEMPLATE[
-                      message.name as keyof typeof TOOL_CHAT_TEMPLATE
-                    ];
-                  if (!template) return `${message.name} result`;
-                  try {
-                    const data =
-                      typeof message.content === "string"
-                        ? JSON.parse(message.content)
-                        : null;
-                    if (!data || typeof data !== "object") return template;
-                    return template.replace(
-                      /\{([^}]+)\}/g,
-                      (_: string, key: string) => {
-                        const val = (data as Record<string, unknown>)[key];
-                        return val !== undefined && val !== null
-                          ? String(val)
-                          : "?";
-                      },
-                    );
-                  } catch {
-                    return template.replace(/\{[^}]+\}/g, "?");
-                  }
-                })()}
-              />
-            ) : (
-              <ToolResult message={message} />
-            )}
-            <Interrupt
-              interrupt={threadInterrupt}
-              isLastMessage={isLastMessage}
-              hasNoAIOrToolMessages={hasNoAIOrToolMessages}
-            />
-          </>
-        ) : (
-          <>
-            {/* Only the last message renders sais_ui-dependent decorations.
-                Historical messages render content only (no useSaisUi subscription),
-                preventing re-renders when new stream data arrives (UX-05). */}
-            {isLastMessage ? (
-              <LastMessageDecorations
-                message={message}
-                contentString={contentString}
-                isLoading={isLoading}
-                msgResponseMeta={
-                  msgResponseMeta as Record<string, unknown> | undefined
-                }
-                stages={stages}
-                streamingValues={streamingValues}
-              />
-            ) : (
-              <HistoricalMessageContent
-                message={message}
-                contentString={contentString}
-                msgResponseMeta={
-                  msgResponseMeta as Record<string, unknown> | undefined
-                }
-                stages={stages}
-                nextHumanMessage={nextHumanMessage}
-              />
-            )}
-
-            {/* Tool calls: show inline only when no stages are available (fallback) */}
-            {!(stages && stages.length > 0) &&
-              !hideToolCalls &&
-              (hasToolCalls || hasAnthropicToolCalls) &&
-              (() => {
-                const toolCalls =
-                  hasToolCalls && toolCallsHaveContents
-                    ? message.tool_calls
-                    : hasAnthropicToolCalls
-                      ? anthropicStreamedToolCalls
-                      : undefined;
-                if (!toolCalls || toolCalls.length === 0) return null;
-                return (
-                  <details className="mt-1">
-                    <summary className="text-muted-foreground cursor-pointer text-xs">
-                      Internal discussion ({toolCalls.length})
-                    </summary>
-                    <div className="mt-1 space-y-1">
-                      <ToolCalls toolCalls={toolCalls} />
+        {/* Tool interactions — one unified "Internal discussion" section */}
+        {!hideToolCalls &&
+          toolInteractions &&
+          toolInteractions.length > 0 && (
+            <details className="w-full">
+              <summary className="text-muted-foreground cursor-pointer text-xs">
+                {formatToolSectionLabel(methodologyDisplayName, toolInteractions.length)}
+              </summary>
+              <div className="mt-1 space-y-1">
+                {toolInteractions.map((ti, idx) =>
+                  ti.result ? (
+                    <ToolResult
+                      key={ti.result.id ?? idx}
+                      message={ti.result as ToolMessage}
+                      toolName={ti.toolName}
+                    />
+                  ) : (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md",
+                        "border border-border/60 bg-muted/20 px-3 py-1.5",
+                        "text-xs text-muted-foreground",
+                      )}
+                    >
+                      <code className="font-mono text-foreground/80">
+                        {ti.toolName}
+                      </code>
+                      <span className="text-muted-foreground/50">
+                        (no result)
+                      </span>
                     </div>
-                  </details>
-                );
-              })()}
+                  ),
+                )}
+              </div>
+            </details>
+          )}
 
-            {message && (
-              <CustomComponent
-                message={message}
-                thread={thread}
-              />
-            )}
-            <Interrupt
-              interrupt={threadInterrupt}
-              isLastMessage={isLastMessage}
-              hasNoAIOrToolMessages={hasNoAIOrToolMessages}
+        {/* Message content */}
+        <>
+          {/* Only the last message renders sais_ui-dependent decorations.
+              Historical messages render content only (no useSaisUi subscription),
+              preventing re-renders when new stream data arrives (UX-05). */}
+          {isLastMessage ? (
+            <LastMessageDecorations
+              message={message}
+              contentString={contentString}
+              isLoading={isLoading}
+              msgResponseMeta={
+                msgResponseMeta as Record<string, unknown> | undefined
+              }
+              stages={stages}
+              streamingValues={streamingValues}
             />
-            <div
-              className={cn(
-                "mr-auto flex items-center gap-2 transition-opacity",
-                "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-              )}
-            >
-              <BranchSwitcher
-                branch={meta?.branch}
-                branchOptions={meta?.branchOptions}
-                onSelect={(branch) => thread.setBranch(branch)}
-                isLoading={isLoading}
-              />
-              <CommandBar
-                content={contentString}
-                isLoading={isLoading}
-                isAiMessage={true}
-                handleRegenerate={() => handleRegenerate(parentCheckpoint)}
-              />
-            </div>
-          </>
-        )}
+          ) : (
+            <HistoricalMessageContent
+              message={message}
+              contentString={contentString}
+              msgResponseMeta={
+                msgResponseMeta as Record<string, unknown> | undefined
+              }
+              stages={stages}
+              nextHumanMessage={nextHumanMessage}
+            />
+          )}
+
+          {message && (
+            <CustomComponent
+              message={message}
+              thread={thread}
+            />
+          )}
+          <Interrupt
+            interrupt={threadInterrupt}
+            isLastMessage={isLastMessage}
+            hasNoAIOrToolMessages={hasNoAIOrToolMessages}
+          />
+          <div
+            className={cn(
+              "mr-auto flex items-center gap-2 transition-opacity",
+              "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+            )}
+          >
+            <BranchSwitcher
+              branch={meta?.branch}
+              branchOptions={meta?.branchOptions}
+              onSelect={(branch) => thread.setBranch(branch)}
+              isLoading={isLoading}
+            />
+            <CommandBar
+              content={contentString}
+              isLoading={isLoading}
+              isAiMessage={true}
+              handleRegenerate={() => handleRegenerate(parentCheckpoint)}
+            />
+          </div>
+        </>
       </div>
     </div>
   );

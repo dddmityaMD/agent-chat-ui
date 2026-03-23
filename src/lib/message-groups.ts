@@ -40,6 +40,14 @@ export interface ThoughtStage {
   detail?: string;
 }
 
+/** A tool call + its result, collected from intermediate messages */
+export interface ToolInteraction {
+  /** Tool name from AIMessage.tool_calls */
+  toolName: string;
+  /** The ToolMessage result (if available) */
+  result?: Message;
+}
+
 export interface MessageGroup {
   /** The message to render */
   message: Message;
@@ -47,6 +55,10 @@ export interface MessageGroup {
   stages: ThoughtStage[];
   /** The next human message after this one (for disambiguation selection tracking) */
   nextHumanMessage?: Message;
+  /** Collected tool interactions from intermediate messages in this turn */
+  toolInteractions?: ToolInteraction[];
+  /** Backend-provided display name for the methodology (from sais_ui.methodology_display_name) */
+  methodologyDisplayName?: string;
 }
 
 export interface GroupMessagesOptions {
@@ -587,25 +599,44 @@ export function groupMessages(
       })()
     : null;
 
+  // Collect tool interactions (tool-calling AI messages + tool results) and
+  // attach them to the next renderable AI message as one group.
+  let pendingToolInteractions: ToolInteraction[] = [];
+
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
 
     if (msg.type === "human") {
+      // Flush any pending tool interactions (shouldn't happen, but safety)
+      pendingToolInteractions = [];
       groups.push({ message: msg, stages: [] });
       continue;
     }
 
     if (msg.type === "tool") {
-      // Tool result messages are hidden
+      // Match to the most recent pending interaction by tool_call_id
+      const toolCallId = "tool_call_id" in msg ? (msg as any).tool_call_id : undefined;
+      const pending = toolCallId
+        ? pendingToolInteractions.find(
+            (ti) => !ti.result && ti.toolName !== undefined,
+          )
+        : undefined;
+      if (pending) {
+        pending.result = msg;
+      } else {
+        // Orphan tool result — create standalone interaction
+        const toolName = (msg as any).name ?? "tool";
+        pendingToolInteractions.push({ toolName, result: msg });
+      }
       continue;
     }
 
     if (msg.type === "ai") {
+      const aiMsg = msg as AIMessage;
       const content = getContentString(msg.content ?? []);
-      // Check for blocks in response_metadata (Phase 23.4 blocks model)
       const meta =
         "response_metadata" in msg
-          ? (msg as AIMessage).response_metadata
+          ? aiMsg.response_metadata
           : undefined;
       const hasBlocks =
         meta &&
@@ -613,18 +644,23 @@ export function groupMessages(
         Array.isArray((meta as Record<string, unknown>).blocks) &&
         ((meta as Record<string, unknown>).blocks as unknown[]).length > 0;
 
+      const hasToolCalls =
+        aiMsg.tool_calls && aiMsg.tool_calls.length > 0;
+
       if (content.trim().length === 0 && !hasBlocks) {
-        // Tool-only AI messages with no text content and no blocks — skip
+        // Tool-calling AI message (no text) — collect tool names
+        if (hasToolCalls) {
+          for (const tc of aiMsg.tool_calls!) {
+            pendingToolInteractions.push({
+              toolName: tc.name ?? "unknown",
+            });
+          }
+        }
         continue;
       }
 
-      // Derive flow type from response_metadata
+      // Renderable AI message — attach collected tool interactions
       const flowType = extractFlowFromResponseMeta(msg);
-
-      // Stepper state machine for saisUi usage:
-      // - Last AI message (active): full saisUi with stage_subtitles
-      // - Earlier AI messages (historical): saisUi structure only (stage defs, no subtitles)
-      // - Before last human (old turn): no saisUi at all
       const isCurrentTurn = i >= lastHumanIdx;
       const isLastAi = i === lastRenderableAiIdx;
       const uiForStages = isCurrentTurn
@@ -632,10 +668,19 @@ export function groupMessages(
           ? saisUi
           : saisUiStructureOnly
         : null;
-
-      // All REST-sourced messages are final — render with stages
       const stages = deriveStagesFromFlow(flowType, uiForStages);
-      groups.push({ message: msg, stages });
+
+      const group: MessageGroup = { message: msg, stages };
+      if (pendingToolInteractions.length > 0) {
+        group.toolInteractions = pendingToolInteractions;
+        // Read methodology_display_name from sais_ui (live or historical)
+        const uiSource = uiForStages ?? saisUiStructureOnly;
+        if (uiSource) {
+          group.methodologyDisplayName = uiSource.methodology_display_name as string | undefined;
+        }
+        pendingToolInteractions = [];
+      }
+      groups.push(group);
     }
   }
 

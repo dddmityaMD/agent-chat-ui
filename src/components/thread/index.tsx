@@ -690,6 +690,8 @@ export function Thread() {
                           isLoading={isLoading}
                           handleRegenerate={handleRegenerate}
                           nextHumanMessage={group.nextHumanMessage}
+                          toolInteractions={group.toolInteractions}
+                          methodologyDisplayName={group.methodologyDisplayName}
                           streamingValues={
                             isLoading && index === messageGroups.length - 1
                               ? currentTurnValues
