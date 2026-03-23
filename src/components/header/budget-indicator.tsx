@@ -29,12 +29,6 @@ function formatCost(cost: number): string {
   return `$${cost.toFixed(2)}`;
 }
 
-function getColorClass(percentUsed: number): string {
-  if (percentUsed > 0.8) return "text-red-600";
-  if (percentUsed > 0.6) return "text-yellow-600";
-  return "text-green-600";
-}
-
 export function BudgetIndicator() {
   const [budget, setBudget] = useState<BudgetStatus | null>(null);
   const warnedRef = useRef(false);
@@ -78,24 +72,40 @@ export function BudgetIndicator() {
 
   if (!budget) return null;
 
-  const colorClass = getColorClass(budget.percent_used);
+  const pct = Math.min(budget.percent_used, 1);
+  const barColor =
+    pct > 0.8
+      ? "bg-red-500"
+      : pct > 0.6
+        ? "bg-yellow-500"
+        : "bg-emerald-500";
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span
-            className={`inline-flex items-center gap-1 text-xs tabular-nums ${colorClass}`}
-          >
-            <span>{formatTokens(budget.total_tokens)}</span>
-            <span className="text-muted-foreground">tokens</span>
-            <span>(~{formatCost(budget.used_usd)})</span>
-          </span>
+          <div className="inline-flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">
+              Budget
+            </span>
+            <div className="h-2 w-20 rounded-full bg-border overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${Math.round(pct * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {formatCost(budget.used_usd)}/{formatCost(budget.limit_usd)}
+            </span>
+          </div>
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p className="text-xs">
-            Monthly budget: {formatCost(budget.used_usd)} used of{" "}
-            {formatCost(budget.limit_usd)} limit
+            Monthly budget: {formatCost(budget.used_usd)} of{" "}
+            {formatCost(budget.limit_usd)} ({Math.round(pct * 100)}%)
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {formatTokens(budget.total_tokens)} tokens total
           </p>
         </TooltipContent>
       </Tooltip>

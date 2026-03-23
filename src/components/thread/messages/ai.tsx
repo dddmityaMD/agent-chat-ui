@@ -33,6 +33,7 @@ export function AssistantMessage({
   streamingValues,
   toolInteractions,
   methodologyDisplayName,
+  workedForMs,
 }: {
   message: Message | undefined;
   isLoading: boolean;
@@ -47,6 +48,8 @@ export function AssistantMessage({
   toolInteractions?: ToolInteraction[];
   /** Backend-provided display name for the methodology */
   methodologyDisplayName?: string;
+  /** Duration the agent worked on this turn (shown after streaming ends) */
+  workedForMs?: number;
 }) {
   const content = message?.content ?? [];
   const contentString = getContentString(content);
@@ -82,10 +85,13 @@ export function AssistantMessage({
         {/* Tool interactions — one unified "Internal discussion" section */}
         {!hideToolCalls &&
           toolInteractions &&
-          toolInteractions.length > 0 && (
+          toolInteractions.length > 0 ? (
             <details className="w-full">
               <summary className="text-muted-foreground cursor-pointer text-xs">
                 {formatToolSectionLabel(methodologyDisplayName, toolInteractions.length)}
+                {workedForMs != null && workedForMs >= 1000 && (
+                  <span className="ml-2 text-muted-foreground/80">· {formatDuration(Math.floor(workedForMs / 1000))}</span>
+                )}
               </summary>
               <div className="mt-1 space-y-1">
                 {toolInteractions.map((ti, idx) =>
@@ -115,6 +121,13 @@ export function AssistantMessage({
                 )}
               </div>
             </details>
+          ) : (
+            /* No tool interactions — show standalone duration if available */
+            workedForMs != null && workedForMs >= 1000 && (
+              <div className="text-xs text-muted-foreground/80">
+                Worked for {formatDuration(Math.floor(workedForMs / 1000))}
+              </div>
+            )
           )}
 
         {/* Message content */}
@@ -181,13 +194,40 @@ export function AssistantMessage({
   );
 }
 
-export function AssistantMessageLoading() {
+/** Format seconds into human-readable duration (e.g., "5s", "1m 23s", "1h 2m"). */
+export function formatDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) {
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainMinutes = minutes % 60;
+  return remainMinutes > 0 ? `${hours}h ${remainMinutes}m` : `${hours}h`;
+}
+
+export function AssistantMessageLoading({ startTime }: { startTime?: number }) {
+  const [, setTick] = React.useState(0);
+
+  // Update elapsed time every second
+  React.useEffect(() => {
+    if (!startTime) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
+
+  const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+
   return (
     <div className="mr-auto flex items-start gap-2">
       <div className="bg-muted flex h-8 items-center gap-1 rounded-2xl px-4 py-2">
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_0.5s_infinite] rounded-full"></div>
         <div className="bg-foreground/50 h-1.5 w-1.5 animate-[pulse_1.5s_ease-in-out_1s_infinite] rounded-full"></div>
+        {elapsed > 0 && (
+          <span className="ml-1 text-xs text-muted-foreground/60">{formatDuration(elapsed)}</span>
+        )}
       </div>
     </div>
   );

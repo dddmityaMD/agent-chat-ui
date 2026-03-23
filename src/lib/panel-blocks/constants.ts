@@ -24,7 +24,6 @@ export const SA_LEVEL_ORDER: SALevel[] = ["action", "l1", "l2", "l3"];
  * Explicit block_update in tool return takes priority over this map.
  */
 export const TOOL_BLOCK_MAP = {
-  browse_catalog: { blockId: "entity-map", level: "l2" },
   resolve_entity: { blockId: "entity-map", level: "l2" },
   confirm_entity: { blockId: "entity-map", level: "l2" },
   describe_columns: { blockId: "data-profile", level: "l2" },

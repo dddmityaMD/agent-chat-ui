@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { deriveOneLiner } from "@/lib/panel-blocks/constants";
 import { cn } from "@/lib/utils";
+import type { ToolInteraction } from "@/lib/message-groups";
 
 function isComplexValue(value: any): boolean {
   return Array.isArray(value) || (typeof value === "object" && value !== null);
@@ -171,6 +172,54 @@ export function ToolCalls({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// LiveToolCalls — renders ToolInteraction[] using the same ToolCalls UI
+// ---------------------------------------------------------------------------
+
+/**
+ * Adapter that renders live (in-flight) tool interactions during streaming.
+ * Converts ToolInteraction[] to the shape ToolCalls expects, keeping a
+ * single rendering path for both live and historical tool display.
+ */
+export function LiveToolCalls({
+  interactions,
+  methodologyDisplayName,
+}: {
+  interactions: ToolInteraction[];
+  methodologyDisplayName?: string;
+}) {
+  if (interactions.length === 0) return null;
+
+  // Convert ToolInteraction[] to AIMessage["tool_calls"] + ToolMessage[]
+  const toolCalls = interactions.map((ti, i) => ({
+    name: ti.toolName,
+    id: `live-${i}`,
+    args: {} as Record<string, unknown>,
+    type: "tool_call" as const,
+  }));
+
+  const toolResults = interactions
+    .filter((ti) => ti.result)
+    .map((ti, i) => {
+      const result = ti.result!;
+      // Create a ToolMessage-compatible object with a matching tool_call_id
+      const idx = interactions.indexOf(ti);
+      return {
+        ...result,
+        tool_call_id: `live-${idx}`,
+      } as ToolMessage;
+    });
+
+  return (
+    <div data-testid="live-tool-calls">
+      <ToolCalls
+        toolCalls={toolCalls}
+        toolResults={toolResults}
+      />
     </div>
   );
 }

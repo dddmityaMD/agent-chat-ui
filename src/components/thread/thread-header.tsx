@@ -125,11 +125,12 @@ export function ThreadCostLabel({
   const [cost, setCost] = useState<number | null>(null);
   const [tokens, setTokens] = useState<number | null>(null);
   const wasStreamingRef = useRef(false);
+  const prevThreadIdRef = useRef<string | null>(null);
 
   const fetchCost = useCallback(async (tid: string) => {
     try {
       const res = await fetch(
-        `${getApiBaseUrl()}/api/threads/${tid}/cost`,
+        `${getApiBaseUrl()}/api/cost/thread/${tid}`,
         { credentials: "include" },
       );
       if (!res.ok) return;
@@ -141,11 +142,24 @@ export function ThreadCostLabel({
     }
   }, []);
 
-  // Fetch on mount and when streaming ends
+  // Fetch on mount, thread switch, and when streaming ends
   useEffect(() => {
     if (!threadId) {
       setCost(null);
       setTokens(null);
+      prevThreadIdRef.current = null;
+      return;
+    }
+
+    const threadChanged = threadId !== prevThreadIdRef.current;
+    prevThreadIdRef.current = threadId;
+
+    if (threadChanged) {
+      // Reset stale values immediately on thread switch
+      setCost(null);
+      setTokens(null);
+      wasStreamingRef.current = false;
+      fetchCost(threadId);
       return;
     }
 
@@ -154,8 +168,8 @@ export function ThreadCostLabel({
       return;
     }
 
-    // Fetch when: first load OR streaming just ended
-    if (wasStreamingRef.current || cost === null) {
+    // Fetch when streaming just ended
+    if (wasStreamingRef.current) {
       wasStreamingRef.current = false;
       fetchCost(threadId);
     }

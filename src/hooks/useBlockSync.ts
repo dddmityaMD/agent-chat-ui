@@ -13,7 +13,7 @@ import { useEffect, useRef, useCallback, startTransition } from "react";
 import { useBlockStore } from "@/stores/block-store";
 import { TOOL_BLOCK_MAP } from "@/lib/panel-blocks/constants";
 import type { PanelBlock, BlockUpdateEvent } from "@/lib/panel-blocks/types";
-import type { ActivityState, ToolExecution } from "@/components/thread/chat-activity-indicator";
+import type { Message } from "@langchain/langgraph-sdk";
 
 // ---------------------------------------------------------------------------
 // BlockSyncActions interface (testable without React)
@@ -192,23 +192,17 @@ export function hydrateBlocksFromSaisUi(
  * Call this in the Thread component. It:
  * 1. Listens to SSE values for block_update, tool_result, subagent events
  * 2. Routes them to the Zustand block store via startTransition
- * 3. Manages ActivityState for ChatActivityIndicator
- * 4. Handles thread switching and sais_ui hydration
+ * 3. Handles thread switching and sais_ui hydration
  */
 export function useBlockSync(
   streamValues: Record<string, unknown> | null,
   threadId: string | null,
   isStreaming: boolean,
-): ActivityState {
+  messages?: Message[],
+): void {
   const store = useBlockStore();
   const prevThreadIdRef = useRef<string | null>(null);
-  const activityRef = useRef<ActivityState>({
-    subagent: null,
-    iteration: null,
-    maxIterations: null,
-    currentTool: null,
-    toolHistory: [],
-  });
+  const processedToolMsgIdsRef = useRef<Set<string>>(new Set());
 
   // Wrap store actions to use startTransition
   const actions: BlockSyncActions = {
@@ -223,15 +217,8 @@ export function useBlockSync(
   useEffect(() => {
     if (threadId !== prevThreadIdRef.current) {
       prevThreadIdRef.current = threadId;
+      processedToolMsgIdsRef.current = new Set();
       actions.switchThread(threadId);
-      // Reset activity state
-      activityRef.current = {
-        subagent: null,
-        iteration: null,
-        maxIterations: null,
-        currentTool: null,
-        toolHistory: [],
-      };
     }
   }, [threadId]);
 
@@ -246,5 +233,60 @@ export function useBlockSync(
     }
   }, [streamValues, isStreaming]);
 
-  return activityRef.current;
+  // V1 fallback: route tool results from messages via TOOL_BLOCK_MAP.
+  // Scans messages for ToolMessages whose preceding AIMessage tool_calls
+  // match a TOOL_BLOCK_MAP entry. Deduplicates by message ID.
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+
+    // Build a map of tool_call_id -> tool_name from AI messages
+    const toolCallNames = new Map<string, string>();
+    for (const msg of messages) {
+      if (msg.type === "ai" && "tool_calls" in msg) {
+        const aiMsg = msg as { tool_calls?: Array<{ id?: string; name?: string }> };
+        if (aiMsg.tool_calls) {
+          for (const tc of aiMsg.tool_calls) {
+            if (tc.id && tc.name) {
+              toolCallNames.set(tc.id, tc.name);
+            }
+          }
+        }
+      }
+    }
+
+    // Process tool messages
+    for (const msg of messages) {
+      if (msg.type !== "tool" || !msg.id) continue;
+      if (processedToolMsgIdsRef.current.has(msg.id)) continue;
+
+      const toolCallId = "tool_call_id" in msg ? (msg as any).tool_call_id : undefined;
+      const toolName = toolCallId
+        ? toolCallNames.get(toolCallId)
+        : ((msg as any).name ?? undefined);
+
+      if (!toolName) continue;
+
+      const mapping = TOOL_BLOCK_MAP[toolName as keyof typeof TOOL_BLOCK_MAP];
+      if (!mapping) continue;
+
+      // Parse content — only route structured JSON results to blocks.
+      // Text-only tool results (for LLM consumption) are not block-compatible.
+      let resultData: Record<string, unknown> | null = null;
+      try {
+        if (typeof msg.content === "string" && msg.content.trim()) {
+          const parsed = JSON.parse(msg.content);
+          if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+            resultData = parsed;
+          }
+        }
+      } catch {
+        // Not JSON — text result, skip block routing
+      }
+
+      processedToolMsgIdsRef.current.add(msg.id);
+      if (resultData) {
+        routeToolResultEvent(toolName, resultData, actions);
+      }
+    }
+  }, [messages]);
 }

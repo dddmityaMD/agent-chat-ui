@@ -26,6 +26,7 @@ import {
   groupMessages,
   type StreamingStateValues,
 } from "@/lib/message-groups";
+import { LiveToolCalls } from "./messages/tool-calls";
 import { SaisLogoSVG } from "../icons/langgraph";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
@@ -65,8 +66,6 @@ import { SettingsButton } from "@/components/settings-button";
 import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
 import { useBlockSync } from "@/hooks/useBlockSync";
-// useBlockStore accessed via useBlockSync — no direct subscription needed here
-import { ChatActivityIndicator } from "./chat-activity-indicator";
 
 // Sub-components extracted from this file
 import { MessageErrorBoundary } from "./message-error-boundary";
@@ -134,11 +133,15 @@ export function Thread() {
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
 
+  // Messages come from REST via useSaisStream hook (Phase 23.4).
+  const messages = stream.messages;
+
   // Wire SSE events to block store (Phase 49-05)
-  const activityState = useBlockSync(
+  useBlockSync(
     stream.values as Record<string, unknown> | null,
     threadId,
     isLoading,
+    messages,
   );
 
   // Canvas store (Phase 49-07)
@@ -155,32 +158,41 @@ export function Thread() {
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Messages come from REST via useSaisStream hook (Phase 23.4).
-  const messages = stream.messages;
+  // Track when streaming started (for elapsed time + "Worked for" display)
+  const streamStartTimeRef = useRef<number | null>(null);
+  const [lastWorkDurationMs, setLastWorkDurationMs] = useState<number | null>(null);
 
   // Clear turn ID ref on streaming->idle transition
   const prevStreamingRef = useRef(false);
   const preStreamLastMsgIdRef = useRef<string | null>(null);
-  if (isLoading && !prevStreamingRef.current) {
-    const lastMsg = messages[messages.length - 1];
-    preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
+  useEffect(() => {
+    if (isLoading && !prevStreamingRef.current) {
+      streamStartTimeRef.current = Date.now();
+      setLastWorkDurationMs(null);
+      const lastMsg = messages[messages.length - 1];
+      preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
 
-    if (!currentTurnIdRef.current) {
-      const lastHuman = [...messages].reverse().find((m) => m.type === "human");
-      if (lastHuman?.id) {
-        console.debug(
-          "[Thread] rejoin: setting currentTurnIdRef to last human message:",
-          lastHuman.id,
-        );
-        currentTurnIdRef.current = lastHuman.id;
+      if (!currentTurnIdRef.current) {
+        const lastHuman = [...messages].reverse().find((m) => m.type === "human");
+        if (lastHuman?.id) {
+          console.debug(
+            "[Thread] rejoin: setting currentTurnIdRef to last human message:",
+            lastHuman.id,
+          );
+          currentTurnIdRef.current = lastHuman.id;
+        }
       }
     }
-  }
-  if (!isLoading && prevStreamingRef.current) {
-    currentTurnIdRef.current = null;
-    preStreamLastMsgIdRef.current = null;
-  }
-  prevStreamingRef.current = isLoading;
+    if (!isLoading && prevStreamingRef.current) {
+      currentTurnIdRef.current = null;
+      preStreamLastMsgIdRef.current = null;
+      if (streamStartTimeRef.current) {
+        setLastWorkDurationMs(Date.now() - streamStartTimeRef.current);
+      }
+      streamStartTimeRef.current = null;
+    }
+    prevStreamingRef.current = isLoading;
+  }, [isLoading]);
 
   // Filter streaming values: turn_id gate + baseline delta to exclude stale data
   const rawStreamValues = (stream.values ?? {}) as StreamingStateValues;
@@ -188,7 +200,7 @@ export function Thread() {
   const currentTurnValues = useCurrentTurnDelta(rawStreamValues, currentTurnId);
 
   // Group messages into renderable units (UAT-4: thought process pane).
-  const messageGroups = useMemo(
+  const { groups: messageGroups, liveToolInteractions } = useMemo(
     () =>
       groupMessages(
         messages.filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX)),
@@ -697,6 +709,11 @@ export function Thread() {
                               ? currentTurnValues
                               : undefined
                           }
+                          workedForMs={
+                            !isLoading && index === messageGroups.length - 1
+                              ? (lastWorkDurationMs ?? undefined)
+                              : undefined
+                          }
                         />
                       )}
                     </MessageErrorBoundary>
@@ -711,9 +728,14 @@ export function Thread() {
                         />
                       </MessageErrorBoundary>
                     )}
-                  {/* Loading dots while waiting for first AI token */}
+                  {/* Live tool calls + working indicator during streaming */}
                   {isLoading && messageGroups.length > 0 && messageGroups[messageGroups.length - 1].message.type === "human" && (
-                    <AssistantMessageLoading />
+                    <>
+                      {liveToolInteractions.length > 0 && (
+                        <LiveToolCalls interactions={liveToolInteractions} />
+                      )}
+                      <AssistantMessageLoading startTime={streamStartTimeRef.current ?? undefined} />
+                    </>
                   )}
                   {/* Special rendering case: no AI/tool messages, but there is an interrupt */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
@@ -725,13 +747,6 @@ export function Thread() {
                         handleRegenerate={handleRegenerate}
                       />
                     </MessageErrorBoundary>
-                  )}
-                  {/* Tool execution activity indicator — replaces ThinkingIndicator (D-17, Phase 49-07) */}
-                  {isLoading && activityState.toolHistory.length > 0 && (
-                    <ChatActivityIndicator
-                      activity={activityState}
-                      isStreaming={isLoading}
-                    />
                   )}
                   {/* Inline error indicator */}
                   {!isLoading && stream.error && (

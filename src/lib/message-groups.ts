@@ -61,6 +61,18 @@ export interface MessageGroup {
   methodologyDisplayName?: string;
 }
 
+/** Result of groupMessages — groups plus any in-flight tool interactions. */
+export interface GroupMessagesResult {
+  groups: MessageGroup[];
+  /**
+   * Tool interactions that are in progress during streaming.
+   * These are pendingToolInteractions that haven't been attached to a
+   * final AI message yet. Empty when not streaming or when all tools
+   * have been absorbed by a renderable AI message.
+   */
+  liveToolInteractions: ToolInteraction[];
+}
+
 export interface GroupMessagesOptions {
   /**
    * Whether the agent is currently streaming a response.
@@ -550,7 +562,7 @@ function getContentString(content: Message["content"]): string {
 export function groupMessages(
   messages: Message[],
   options?: GroupMessagesOptions,
-): MessageGroup[] {
+): GroupMessagesResult {
   const saisUi = options?.saisUi ?? null;
   const groups: MessageGroup[] = [];
 
@@ -794,5 +806,10 @@ export function groupMessages(
     }
   }
 
-  return groups;
+  return {
+    groups,
+    // Surface orphaned tool interactions during streaming so the Thread
+    // component can show live tool activity before the final AI message.
+    liveToolInteractions: pendingToolInteractions,
+  };
 }
