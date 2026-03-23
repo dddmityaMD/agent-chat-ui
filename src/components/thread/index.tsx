@@ -160,9 +160,8 @@ export function Thread() {
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Track when streaming started (for elapsed time + "Worked for" display)
+  // Track when streaming started (for elapsed time display during streaming)
   const streamStartTimeRef = useRef<number | null>(null);
-  const [lastWorkDurationMs, setLastWorkDurationMs] = useState<number | null>(null);
 
   // Clear turn ID ref on streaming->idle transition
   const prevStreamingRef = useRef(false);
@@ -171,7 +170,6 @@ export function Thread() {
     if (isLoading && !prevStreamingRef.current) {
       const activeRun = threadId ? activeRuns.getActiveRun(threadId) : undefined;
       streamStartTimeRef.current = activeRun?.startedAt ?? Date.now();
-      setLastWorkDurationMs(null);
       const lastMsg = messages[messages.length - 1];
       preStreamLastMsgIdRef.current = lastMsg?.id ?? null;
 
@@ -189,9 +187,6 @@ export function Thread() {
     if (!isLoading && prevStreamingRef.current) {
       currentTurnIdRef.current = null;
       preStreamLastMsgIdRef.current = null;
-      if (streamStartTimeRef.current) {
-        setLastWorkDurationMs(Date.now() - streamStartTimeRef.current);
-      }
       streamStartTimeRef.current = null;
     }
     prevStreamingRef.current = isLoading;
@@ -712,11 +707,7 @@ export function Thread() {
                               ? currentTurnValues
                               : undefined
                           }
-                          workedForMs={
-                            !isLoading && index === messageGroups.length - 1
-                              ? (lastWorkDurationMs ?? undefined)
-                              : undefined
-                          }
+                          workedForMs={group.workedForMs}
                         />
                       )}
                     </MessageErrorBoundary>

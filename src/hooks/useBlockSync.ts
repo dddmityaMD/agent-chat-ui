@@ -139,6 +139,17 @@ export function hydrateBlocksFromSaisUi(
 ): void {
   const now = Date.now();
 
+  // D-18 primary path: block_update from backend tool_node
+  const blockUpdate = saisUi.block_update;
+  if (blockUpdate && typeof blockUpdate === "object") {
+    const bu = blockUpdate as Record<string, unknown>;
+    const toolName = bu.tool_name as string | undefined;
+    const data = bu.data as Record<string, unknown> | undefined;
+    if (toolName && data) {
+      routeToolResultEvent(toolName, data, actions);
+    }
+  }
+
   // Evidence
   const evidence = saisUi.evidence;
   if (Array.isArray(evidence) && evidence.length > 0) {

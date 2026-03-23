@@ -57,8 +57,10 @@ export interface MessageGroup {
   nextHumanMessage?: Message;
   /** Collected tool interactions from intermediate messages in this turn */
   toolInteractions?: ToolInteraction[];
-  /** Backend-provided display name for the methodology (from sais_ui.methodology_display_name) */
+  /** Backend-provided display name for the methodology (from response_metadata or sais_ui) */
   methodologyDisplayName?: string;
+  /** Backend-stamped turn duration in ms (from response_metadata.turn_duration_ms) */
+  workedForMs?: number;
 }
 
 /** Result of groupMessages — groups plus any in-flight tool interactions. */
@@ -683,12 +685,27 @@ export function groupMessages(
       const stages = deriveStagesFromFlow(flowType, uiForStages);
 
       const group: MessageGroup = { message: msg, stages };
+      // Per-message metadata from response_metadata (stamped by post_flow)
+      const perMsgMeta = meta as Record<string, unknown> | undefined;
+
+      // Turn duration (Gap 9)
+      const turnDurationMs = perMsgMeta?.turn_duration_ms;
+      if (typeof turnDurationMs === "number" && turnDurationMs > 0) {
+        group.workedForMs = turnDurationMs;
+      }
+
       if (pendingToolInteractions.length > 0) {
         group.toolInteractions = pendingToolInteractions;
-        // Read methodology_display_name from sais_ui (live or historical)
-        const uiSource = uiForStages ?? saisUiStructureOnly;
-        if (uiSource) {
-          group.methodologyDisplayName = uiSource.methodology_display_name as string | undefined;
+        // Per-message methodology_display_name (Gap 10): prefer response_metadata
+        // (persisted per-message by post_flow), fall back to saisUi for the current turn.
+        const perMsgDisplayName = perMsgMeta?.methodology_display_name as string | undefined;
+        if (perMsgDisplayName) {
+          group.methodologyDisplayName = perMsgDisplayName;
+        } else {
+          const uiSource = uiForStages ?? saisUiStructureOnly;
+          if (uiSource) {
+            group.methodologyDisplayName = uiSource.methodology_display_name as string | undefined;
+          }
         }
         pendingToolInteractions = [];
       }
