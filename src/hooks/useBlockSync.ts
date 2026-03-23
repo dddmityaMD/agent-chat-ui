@@ -186,19 +186,8 @@ export function hydrateBlocksFromSaisUi(
 // Thread summary hydration — always-on L2 block after first tool call
 // ---------------------------------------------------------------------------
 
-/** Map tool names to data sources for thread summary. */
-const TOOL_SOURCE_MAP: Record<string, string> = {
-  postgres_query: "postgres",
-  query_postgres_ro: "postgres",
-  describe_columns: "postgres",
-  profile_columns: "postgres",
-  detect_relationships: "postgres",
-  detect_temporal_grain: "postgres",
-  metabase_query: "metabase",
-  build_dashboard: "metabase",
-  dbt_query: "dbt",
-  trace_lineage: "dbt",
-};
+// TOOL_SOURCE_MAP deleted (Phase 62-08, Rule 3.6).
+// Thread summary now reads data_system from response_metadata set by backend.
 
 /**
  * Derive and upsert a thread-summary block from messages + stream values.
@@ -222,10 +211,18 @@ export function hydrateThreadSummary(
           if (tc.name) {
             hasTool = true;
             toolCounts.set(tc.name, (toolCounts.get(tc.name) ?? 0) + 1);
-            const src = TOOL_SOURCE_MAP[tc.name];
-            if (src) sources.add(src);
           }
         }
+      }
+    }
+    // Read data_system from backend-provided response_metadata (Rule 3.6)
+    if (msg.type === "tool") {
+      const meta = (msg as any).response_metadata as
+        | Record<string, unknown>
+        | undefined;
+      const dataSystem = meta?.data_system;
+      if (typeof dataSystem === "string" && dataSystem) {
+        sources.add(dataSystem);
       }
     }
   }
