@@ -12,8 +12,10 @@ import {
   routeSubagentFinished,
   routeActionResolution,
   hydrateBlocksFromSaisUi,
+  hydrateThreadSummary,
   type BlockSyncActions,
 } from "../useBlockSync";
+import type { Message } from "@langchain/langgraph-sdk";
 
 // ---------------------------------------------------------------------------
 // Mock BlockSyncActions for capturing calls
@@ -274,5 +276,106 @@ describe("hydrateBlocksFromSaisUi", () => {
     const actions = createMockActions();
     hydrateBlocksFromSaisUi({}, actions);
     expect(actions.calls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Thread summary hydration (Phase 62-07)
+// ---------------------------------------------------------------------------
+
+describe("hydrateThreadSummary", () => {
+  function makeAiMsg(toolCalls: Array<{ name: string }>): Message {
+    return {
+      id: `ai_${Math.random()}`,
+      type: "ai",
+      content: "",
+      tool_calls: toolCalls.map((tc) => ({ id: `tc_${tc.name}`, name: tc.name, args: {} })),
+    } as unknown as Message;
+  }
+
+  function makeHumanMsg(content: string): Message {
+    return {
+      id: `human_${Math.random()}`,
+      type: "human",
+      content,
+    } as unknown as Message;
+  }
+
+  it("upserts thread-summary block after first tool call", () => {
+    const actions = createMockActions();
+    const messages = [
+      makeHumanMsg("check bookings"),
+      makeAiMsg([{ name: "resolve_entity" }]),
+    ];
+
+    hydrateThreadSummary(messages, null, actions);
+
+    expect(actions.calls).toHaveLength(1);
+    const block = actions.calls[0].args[0] as Record<string, unknown>;
+    expect(block).toMatchObject({
+      id: "thread-summary",
+      type: "thread-summary",
+      level: "l2",
+      state: "populated",
+    });
+  });
+
+  it("shows correct tool count from messages", () => {
+    const actions = createMockActions();
+    const messages = [
+      makeHumanMsg("analyze data"),
+      makeAiMsg([{ name: "resolve_entity" }, { name: "postgres_query" }]),
+      makeAiMsg([{ name: "postgres_query" }]),
+    ];
+
+    hydrateThreadSummary(messages, null, actions);
+
+    const block = actions.calls[0].args[0] as Record<string, unknown>;
+    const data = block.data as { toolsUsed: Array<{ name: string; count: number }> };
+    const pgTool = data.toolsUsed.find((t) => t.name === "postgres_query");
+    expect(pgTool?.count).toBe(2);
+  });
+
+  it("shows correct entity count from resolved_entities", () => {
+    const actions = createMockActions();
+    const messages = [makeAiMsg([{ name: "resolve_entity" }])];
+    const streamValues = {
+      resolved_entities: {
+        "warehouse:bi_db.hotel.bookings": { name: "bookings", type: "warehouse.table" },
+        "warehouse:bi_db.hotel.guests": { name: "guests", type: "warehouse.table" },
+      },
+    };
+
+    hydrateThreadSummary(messages, streamValues, actions);
+
+    const block = actions.calls[0].args[0] as Record<string, unknown>;
+    const data = block.data as { entities: Array<{ name: string; type: string }> };
+    expect(data.entities).toHaveLength(2);
+  });
+
+  it("does not show thread summary for pure chat (no tool calls)", () => {
+    const actions = createMockActions();
+    const messages = [
+      makeHumanMsg("hello"),
+      { id: "ai_1", type: "ai", content: "hi there" } as unknown as Message,
+    ];
+
+    hydrateThreadSummary(messages, null, actions);
+
+    expect(actions.calls).toHaveLength(0);
+  });
+
+  it("includes sources touched from tool names", () => {
+    const actions = createMockActions();
+    const messages = [
+      makeAiMsg([{ name: "postgres_query" }, { name: "metabase_query" }]),
+    ];
+
+    hydrateThreadSummary(messages, null, actions);
+
+    const block = actions.calls[0].args[0] as Record<string, unknown>;
+    const data = block.data as { sourcesTouched: string[] };
+    expect(data.sourcesTouched).toContain("postgres");
+    expect(data.sourcesTouched).toContain("metabase");
   });
 });
