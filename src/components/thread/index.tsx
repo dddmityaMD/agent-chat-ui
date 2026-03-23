@@ -59,6 +59,7 @@ import {
 import { HealthDot } from "./health-dot";
 import { PermissionPill } from "@/components/permission-pill";
 import { usePermissionState, useThreads } from "@/providers/Thread";
+import { useActiveRuns } from "@/providers/ActiveRuns";
 import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
 import { useSaisUi } from "@/hooks/useSaisUi";
 import { LogoutButton } from "@/components/logout-button";
@@ -132,6 +133,7 @@ export function Thread() {
   const stream = useStreamContext();
   const isLoading = stream.isLoading;
   const saisUiData = useSaisUi();
+  const activeRuns = useActiveRuns();
 
   // Messages come from REST via useSaisStream hook (Phase 23.4).
   const messages = stream.messages;
@@ -167,7 +169,8 @@ export function Thread() {
   const preStreamLastMsgIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (isLoading && !prevStreamingRef.current) {
-      streamStartTimeRef.current = Date.now();
+      const activeRun = threadId ? activeRuns.getActiveRun(threadId) : undefined;
+      streamStartTimeRef.current = activeRun?.startedAt ?? Date.now();
       setLastWorkDurationMs(null);
       const lastMsg = messages[messages.length - 1];
       preStreamLastMsgIdRef.current = lastMsg?.id ?? null;

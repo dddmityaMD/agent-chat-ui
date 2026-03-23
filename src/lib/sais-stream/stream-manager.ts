@@ -216,6 +216,7 @@ export class SaisStreamManager {
       this.abortController.abort();
       this.abortController = null;
     }
+    this.updateState({ isLoading: false });
   }
 
   /**
