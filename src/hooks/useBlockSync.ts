@@ -183,6 +183,98 @@ export function hydrateBlocksFromSaisUi(
 }
 
 // ---------------------------------------------------------------------------
+// Thread summary hydration — always-on L2 block after first tool call
+// ---------------------------------------------------------------------------
+
+/** Map tool names to data sources for thread summary. */
+const TOOL_SOURCE_MAP: Record<string, string> = {
+  postgres_query: "postgres",
+  query_postgres_ro: "postgres",
+  describe_columns: "postgres",
+  profile_columns: "postgres",
+  detect_relationships: "postgres",
+  detect_temporal_grain: "postgres",
+  metabase_query: "metabase",
+  build_dashboard: "metabase",
+  dbt_query: "dbt",
+  trace_lineage: "dbt",
+};
+
+/**
+ * Derive and upsert a thread-summary block from messages + stream values.
+ * Shows after the first tool call; hidden for pure chat.
+ */
+export function hydrateThreadSummary(
+  messages: Message[],
+  streamValues: Record<string, unknown> | null,
+  actions: BlockSyncActions,
+): void {
+  // Count tools from AI messages with tool_calls
+  const toolCounts = new Map<string, number>();
+  const sources = new Set<string>();
+  let hasTool = false;
+
+  for (const msg of messages) {
+    if (msg.type === "ai" && "tool_calls" in msg) {
+      const aiMsg = msg as { tool_calls?: Array<{ name?: string }> };
+      if (aiMsg.tool_calls) {
+        for (const tc of aiMsg.tool_calls) {
+          if (tc.name) {
+            hasTool = true;
+            toolCounts.set(tc.name, (toolCounts.get(tc.name) ?? 0) + 1);
+            const src = TOOL_SOURCE_MAP[tc.name];
+            if (src) sources.add(src);
+          }
+        }
+      }
+    }
+  }
+
+  // Don't show for pure chat (no tool calls)
+  if (!hasTool) return;
+
+  // Extract entities from resolved_entities in stream values
+  const entities: Array<{ name: string; type: string }> = [];
+  if (streamValues) {
+    const resolved = streamValues.resolved_entities as Record<string, { name?: string; type?: string }> | undefined;
+    if (resolved && typeof resolved === "object") {
+      for (const [key, val] of Object.entries(resolved)) {
+        if (val && typeof val === "object") {
+          entities.push({
+            name: val.name ?? key,
+            type: val.type ?? "unknown",
+          });
+        }
+      }
+    }
+  }
+
+  // Build tools used array
+  const toolsUsed = Array.from(toolCounts.entries()).map(([name, count]) => ({
+    name,
+    count,
+  }));
+
+  // Count user turns
+  const turnCount = messages.filter((m) => m.type === "human").length;
+
+  actions.upsertBlock({
+    id: "thread-summary",
+    type: "thread-summary",
+    level: "l2",
+    data: {
+      entities,
+      toolsUsed,
+      sourcesTouched: Array.from(sources),
+      turnCount,
+    },
+    priority: 0.3, // low priority — context, not action
+    state: "populated",
+    updatedAt: Date.now(),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // React hook
 // ---------------------------------------------------------------------------
 
@@ -288,5 +380,8 @@ export function useBlockSync(
         routeToolResultEvent(toolName, resultData, actions);
       }
     }
+
+    // Hydrate thread-summary block from messages + stream values
+    hydrateThreadSummary(messages, streamValues, actions);
   }, [messages]);
 }

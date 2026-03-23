@@ -18,6 +18,7 @@ import { ConfidenceAssessmentBlock } from "./blocks/l2/confidence-assessment";
 import { DataProfileBlock } from "./blocks/l2/data-profile";
 import { RelationshipsBlock } from "./blocks/l2/relationships";
 import { DecisionRecordBlock } from "./blocks/l2/decision-record";
+import { ThreadSummaryBlock } from "./blocks/l2/thread-summary";
 
 // L3 Projection
 import { FindingsBlock } from "./blocks/l3/findings";
@@ -38,7 +39,7 @@ interface BlockRendererProps {
 /**
  * Routes block type string to the correct component.
  *
- * 19 built components: 1 L1, 3 Action, 7 L2, 8 L3.
+ * 20 built components: 1 L1, 3 Action, 8 L2, 8 L3.
  * All block types have dedicated components — no JSON fallbacks.
  */
 export function BlockRenderer({
@@ -106,6 +107,8 @@ export function BlockRenderer({
       );
     case "decision-record":
       return <DecisionRecordBlock block={block} state={state} />;
+    case "thread-summary":
+      return <ThreadSummaryBlock block={block} state={state} />;
 
     // L3
     case "findings":

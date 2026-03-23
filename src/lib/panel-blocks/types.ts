@@ -107,6 +107,14 @@ export interface RelationshipsData {
   relationships: Array<{ from: string; to: string; type: string }>;
 }
 
+/** L2: Thread summary — always-on context overview */
+export interface ThreadSummaryData {
+  entities: Array<{ name: string; type: string }>;
+  toolsUsed: Array<{ name: string; count: number }>;
+  sourcesTouched: string[];
+  turnCount: number;
+}
+
 /** L2: Decision record — resolved action block (D-10) */
 export interface DecisionRecordData {
   decision: string;
