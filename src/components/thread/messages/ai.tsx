@@ -11,6 +11,7 @@ import { AIMessage, Message, ToolMessage } from "@langchain/langgraph-sdk";
 import { getContentString } from "../utils";
 import { BranchSwitcher, CommandBar } from "./shared";
 import { ToolResult } from "./tool-calls";
+import { SubagentGroup, groupToolsBySubagent } from "./subagent-group";
 import { cn } from "@/lib/utils";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import type { ThoughtStage, StreamingStateValues, ToolInteraction } from "@/lib/message-groups";
@@ -94,16 +95,55 @@ export function AssistantMessage({
                 )}
               </summary>
               <div className="mt-1 space-y-1">
-                {toolInteractions.map((ti, idx) =>
-                  ti.result ? (
+                {groupToolsBySubagent(toolInteractions).map((entry, gIdx) => {
+                  if (entry.type === "subagent") {
+                    return (
+                      <SubagentGroup
+                        key={`sa-${entry.subagentId}-${gIdx}`}
+                        subagentId={entry.subagentId}
+                        subagentTask={entry.subagentTask}
+                        toolCount={entry.indices.length}
+                      >
+                        {entry.indices.map((i) => {
+                          const ti = toolInteractions[i];
+                          return ti.result ? (
+                            <ToolResult
+                              key={ti.result.id ?? i}
+                              message={ti.result as ToolMessage}
+                              toolName={ti.toolName}
+                            />
+                          ) : (
+                            <div
+                              key={i}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-md",
+                                "border border-border/60 bg-muted/20 px-3 py-1.5",
+                                "text-xs text-muted-foreground",
+                              )}
+                            >
+                              <code className="font-mono text-foreground/80">
+                                {ti.toolName}
+                              </code>
+                              <span className="text-muted-foreground/50">
+                                (no result)
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </SubagentGroup>
+                    );
+                  }
+                  // Standalone tool (no subagent)
+                  const ti = toolInteractions[entry.index];
+                  return ti.result ? (
                     <ToolResult
-                      key={ti.result.id ?? idx}
+                      key={ti.result.id ?? entry.index}
                       message={ti.result as ToolMessage}
                       toolName={ti.toolName}
                     />
                   ) : (
                     <div
-                      key={idx}
+                      key={entry.index}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-md",
                         "border border-border/60 bg-muted/20 px-3 py-1.5",
@@ -117,8 +157,8 @@ export function AssistantMessage({
                         (no result)
                       </span>
                     </div>
-                  ),
-                )}
+                  );
+                })}
               </div>
             </details>
           ) : (
