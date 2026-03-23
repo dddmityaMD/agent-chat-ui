@@ -9,11 +9,12 @@ import {
   GitBranchIcon,
   FileCodeIcon,
   GlobeIcon,
-  BarChart2,
-  Layers,
-  ExternalLink,
 } from "lucide-react";
-import { generateDeepLinkUrl, DeepLinkType } from "@/lib/deep-links";
+import {
+  detectDeepLink,
+  getDeepLinkIcon,
+  getDeepLinkLabel,
+} from "@/lib/deep-links";
 import {
   Tooltip,
   TooltipTrigger,
@@ -64,99 +65,6 @@ function getEvidenceIcon(type: string) {
       return <GlobeIcon className="h-4 w-4 text-purple-600" />;
     default:
       return <FileCodeIcon className="h-4 w-4 text-gray-600" />;
-  }
-}
-
-/**
- * Extract deep link information from evidence item.
- * Parses evidence.type and evidence.payload to determine the appropriate link type.
- */
-function getDeepLinkInfo(
-  evidence: EvidenceItem,
-): { type: DeepLinkType; id: string | number; url: string } | null {
-  const payload = evidence.payload;
-
-  // API_RESPONSE with card_id -> Metabase card
-  if (evidence.type === "API_RESPONSE" && payload?.card_id) {
-    const url = generateDeepLinkUrl("metabase_card", String(payload.card_id));
-    return url ? { type: "metabase_card", id: payload.card_id, url } : null;
-  }
-
-  // GIT_DIFF -> Git commit (parse SHA from oneline log)
-  if (evidence.type === "GIT_DIFF") {
-    const commit =
-      payload?.commit ||
-      (typeof payload?.log === "string"
-        ? payload.log.match(/^([a-f0-9]{7,40})\s/m)?.[1]
-        : null);
-    if (commit) {
-      const url = generateDeepLinkUrl("git_commit", commit);
-      return url ? { type: "git_commit", id: commit, url } : null;
-    }
-  }
-
-  // DBT_ARTIFACT -> dbt model docs (extract from manifest_summary or run_summary)
-  if (evidence.type === "DBT_ARTIFACT") {
-    const modelName =
-      payload?.model_name ||
-      payload?.manifest_summary?.models?.[0]?.name ||
-      payload?.run_summary?.results?.[0]?.unique_id?.replace(
-        /^model\..*?\./,
-        "",
-      );
-    if (modelName) {
-      const url = generateDeepLinkUrl("dbt_model", modelName);
-      return url ? { type: "dbt_model", id: modelName, url } : null;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Get the appropriate icon component for a deep link type.
- */
-function getDeepLinkIcon(type: DeepLinkType) {
-  switch (type) {
-    case "metabase_card":
-    case "metabase_dashboard":
-      return <BarChart2 className="h-3.5 w-3.5" />;
-    case "git_commit":
-    case "git_file":
-      return <GitBranchIcon className="h-3.5 w-3.5" />;
-    case "dbt_model":
-    case "dbt_source":
-    case "dbt_test":
-    case "dbt_docs":
-      return <Layers className="h-3.5 w-3.5" />;
-    default:
-      return <ExternalLink className="h-3.5 w-3.5" />;
-  }
-}
-
-/**
- * Get human-readable label for deep link type (for tooltip display).
- */
-function getDeepLinkLabel(type: DeepLinkType): string {
-  switch (type) {
-    case "metabase_card":
-      return "Metabase Card";
-    case "metabase_dashboard":
-      return "Metabase Dashboard";
-    case "git_commit":
-      return "Git Commit";
-    case "git_file":
-      return "Git File";
-    case "dbt_model":
-      return "dbt Model";
-    case "dbt_source":
-      return "dbt Source";
-    case "dbt_test":
-      return "dbt Test";
-    case "dbt_docs":
-      return "dbt Docs";
-    default:
-      return "Source";
   }
 }
 
@@ -246,7 +154,7 @@ export function EvidenceViewer({
   defaultExpanded = false,
 }: EvidenceViewerProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const deepLink = getDeepLinkInfo(evidence);
+  const deepLink = detectDeepLink(evidence);
 
   const renderPayload = () => {
     if (!evidence.payload) {
@@ -355,7 +263,7 @@ export function EvidenceViewer({
                 onClick={(e) => e.stopPropagation()}
                 data-testid="deep-link-icon"
               >
-                {getDeepLinkIcon(deepLink.type)}
+                {React.createElement(getDeepLinkIcon(deepLink.type), { className: "h-3.5 w-3.5" })}
               </a>
             </TooltipTrigger>
             <TooltipContent side="top">
