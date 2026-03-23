@@ -137,12 +137,19 @@ export function groupToolsBySubagent(
         };
       }
     } else {
-      // Standalone tool — close any open subagent group
-      if (currentSubagent) {
-        groups.push(currentSubagent);
-        currentSubagent = null;
+      // No subagent_id: either a standalone tool, or a pending tool during streaming
+      // that likely belongs to the current subagent group (result hasn't arrived yet).
+      if (currentSubagent && !ti.result) {
+        // Pending tool (no result yet) — keep in the current subagent group
+        currentSubagent.indices.push(i);
+      } else {
+        // Standalone tool with result — close any open subagent group
+        if (currentSubagent) {
+          groups.push(currentSubagent);
+          currentSubagent = null;
+        }
+        groups.push({ type: "standalone", index: i });
       }
-      groups.push({ type: "standalone", index: i });
     }
   }
 
