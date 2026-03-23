@@ -39,16 +39,12 @@ function isTableData(v: unknown): v is TableData {
 // ---------------------------------------------------------------------------
 
 export function TableRenderer({ data }: TableRendererProps) {
-  if (!isTableData(data) || data.rows.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-zinc-400">
-        No table data available
-      </div>
-    );
-  }
+  const valid = isTableData(data) && data.rows.length > 0;
 
   const columnDefs: ColDef[] = useMemo(() => {
-    const cols = data.columns ?? Object.keys(data.rows[0] ?? {});
+    if (!valid) return [];
+    const d = data as TableData;
+    const cols = d.columns ?? Object.keys(d.rows[0] ?? {});
     return cols.map((col) => ({
       field: col,
       headerName: col,
@@ -56,7 +52,15 @@ export function TableRenderer({ data }: TableRendererProps) {
       filter: true,
       resizable: true,
     }));
-  }, [data.columns, data.rows]);
+  }, [valid, data]);
+
+  if (!valid) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-zinc-400">
+        No table data available
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full" data-testid="table-renderer">

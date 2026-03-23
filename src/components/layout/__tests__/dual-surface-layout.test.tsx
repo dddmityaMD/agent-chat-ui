@@ -1,29 +1,27 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { DualSurfaceLayout } from "../dual-surface-layout";
 
 // Mock react-resizable-panels with simple divs
-jest.mock("react-resizable-panels", () => {
-  const React = require("react");
-  return {
-    Group: ({ children, ...props }: any) => (
-      <div data-testid="panel-group" data-orientation={props.orientation}>
-        {children}
-      </div>
-    ),
-    Panel: ({ children, ...props }: any) => (
-      <div data-testid={props["data-testid"] || `panel-${props.id}`}>
-        {children}
-      </div>
-    ),
-    Separator: (props: any) => <div data-testid="separator" />,
-    useDefaultLayout: () => ({
-      defaultLayout: undefined,
-      onLayoutChange: jest.fn(),
-      onLayoutChanged: jest.fn(),
-    }),
-  };
-});
+jest.mock("react-resizable-panels", () => ({
+  Group: ({ children, ...props }: any) => (
+    <div data-testid="panel-group" data-orientation={props.orientation}>
+      {children}
+    </div>
+  ),
+  Panel: ({ children, ...props }: any) => (
+    <div data-testid={props["data-testid"] || `panel-${props.id}`}>
+      {children}
+    </div>
+  ),
+  Separator: (_props: any) => <div data-testid="separator" />,
+  useDefaultLayout: () => ({
+    defaultLayout: undefined,
+    onLayoutChange: jest.fn(),
+    onLayoutChanged: jest.fn(),
+  }),
+}));
 
 describe("DualSurfaceLayout", () => {
   it("renders chat and panel side by side when panelOpen=true", () => {
