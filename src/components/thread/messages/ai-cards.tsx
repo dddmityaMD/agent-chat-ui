@@ -9,7 +9,10 @@ import { useStreamContext } from "@/providers/Stream";
 import { Message } from "@langchain/langgraph-sdk";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
-import { isSaisInterruptSchema, isSaisInterruptType } from "@/hooks/useInterruptApproval";
+import {
+  isSaisInterruptSchema,
+  isSaisInterruptType,
+} from "@/hooks/useInterruptApproval";
 import { ThreadView } from "../agent-inbox";
 import { GenericInterruptView } from "./generic-interrupt";
 import { useArtifact } from "../artifact";
@@ -28,9 +31,12 @@ export function CustomComponent({
 }) {
   const artifact = useArtifact();
   const { values } = useStreamContext();
-  const uiMessages = values.ui as Array<{ id: string; metadata?: Record<string, unknown> }> | undefined;
+  const uiMessages = values.ui as
+    | Array<{ id: string; metadata?: Record<string, unknown> }>
+    | undefined;
   const customComponents = uiMessages?.filter(
-    (ui: { metadata?: Record<string, unknown> }) => ui.metadata?.message_id === message.id,
+    (ui: { metadata?: Record<string, unknown> }) =>
+      ui.metadata?.message_id === message.id,
   );
 
   if (!customComponents?.length) return null;
@@ -77,7 +83,10 @@ export function Interrupt({
   // SAIS interrupt types — in block-based architecture, interrupt cards are rendered
   // as message blocks in chronological position. The Interrupt component no longer
   // renders them — the card block handles active state + buttons.
-  if (isSaisInterruptSchema(interruptValue) || isSaisInterruptType(interruptValue)) {
+  if (
+    isSaisInterruptSchema(interruptValue) ||
+    isSaisInterruptType(interruptValue)
+  ) {
     return null;
   }
 
@@ -128,8 +137,7 @@ export function HandoffConfirmationCard({
         </span>
       </div>
       <p className="mb-3 text-sm text-amber-700 dark:text-amber-300">
-        {currentName} suggests switching to{" "}
-        <strong>{targetName}</strong>
+        {currentName} suggests switching to <strong>{targetName}</strong>
         {handoff.reason ? `: ${handoff.reason}` : "."}
       </p>
       <div className="flex items-center gap-2">

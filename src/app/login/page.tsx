@@ -16,7 +16,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function GoogleIcon() {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
         fill="#4285F4"
@@ -39,7 +43,12 @@ function GoogleIcon() {
 
 function GitHubIcon() {
   return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path
         fillRule="evenodd"
         clipRule="evenodd"
@@ -83,41 +92,39 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center space-y-1">
+        <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold text-gray-900">
             SAIS DataBI
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Sign in to continue
-          </p>
+          <p className="text-muted-foreground text-sm">Sign in to continue</p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {/* Error from OAuth callback */}
           {errorParam && ERROR_MESSAGES[errorParam] && (
-            <p className="text-sm text-red-600 text-center">
+            <p className="text-center text-sm text-red-600">
               {ERROR_MESSAGES[errorParam]}
             </p>
           )}
 
           {/* Session expired notice */}
           {expired === "true" && !errorParam && (
-            <p className="text-sm text-amber-600 text-center">
+            <p className="text-center text-sm text-amber-600">
               Your session has expired. Please sign in again.
             </p>
           )}
 
           {/* Loading state */}
           {loading && (
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-muted-foreground text-center text-sm">
               Loading...
             </p>
           )}
 
           {/* Fetch error */}
           {fetchError && (
-            <p className="text-sm text-red-600 text-center">{fetchError}</p>
+            <p className="text-center text-sm text-red-600">{fetchError}</p>
           )}
 
           {/* Provider buttons */}
@@ -126,7 +133,7 @@ function LoginContent() {
               {providers.includes("google") && (
                 <Button
                   variant="outline"
-                  className="w-full justify-center gap-3 bg-white hover:bg-gray-50 border-gray-300 text-gray-700 font-medium"
+                  className="w-full justify-center gap-3 border-gray-300 bg-white font-medium text-gray-700 hover:bg-gray-50"
                   onClick={() => handleLogin("google")}
                 >
                   <GoogleIcon />
@@ -136,7 +143,7 @@ function LoginContent() {
 
               {providers.includes("github") && (
                 <Button
-                  className="w-full justify-center gap-3 bg-gray-900 hover:bg-gray-800 text-white font-medium"
+                  className="w-full justify-center gap-3 bg-gray-900 font-medium text-white hover:bg-gray-800"
                   onClick={() => handleLogin("github")}
                 >
                   <GitHubIcon />
@@ -145,7 +152,7 @@ function LoginContent() {
               )}
 
               {providers.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center">
+                <p className="text-muted-foreground text-center text-sm">
                   No authentication providers configured. Contact an
                   administrator.
                 </p>
@@ -160,7 +167,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          Loading...
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

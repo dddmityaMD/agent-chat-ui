@@ -105,9 +105,6 @@ export interface UseSaisUiResult {
    * @deprecated Phase 23.4: confidence now sourced from block messages or response_metadata.
    */
   confidence: Record<string, unknown> | null;
-  /** Multi-intent decomposition payload */
-  multiIntent: Record<string, unknown> | null;
-
   // Permissions
   /** Permissions object from sais_ui */
   permissions: Record<string, unknown> | null;
@@ -162,7 +159,7 @@ export function extractBlockers(saisUi: unknown): SaisUiBlocker[] {
       typeof b === "object" &&
       typeof (b as Record<string, unknown>).type === "string" &&
       typeof (b as Record<string, unknown>).severity === "string" &&
-      typeof (b as Record<string, unknown>).message === "string"
+      typeof (b as Record<string, unknown>).message === "string",
   );
   return valid ? (blockers as SaisUiBlocker[]) : [];
 }
@@ -170,7 +167,9 @@ export function extractBlockers(saisUi: unknown): SaisUiBlocker[] {
 /**
  * Extract evidence array from investigation flow.
  */
-export function extractEvidence(saisUi: unknown): Array<Record<string, unknown>> {
+export function extractEvidence(
+  saisUi: unknown,
+): Array<Record<string, unknown>> {
   if (!saisUi || typeof saisUi !== "object") return [];
   const obj = saisUi as Record<string, unknown>;
   const evidence = obj.evidence;
@@ -180,7 +179,9 @@ export function extractEvidence(saisUi: unknown): Array<Record<string, unknown>>
 /**
  * Extract confidence data from sais_ui.
  */
-export function extractConfidence(saisUi: unknown): Record<string, unknown> | null {
+export function extractConfidence(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const confidence = obj.confidence;
@@ -191,7 +192,9 @@ export function extractConfidence(saisUi: unknown): Record<string, unknown> | nu
 /**
  * Extract build_plan from build flow.
  */
-export function extractBuildPlan(saisUi: unknown): Record<string, unknown> | null {
+export function extractBuildPlan(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const buildPlan = obj.build_plan;
@@ -212,18 +215,23 @@ export function extractBuildPlanStatus(saisUi: unknown): string | null {
 /**
  * Extract build_verification_result from build flow.
  */
-export function extractBuildVerification(saisUi: unknown): Record<string, unknown> | null {
+export function extractBuildVerification(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const verificationResult = obj.build_verification_result;
-  if (!verificationResult || typeof verificationResult !== "object") return null;
+  if (!verificationResult || typeof verificationResult !== "object")
+    return null;
   return verificationResult as Record<string, unknown>;
 }
 
 /**
  * Extract handoff proposal from sais_ui.
  */
-export function extractHandoffProposal(saisUi: unknown): Record<string, unknown> | null {
+export function extractHandoffProposal(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const handoff = obj.handoff;
@@ -234,7 +242,9 @@ export function extractHandoffProposal(saisUi: unknown): Record<string, unknown>
 /**
  * Extract remediation_proposals array from remediation flow.
  */
-export function extractRemediationProposals(saisUi: unknown): Array<Record<string, unknown>> {
+export function extractRemediationProposals(
+  saisUi: unknown,
+): Array<Record<string, unknown>> {
   if (!saisUi || typeof saisUi !== "object") return [];
   const obj = saisUi as Record<string, unknown>;
   const proposals = obj.remediation_proposals;
@@ -244,18 +254,19 @@ export function extractRemediationProposals(saisUi: unknown): Array<Record<strin
 /**
  * Extract multi_intent payload from sais_ui.
  */
-export function extractMultiIntent(saisUi: unknown): Record<string, unknown> | null {
-  if (!saisUi || typeof saisUi !== "object") return null;
-  const obj = saisUi as Record<string, unknown>;
-  const multiIntent = obj.multi_intent;
-  if (!multiIntent || typeof multiIntent !== "object") return null;
-  return multiIntent as Record<string, unknown>;
+export function extractMultiIntent(
+  saisUi: unknown,
+): Record<string, unknown> | null {
+  void saisUi;
+  return null;
 }
 
 /**
  * Extract metadata_results from sais_ui.
  */
-export function extractMetadataResults(saisUi: unknown): Array<Record<string, unknown>> {
+export function extractMetadataResults(
+  saisUi: unknown,
+): Array<Record<string, unknown>> {
   if (!saisUi || typeof saisUi !== "object") return [];
   const obj = saisUi as Record<string, unknown>;
   const results = obj.metadata_results;
@@ -265,7 +276,9 @@ export function extractMetadataResults(saisUi: unknown): Array<Record<string, un
 /**
  * Extract disambiguation from sais_ui.
  */
-export function extractDisambiguation(saisUi: unknown): Record<string, unknown> | null {
+export function extractDisambiguation(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const disambiguation = obj.disambiguation;
@@ -276,7 +289,9 @@ export function extractDisambiguation(saisUi: unknown): Record<string, unknown> 
 /**
  * Extract resolution_steps from sais_ui.
  */
-export function extractResolutionSteps(saisUi: unknown): Record<string, unknown> | null {
+export function extractResolutionSteps(
+  saisUi: unknown,
+): Record<string, unknown> | null {
   if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const steps = obj.resolution_steps;
@@ -319,12 +334,19 @@ export function useSaisUi(): UseSaisUiResult {
   const valuesEmpty = !values || Object.keys(values).length === 0;
   if (valuesEmpty) {
     cacheRef.current = undefined;
-  } else if (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0) {
+  } else if (
+    rawSaisUi &&
+    typeof rawSaisUi === "object" &&
+    Object.keys(rawSaisUi).length > 0
+  ) {
     cacheRef.current = rawSaisUi;
   }
-  const effectiveRaw = (rawSaisUi && typeof rawSaisUi === "object" && Object.keys(rawSaisUi).length > 0)
-    ? rawSaisUi
-    : cacheRef.current;
+  const effectiveRaw =
+    rawSaisUi &&
+    typeof rawSaisUi === "object" &&
+    Object.keys(rawSaisUi).length > 0
+      ? rawSaisUi
+      : cacheRef.current;
 
   return useMemo(() => {
     // Parse with Zod schema (warn-and-fallback)
@@ -335,17 +357,31 @@ export function useSaisUi(): UseSaisUiResult {
     const caseStatus = parsed?.case_status ?? null;
     const blockers = extractBlockers(parsed);
     const evidence = extractEvidence(parsed);
-    const findings = (parsed && typeof parsed === "object" && "findings" in parsed && parsed.findings && typeof parsed.findings === "object")
-      ? (parsed.findings as Record<string, unknown>)
-      : null;
+    const findings =
+      parsed &&
+      typeof parsed === "object" &&
+      "findings" in parsed &&
+      parsed.findings &&
+      typeof parsed.findings === "object"
+        ? (parsed.findings as Record<string, unknown>)
+        : null;
 
-    const metadataResults = (parsed && typeof parsed === "object" && "metadata_results" in parsed && Array.isArray(parsed.metadata_results))
-      ? (parsed.metadata_results as Array<Record<string, unknown>>)
-      : [];
+    const metadataResults =
+      parsed &&
+      typeof parsed === "object" &&
+      "metadata_results" in parsed &&
+      Array.isArray(parsed.metadata_results)
+        ? (parsed.metadata_results as Array<Record<string, unknown>>)
+        : [];
 
-    const disambiguation = (parsed && typeof parsed === "object" && "disambiguation" in parsed && parsed.disambiguation && typeof parsed.disambiguation === "object")
-      ? (parsed.disambiguation as Record<string, unknown>)
-      : null;
+    const disambiguation =
+      parsed &&
+      typeof parsed === "object" &&
+      "disambiguation" in parsed &&
+      parsed.disambiguation &&
+      typeof parsed.disambiguation === "object"
+        ? (parsed.disambiguation as Record<string, unknown>)
+        : null;
 
     const remediationProposals = extractRemediationProposals(parsed);
     const buildPlan = extractBuildPlan(parsed);
@@ -354,28 +390,43 @@ export function useSaisUi(): UseSaisUiResult {
     const handoff = extractHandoffProposal(parsed);
     const confidence = extractConfidence(parsed);
 
-    const multiIntent = (parsed && typeof parsed === "object" && "multi_intent" in parsed && parsed.multi_intent && typeof parsed.multi_intent === "object")
-      ? (parsed.multi_intent as Record<string, unknown>)
-      : null;
+    const resolutionSteps =
+      parsed &&
+      typeof parsed === "object" &&
+      "resolution_steps" in parsed &&
+      parsed.resolution_steps &&
+      typeof parsed.resolution_steps === "object"
+        ? (parsed.resolution_steps as Record<string, unknown>)
+        : null;
 
-    const resolutionSteps = (parsed && typeof parsed === "object" && "resolution_steps" in parsed && parsed.resolution_steps && typeof parsed.resolution_steps === "object")
-      ? (parsed.resolution_steps as Record<string, unknown>)
-      : null;
-
-    const permissions = (parsed && typeof parsed === "object" && "permissions" in parsed && parsed.permissions && typeof parsed.permissions === "object")
-      ? (parsed.permissions as Record<string, unknown>)
-      : null;
+    const permissions =
+      parsed &&
+      typeof parsed === "object" &&
+      "permissions" in parsed &&
+      parsed.permissions &&
+      typeof parsed.permissions === "object"
+        ? (parsed.permissions as Record<string, unknown>)
+        : null;
 
     const permissionGrants: SaisUiPermissionGrant[] =
       permissions && Array.isArray((permissions as { grants?: unknown }).grants)
-        ? ((permissions as { grants: SaisUiPermissionGrant[] }).grants)
+        ? (permissions as { grants: SaisUiPermissionGrant[] }).grants
         : [];
 
     // Grounded entities for lineage filtering
     const groundedEntities: Array<{ canonical_key: string; name: string }> =
-      parsed && typeof parsed === "object" && "grounded_entities" in parsed && Array.isArray(parsed.grounded_entities)
-        ? (parsed.grounded_entities as Array<{ canonical_key: string; name: string }>).filter(
-            (e) => typeof e.canonical_key === "string" && e.canonical_key.length > 0,
+      parsed &&
+      typeof parsed === "object" &&
+      "grounded_entities" in parsed &&
+      Array.isArray(parsed.grounded_entities)
+        ? (
+            parsed.grounded_entities as Array<{
+              canonical_key: string;
+              name: string;
+            }>
+          ).filter(
+            (e) =>
+              typeof e.canonical_key === "string" && e.canonical_key.length > 0,
           )
         : [];
 
@@ -397,7 +448,6 @@ export function useSaisUi(): UseSaisUiResult {
       handoff,
       resolutionSteps,
       confidence,
-      multiIntent,
       permissions,
       hasPermissionGrants: permissionGrants.length > 0,
       permissionGrants,

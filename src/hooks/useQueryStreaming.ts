@@ -57,7 +57,13 @@ export interface UseQueryStreamingReturn {
 
 // WebSocket message types
 interface WSMessage {
-  type: "status" | "evidence" | "clarification" | "answer" | "error" | "progress";
+  type:
+    | "status"
+    | "evidence"
+    | "clarification"
+    | "answer"
+    | "error"
+    | "progress";
   payload: unknown;
 }
 
@@ -100,7 +106,7 @@ interface ProgressMessage {
 }
 
 export function useQueryStreaming(
-  options: UseQueryStreamingOptions = {}
+  options: UseQueryStreamingOptions = {},
 ): UseQueryStreamingReturn {
   const {
     threadId: initialThreadId,
@@ -135,7 +141,8 @@ export function useQueryStreaming(
   // Keep statusRef in sync
   statusRef.current = status;
 
-  const isStreaming = status !== "idle" && status !== "complete" && status !== "error";
+  const isStreaming =
+    status !== "idle" && status !== "complete" && status !== "error";
 
   // Update status with callback
   const updateStatus = useCallback(
@@ -143,7 +150,7 @@ export function useQueryStreaming(
       setStatus(newStatus);
       onStatusChange?.(newStatus);
     },
-    [onStatusChange]
+    [onStatusChange],
   );
 
   // Reset state for new query
@@ -205,7 +212,7 @@ export function useQueryStreaming(
             ) {
               const batchProgress =
                 (evidenceMsg.batchIndex / evidenceMsg.totalBatches) * 100;
-              setProgress(prev => Math.max(prev, batchProgress));
+              setProgress((prev) => Math.max(prev, batchProgress));
             }
             break;
           }
@@ -245,7 +252,14 @@ export function useQueryStreaming(
         console.error("Failed to parse WebSocket message:", e);
       }
     },
-    [updateStatus, onEvidenceUpdate, onClarificationNeeded, onComplete, onError, closeConnection]
+    [
+      updateStatus,
+      onEvidenceUpdate,
+      onClarificationNeeded,
+      onComplete,
+      onError,
+      closeConnection,
+    ],
   );
 
   // Connect WebSocket
@@ -271,7 +285,7 @@ export function useQueryStreaming(
             JSON.stringify({
               type: "query",
               query,
-            })
+            }),
           );
         }
       };
@@ -304,19 +318,28 @@ export function useQueryStreaming(
 
       wsRef.current = ws;
     },
-    [baseUrl, handleMessage, onError, resetState, closeConnection, updateStatus]
+    [
+      baseUrl,
+      handleMessage,
+      onError,
+      resetState,
+      closeConnection,
+      updateStatus,
+    ],
   );
 
   // Submit query
   const submitQuery = useCallback(
     (query: string) => {
       // Generate thread ID if not provided
-      const tid = threadId || `thread_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      const tid =
+        threadId ||
+        `thread_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
       setThreadId(tid);
 
       connectWebSocket(tid, query);
     },
-    [threadId, connectWebSocket]
+    [threadId, connectWebSocket],
   );
 
   // Submit clarification
@@ -327,13 +350,13 @@ export function useQueryStreaming(
           JSON.stringify({
             type: "clarification",
             optionId,
-          })
+          }),
         );
         setClarificationOptions(undefined);
         updateStatus("translating");
       }
     },
-    [updateStatus]
+    [updateStatus],
   );
 
   // Cancel query

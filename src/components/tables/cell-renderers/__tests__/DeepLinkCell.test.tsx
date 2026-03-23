@@ -17,25 +17,40 @@ describe("DeepLinkCell", () => {
   describe("Rendering", () => {
     it("returns null when targetId is empty", () => {
       const { container } = renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId=""
+        />,
       );
       expect(container.firstChild).toBeNull();
     });
 
     it("renders link with correct URL for Metabase card", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="123" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId="123"
+        />,
       );
       const link = screen.getByRole("link");
-      expect(link).toHaveAttribute("href", expect.stringContaining("/card/123"));
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("/card/123"),
+      );
     });
 
     it("renders link with correct URL for Metabase dashboard", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_dashboard" targetId="456" />
+        <DeepLinkCell
+          type="metabase_dashboard"
+          targetId="456"
+        />,
       );
       const link = screen.getByRole("link");
-      expect(link).toHaveAttribute("href", expect.stringContaining("/dashboard/456"));
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("/dashboard/456"),
+      );
     });
 
     it("renders link with correct URL for dbt model", () => {
@@ -43,10 +58,16 @@ describe("DeepLinkCell", () => {
       process.env.NEXT_PUBLIC_DBT_DOCS_URL = "http://localhost:8080";
       try {
         renderWithTooltip(
-          <DeepLinkCell type="dbt_model" targetId="stg_customers" />
+          <DeepLinkCell
+            type="dbt_model"
+            targetId="stg_customers"
+          />,
         );
         const link = screen.getByRole("link");
-        expect(link).toHaveAttribute("href", expect.stringContaining("model/stg_customers"));
+        expect(link).toHaveAttribute(
+          "href",
+          expect.stringContaining("model/stg_customers"),
+        );
       } finally {
         process.env.NEXT_PUBLIC_DBT_DOCS_URL = prev;
       }
@@ -54,17 +75,27 @@ describe("DeepLinkCell", () => {
 
     it("renders link with correct URL for git commit", () => {
       renderWithTooltip(
-        <DeepLinkCell type="git_commit" targetId="abc123" config={{ gitRepoUrl: "https://github.com/org/repo" }} />
+        <DeepLinkCell
+          type="git_commit"
+          targetId="abc123"
+          config={{ gitRepoUrl: "https://github.com/org/repo" }}
+        />,
       );
       const link = screen.getByRole("link");
-      expect(link).toHaveAttribute("href", expect.stringContaining("commit/abc123"));
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("commit/abc123"),
+      );
     });
   });
 
   describe("Link behavior", () => {
     it("opens in new tab", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="123" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId="123"
+        />,
       );
       const link = screen.getByRole("link");
       expect(link).toHaveAttribute("target", "_blank");
@@ -76,9 +107,12 @@ describe("DeepLinkCell", () => {
       render(
         <TooltipProvider>
           <div onClick={parentHandler}>
-            <DeepLinkCell type="metabase_card" targetId="123" />
+            <DeepLinkCell
+              type="metabase_card"
+              targetId="123"
+            />
           </div>
-        </TooltipProvider>
+        </TooltipProvider>,
       );
 
       const link = screen.getByRole("link");
@@ -103,7 +137,10 @@ describe("DeepLinkCell", () => {
     linkTypes.forEach(({ type, expectedLabel }) => {
       it(`shows default label "${expectedLabel}" for type "${type}"`, () => {
         renderWithTooltip(
-          <DeepLinkCell type={type} targetId="test-id" />
+          <DeepLinkCell
+            type={type}
+            targetId="test-id"
+          />,
         );
         expect(screen.getByText(expectedLabel)).toBeInTheDocument();
       });
@@ -113,7 +150,11 @@ describe("DeepLinkCell", () => {
   describe("Custom label", () => {
     it("uses custom label when provided", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="123" label="Custom Label" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId="123"
+          label="Custom Label"
+        />,
       );
       expect(screen.getByText("Custom Label")).toBeInTheDocument();
     });
@@ -122,7 +163,10 @@ describe("DeepLinkCell", () => {
   describe("Icons", () => {
     it("renders icon for each link type", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="123" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId="123"
+        />,
       );
       // Icon should be present (SVG element inside the link)
       const link = screen.getByRole("link");
@@ -134,7 +178,10 @@ describe("DeepLinkCell", () => {
   describe("Tooltip", () => {
     it("wraps link in tooltip", () => {
       renderWithTooltip(
-        <DeepLinkCell type="metabase_card" targetId="123" />
+        <DeepLinkCell
+          type="metabase_card"
+          targetId="123"
+        />,
       );
       // Tooltip trigger is present
       const link = screen.getByRole("link");
@@ -149,7 +196,7 @@ describe("DeepLinkCell", () => {
           type="metabase_card"
           targetId="123"
           config={{ metabaseBaseUrl: "https://bi.example.com" }}
-        />
+        />,
       );
       const link = screen.getByRole("link");
       expect(link).toHaveAttribute("href", "https://bi.example.com/card/123");
@@ -159,7 +206,10 @@ describe("DeepLinkCell", () => {
 
 describe("createDeepLinkCellRenderer", () => {
   it("creates a cell renderer function", () => {
-    const renderer = createDeepLinkCellRenderer("metabase_card", "Custom Label");
+    const renderer = createDeepLinkCellRenderer(
+      "metabase_card",
+      "Custom Label",
+    );
     expect(typeof renderer).toBe("function");
   });
 
@@ -174,7 +224,9 @@ describe("createDeepLinkCellRenderer", () => {
     const renderer = createDeepLinkCellRenderer("metabase_card", "View");
     const params = { value: "123", data: {}, node: {}, colDef: {} };
 
-    const { container } = renderWithTooltip(renderer(params as never) as React.ReactElement);
+    const { container } = renderWithTooltip(
+      renderer(params as never) as React.ReactElement,
+    );
     expect(container.querySelector("a")).toBeInTheDocument();
   });
 

@@ -60,7 +60,7 @@ export function ClarificationDialog({
       setSelectedOption(optionId);
       onSelect(optionId);
     },
-    [onSelect]
+    [onSelect],
   );
 
   const handleKeyDown = useCallback(
@@ -70,7 +70,7 @@ export function ClarificationDialog({
         handleSelect(optionId);
       }
     },
-    [handleSelect]
+    [handleSelect],
   );
 
   const handleCancel = useCallback(() => {
@@ -79,11 +79,17 @@ export function ClarificationDialog({
   }, [onCancel]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
-      <DialogContent className="sm:max-w-[550px]" aria-describedby="clarification-description">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => !open && handleCancel()}
+    >
+      <DialogContent
+        className="sm:max-w-[550px]"
+        aria-describedby="clarification-description"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <HelpCircle className="h-5 w-5 text-primary" />
+            <HelpCircle className="text-primary h-5 w-5" />
             Did you mean:
           </DialogTitle>
           <DialogDescription id="clarification-description">
@@ -93,9 +99,14 @@ export function ClarificationDialog({
         </DialogHeader>
 
         {/* Original Query Display */}
-        <div className="bg-muted/50 rounded-lg p-3 border">
-          <div className="text-xs text-muted-foreground mb-1">Original query:</div>
-          <div className="text-sm font-medium truncate" title={originalQuery}>
+        <div className="bg-muted/50 rounded-lg border p-3">
+          <div className="text-muted-foreground mb-1 text-xs">
+            Original query:
+          </div>
+          <div
+            className="truncate text-sm font-medium"
+            title={originalQuery}
+          >
             &ldquo;{originalQuery}&rdquo;
           </div>
         </div>
@@ -120,9 +131,9 @@ export function ClarificationDialog({
           {/* "Something else" option */}
           <Card
             className={cn(
-              "cursor-pointer transition-all duration-200 border-dashed",
+              "cursor-pointer border-dashed transition-all duration-200",
               "hover:border-primary/50 hover:bg-muted/50",
-              "focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+              "focus-within:ring-primary focus-within:ring-2 focus-within:ring-offset-2",
             )}
             onClick={handleCancel}
             onMouseEnter={() => setHoveredOption("cancel")}
@@ -137,23 +148,27 @@ export function ClarificationDialog({
             role="button"
             aria-label="None of the above - rephrase your question"
           >
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="bg-muted flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full">
+                <MessageSquare className="text-muted-foreground h-4 w-4" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-sm">Something else</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-sm font-medium">Something else</div>
+                <div className="text-muted-foreground text-xs">
                   Rephrase your question
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="text-muted-foreground h-4 w-4" />
             </CardContent>
           </Card>
         </div>
 
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
         </DialogFooter>
@@ -198,9 +213,9 @@ function OptionCard({
     <Card
       className={cn(
         "cursor-pointer transition-all duration-200",
-        isSelected && "ring-2 ring-primary ring-offset-2 border-primary",
+        isSelected && "ring-primary border-primary ring-2 ring-offset-2",
         isHovered && !isSelected && "border-primary/50 bg-muted/30",
-        "focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
+        "focus-within:ring-primary focus-within:ring-2 focus-within:ring-offset-2",
       )}
       onClick={onSelect}
       onMouseEnter={onHover}
@@ -216,29 +231,31 @@ function OptionCard({
           {/* Radio indicator */}
           <div
             className={cn(
-              "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5",
+              "mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2",
               isSelected
                 ? "border-primary bg-primary"
-                : "border-muted-foreground/30"
+                : "border-muted-foreground/30",
             )}
           >
-            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+            {isSelected && (
+              <Check className="text-primary-foreground h-3 w-3" />
+            )}
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             {/* Option label */}
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium text-sm">{option.label}</span>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-sm font-medium">{option.label}</span>
               {confidence > 0 && (
                 <div className="flex items-center gap-1">
                   <div
                     className={cn(
-                      "w-2 h-2 rounded-full",
-                      getConfidenceColor(confidence)
+                      "h-2 w-2 rounded-full",
+                      getConfidenceColor(confidence),
                     )}
                     title={`Confidence: ${(confidence * 100).toFixed(0)}%`}
                   />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-muted-foreground text-xs">
                     {(confidence * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -246,7 +263,7 @@ function OptionCard({
             </div>
 
             {/* Preview */}
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 font-mono">
+            <div className="text-muted-foreground bg-muted/50 rounded px-2 py-1.5 font-mono text-xs">
               Preview: &ldquo;{option.preview}&rdquo;
             </div>
           </div>
@@ -254,7 +271,7 @@ function OptionCard({
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex-shrink-0">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <Loader2 className="text-primary h-5 w-5 animate-spin" />
             </div>
           )}
         </div>

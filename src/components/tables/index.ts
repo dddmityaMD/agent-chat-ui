@@ -1,6 +1,6 @@
-export { EvidenceTable } from './EvidenceTable';
-export { LoadMoreButton } from './LoadMoreButton';
-export { PaginatedEvidenceTable } from './PaginatedEvidenceTable';
+export { EvidenceTable } from "./EvidenceTable";
+export { LoadMoreButton } from "./LoadMoreButton";
+export { PaginatedEvidenceTable } from "./PaginatedEvidenceTable";
 export {
   createTableColumnDefs,
   createColumnColumnDefs,
@@ -14,8 +14,8 @@ export {
   TimestampColumn,
   MatchReasonColumn,
   ActionsColumn,
-} from './columnDefinitions';
+} from "./columnDefinitions";
 
-export type { EvidenceRow, EvidenceTableProps } from './EvidenceTable';
-export type { LoadMoreButtonProps } from './LoadMoreButton';
-export type { PaginatedEvidenceTableProps } from './PaginatedEvidenceTable';
+export type { EvidenceRow, EvidenceTableProps } from "./EvidenceTable";
+export type { LoadMoreButtonProps } from "./LoadMoreButton";
+export type { PaginatedEvidenceTableProps } from "./PaginatedEvidenceTable";

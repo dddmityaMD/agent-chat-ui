@@ -47,7 +47,10 @@ interface UseSearchMatchDetailsReturn {
 
 // Simple in-memory cache for match details (bounded to prevent leaks)
 const MAX_CACHE_SIZE = 200;
-const detailsCache = new Map<string, { details: MatchDetails; timestamp: number }>();
+const detailsCache = new Map<
+  string,
+  { details: MatchDetails; timestamp: number }
+>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -129,7 +132,9 @@ export function useSearchMatchDetails(
           // Endpoint not found — leave details null
           return;
         }
-        throw new Error(`Failed to fetch match details: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch match details: ${response.statusText}`,
+        );
       }
 
       const data = (await response.json()) as MatchDetails;

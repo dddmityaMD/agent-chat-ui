@@ -1,21 +1,27 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, AlertTriangle, Info, LucideIcon, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { PermissionModal } from '@/components/permission-modal';
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  LucideIcon,
+  RefreshCw,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { PermissionModal } from "@/components/permission-modal";
 import type {
   AvailableModel,
   Blocker,
   BlockerSeverity,
   PermissionBlockerMetadata,
-} from '@/lib/types';
+} from "@/lib/types";
 import {
   blockerSeverityConfig,
   blockerTypeSeverityOverrides,
-} from '@/lib/types';
-import { ModelPicker } from './model-picker';
+} from "@/lib/types";
+import { ModelPicker } from "./model-picker";
 
 interface SeverityConfig {
   icon: LucideIcon;
@@ -60,22 +66,28 @@ interface BlockerMessageProps {
  * - Recovery actions for LLM_ERROR: retry button + model picker
  */
 export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
-  const severity = blockerTypeSeverityOverrides[blocker.type] ?? blocker.severity;
+  const severity =
+    blockerTypeSeverityOverrides[blocker.type] ?? blocker.severity;
   const config = severityConfig[severity];
   const Icon = config.icon;
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
-  const isLLMError = blocker.type === 'LLM_ERROR';
-  const isPermissionRequired = blocker.type === 'PERMISSION_REQUIRED';
-  const isPolicyViolation = blocker.type === 'POLICY_VIOLATION';
-  const hasRecoveryActions = isLLMError && blocker.recovery_actions && blocker.recovery_actions.length > 0;
-  const showRetry = hasRecoveryActions && blocker.recovery_actions!.includes('retry');
-  const showModelPicker = hasRecoveryActions && blocker.recovery_actions!.includes('switch_model');
+  const isLLMError = blocker.type === "LLM_ERROR";
+  const isPermissionRequired = blocker.type === "PERMISSION_REQUIRED";
+  const isPolicyViolation = blocker.type === "POLICY_VIOLATION";
+  const hasRecoveryActions =
+    isLLMError &&
+    blocker.recovery_actions &&
+    blocker.recovery_actions.length > 0;
+  const showRetry =
+    hasRecoveryActions && blocker.recovery_actions!.includes("retry");
+  const showModelPicker =
+    hasRecoveryActions && blocker.recovery_actions!.includes("switch_model");
 
   const permissionMetadata = useMemo<PermissionBlockerMetadata>(() => {
-    if (!blocker.metadata || typeof blocker.metadata !== 'object') return {};
+    if (!blocker.metadata || typeof blocker.metadata !== "object") return {};
     return blocker.metadata as PermissionBlockerMetadata;
   }, [blocker.metadata]);
 
@@ -95,7 +107,7 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
   }, [isPermissionRequired]);
 
   const handleRetry = () => {
-    onAction?.('retry');
+    onAction?.("retry");
   };
 
   const handleModelSelect = (model: AvailableModel) => {
@@ -111,8 +123,10 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
     reason: string | null;
     pending_action_id: string | null;
   }) => {
-    const reasonText = reason ? ` reason="${reason.replace(/"/g, '\\"')}"` : '';
-    const pendingActionText = pending_action_id ? ` pending_action_id=${pending_action_id}` : '';
+    const reasonText = reason ? ` reason="${reason.replace(/"/g, '\\"')}"` : "";
+    const pendingActionText = pending_action_id
+      ? ` pending_action_id=${pending_action_id}`
+      : "";
     onAction?.(`grant write scope=${scope}${pendingActionText}${reasonText}`);
     setPermissionGranted(true);
     setPermissionModalOpen(false);
@@ -121,7 +135,7 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
   const handlePermissionDeny = () => {
     const pendingActionText = permissionMetadata.pending_action_id
       ? ` pending_action_id=${permissionMetadata.pending_action_id}`
-      : '';
+      : "";
     onAction?.(`deny write${pendingActionText}`);
     setPermissionDenied(true);
     setPermissionModalOpen(false);
@@ -129,18 +143,18 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
 
   // Extract current provider from metadata if available (for model picker highlight)
   const currentProvider =
-    blocker.metadata && typeof blocker.metadata.provider === 'string'
+    blocker.metadata && typeof blocker.metadata.provider === "string"
       ? blocker.metadata.provider
       : undefined;
 
   return (
     <div
       data-testid="blocker-message"
-      className={cn('rounded-lg border p-4 my-2', config.className)}
+      className={cn("my-2 rounded-lg border p-4", config.className)}
     >
       <div className="flex items-start gap-3">
-        <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
+        <Icon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <div className="min-w-0 flex-1">
           <p className="font-medium">{blocker.message}</p>
           <p className="mt-1 text-sm opacity-90">{blocker.hint}</p>
 
@@ -153,12 +167,14 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
           {isPolicyViolation && (
             <div className="mt-2 rounded-md border border-red-200 bg-red-50/70 p-2 text-sm dark:border-red-800 dark:bg-red-900/20">
               <p>
-                <span className="font-semibold">Rule violated:</span>{' '}
-                {permissionMetadata.rule_violated || 'Policy restriction triggered'}
+                <span className="font-semibold">Rule violated:</span>{" "}
+                {permissionMetadata.rule_violated ||
+                  "Policy restriction triggered"}
               </p>
               <p className="mt-1">
-                <span className="font-semibold">Suggestion:</span>{' '}
-                {permissionMetadata.suggestion || 'Rephrase the request with read-only intent.'}
+                <span className="font-semibold">Suggestion:</span>{" "}
+                {permissionMetadata.suggestion ||
+                  "Rephrase the request with read-only intent."}
               </p>
             </div>
           )}
@@ -171,10 +187,10 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
 
           {blocker.what_i_tried && blocker.what_i_tried.length > 0 && (
             <details className="mt-2">
-              <summary className="text-xs cursor-pointer hover:underline">
+              <summary className="cursor-pointer text-xs hover:underline">
                 What I tried
               </summary>
-              <ul className="mt-1 text-xs list-disc list-inside opacity-75 space-y-0.5">
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs opacity-75">
                 {blocker.what_i_tried.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -184,7 +200,10 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
 
           {/* LLM_ERROR recovery actions */}
           {hasRecoveryActions && (
-            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="llm-recovery-actions">
+            <div
+              className="mt-3 flex flex-wrap items-center gap-2"
+              data-testid="llm-recovery-actions"
+            >
               {showRetry && (
                 <Button
                   variant="outline"
@@ -205,16 +224,19 @@ export function BlockerMessage({ blocker, onAction }: BlockerMessageProps) {
           )}
 
           {/* Existing next_action button for non-LLM_ERROR blockers (backward compatible) */}
-          {!hasRecoveryActions && blocker.next_action && !isPermissionRequired && !isPolicyViolation && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => onAction?.()}
-            >
-              {blocker.next_action}
-            </Button>
-          )}
+          {!hasRecoveryActions &&
+            blocker.next_action &&
+            !isPermissionRequired &&
+            !isPolicyViolation && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => onAction?.()}
+              >
+                {blocker.next_action}
+              </Button>
+            )}
         </div>
       </div>
 

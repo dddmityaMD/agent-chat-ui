@@ -59,8 +59,7 @@ const SCOPE_CONFIG: Record<
   sql: {
     label: "SQL",
     icon: Database,
-    className:
-      "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+    className: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
   },
   dbt: {
     label: "dbt",
@@ -94,8 +93,7 @@ const RISK_CONFIG: Record<
   },
   high: {
     label: "High Risk",
-    className:
-      "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+    className: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
     borderColor: "border-l-red-400",
   },
 };
@@ -168,7 +166,10 @@ export function DiffCard({
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${scopeConfig.className}`}
             >
-              <ScopeIcon className="h-3 w-3" aria-hidden="true" />
+              <ScopeIcon
+                className="h-3 w-3"
+                aria-hidden="true"
+              />
               {scopeConfig.label}
             </span>
 
@@ -176,7 +177,10 @@ export function DiffCard({
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${riskConfig.className}`}
             >
-              <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+              <AlertTriangle
+                className="h-3 w-3"
+                aria-hidden="true"
+              />
               {riskConfig.label}
             </span>
           </div>
@@ -190,15 +194,19 @@ export function DiffCard({
           <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-500">
             <span className="flex items-center gap-1">
               <Link2 className="h-3 w-3" />
-              Based on {evidenceCount} evidence item{evidenceCount !== 1 ? "s" : ""}
+              Based on {evidenceCount} evidence item
+              {evidenceCount !== 1 ? "s" : ""}
             </span>
             {impactCount > 0 && (
               <span className="flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
-                {impactCount} downstream item{impactCount !== 1 ? "s" : ""} affected
+                {impactCount} downstream item{impactCount !== 1 ? "s" : ""}{" "}
+                affected
               </span>
             )}
-            <span className="font-mono text-gray-400">{proposal.target_ref}</span>
+            <span className="font-mono text-gray-400">
+              {proposal.target_ref}
+            </span>
           </div>
         </div>
       </button>
@@ -208,7 +216,10 @@ export function DiffCard({
         <div className="border-t border-gray-200 dark:border-gray-700">
           {/* Diff viewer */}
           <div className="p-4">
-            <DiffViewer diff={proposal.diff_preview} maxHeight={300} />
+            <DiffViewer
+              diff={proposal.diff_preview}
+              maxHeight={300}
+            />
           </div>
 
           {/* Explanation (expandable) */}
@@ -261,7 +272,9 @@ export function DiffCard({
                     <span>{item.label || item.node_id}</span>
                     <span className="text-gray-400">({item.type})</span>
                     {item.risk_reason && (
-                      <span className="text-gray-400">- {item.risk_reason}</span>
+                      <span className="text-gray-400">
+                        - {item.risk_reason}
+                      </span>
                     )}
                   </li>
                 ))}

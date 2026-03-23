@@ -6,8 +6,8 @@
  * Collapsible section for embedding in the case panel sidebar.
  * Shows a human-readable summary of what the agent "sees":
  * - Resolved entities as compact tags
- * - Detected intent with confidence
- * - Active flow and RPABV stage
+ * - Active methodology / focused mode
+ * - Current stage when present
  * - Key decisions (build plan status, approvals)
  *
  * Reads from useSaisUi() for real-time streaming data.
@@ -15,7 +15,13 @@
  */
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, Brain, Zap, GitBranch, CheckCircle2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Brain,
+  GitBranch,
+  CheckCircle2,
+} from "lucide-react";
 import { useSaisUi } from "@/hooks/useSaisUi";
 
 /** Safely extract a string field from a passthrough object */
@@ -23,13 +29,6 @@ function extractStringField(obj: unknown, key: string): string | null {
   if (!obj || typeof obj !== "object") return null;
   const val = (obj as Record<string, unknown>)[key];
   return typeof val === "string" && val.length > 0 ? val : null;
-}
-
-/** Safely extract a number field from a passthrough object */
-function extractNumberField(obj: unknown, key: string): number | null {
-  if (!obj || typeof obj !== "object") return null;
-  const val = (obj as Record<string, unknown>)[key];
-  return typeof val === "number" ? val : null;
 }
 
 interface ContextPanelSectionProps {
@@ -49,14 +48,14 @@ export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
         data-testid="context-panel-toggle"
       >
         {isOpen ? (
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="text-muted-foreground size-4 shrink-0" />
         ) : (
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronRight className="text-muted-foreground size-4 shrink-0" />
         )}
         <span>Agent Context</span>
       </button>
       {isOpen && (
-        <div className="rounded-md border bg-card p-3">
+        <div className="bg-card rounded-md border p-3">
           <div className="flex flex-col gap-3">
             {!threadId && (
               <p className="text-muted-foreground text-sm">
@@ -69,16 +68,13 @@ export function ContextPanelSection({ threadId }: ContextPanelSectionProps) {
                 {/* Resolved Entities */}
                 <ResolvedEntitiesSection entities={saisUi.groundedEntities} />
 
-                {/* Detected Intent */}
-                <DetectedIntentSection
-                  intent={extractStringField(saisUi.raw, "intent")}
-                  confidence={extractNumberField(saisUi.raw, "intent_confidence")}
-                />
-
                 {/* Active Flow */}
                 <ActiveFlowSection
                   methodologyType={saisUi.methodologyType}
-                  methodologyStage={extractStringField(saisUi.raw, "methodology_stage")}
+                  methodologyStage={extractStringField(
+                    saisUi.raw,
+                    "methodology_stage",
+                  )}
                 />
 
                 {/* Key Decisions */}
@@ -110,12 +106,14 @@ function ResolvedEntitiesSection({
     <section>
       <div className="mb-1.5 flex items-center gap-1.5">
         <Brain className="size-3.5 text-violet-500" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
           Resolved Entities
         </h3>
       </div>
       {entities.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No entities resolved yet</p>
+        <p className="text-muted-foreground text-xs">
+          No entities resolved yet
+        </p>
       ) : (
         <div className="flex flex-wrap gap-1">
           {entities.map((entity) => (
@@ -133,37 +131,6 @@ function ResolvedEntitiesSection({
   );
 }
 
-function DetectedIntentSection({
-  intent,
-  confidence,
-}: {
-  intent: string | null;
-  confidence: number | null;
-}) {
-  return (
-    <section>
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <Zap className="size-3.5 text-blue-500" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Detected Intent
-        </h3>
-      </div>
-      {!intent ? (
-        <p className="text-xs text-muted-foreground">No intent classified yet</p>
-      ) : (
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-          {intent}
-          {confidence != null && (
-            <span className="text-blue-500">
-              ({(confidence * 100).toFixed(0)}%)
-            </span>
-          )}
-        </span>
-      )}
-    </section>
-  );
-}
-
 function ActiveFlowSection({
   methodologyType,
   methodologyStage,
@@ -175,12 +142,12 @@ function ActiveFlowSection({
     <section>
       <div className="mb-1.5 flex items-center gap-1.5">
         <GitBranch className="size-3.5 text-purple-500" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
           Active Methodology
         </h3>
       </div>
       {!methodologyType ? (
-        <p className="text-xs text-muted-foreground">No active methodology</p>
+        <p className="text-muted-foreground text-xs">No active methodology</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
@@ -212,12 +179,14 @@ function KeyDecisionsSection({
     <section>
       <div className="mb-1.5 flex items-center gap-1.5">
         <CheckCircle2 className="size-3.5 text-green-500" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
           Key Decisions
         </h3>
       </div>
       {!hasAnyDecision ? (
-        <p className="text-xs text-muted-foreground">No decisions recorded yet</p>
+        <p className="text-muted-foreground text-xs">
+          No decisions recorded yet
+        </p>
       ) : (
         <div className="flex flex-col gap-1">
           {buildPlanStatus && (
@@ -230,7 +199,8 @@ function KeyDecisionsSection({
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Permissions:</span>
               <span className="font-medium text-amber-700">
-                {permissionGrantCount} active grant{permissionGrantCount !== 1 ? "s" : ""}
+                {permissionGrantCount} active grant
+                {permissionGrantCount !== 1 ? "s" : ""}
               </span>
             </div>
           )}

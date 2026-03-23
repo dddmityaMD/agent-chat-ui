@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { CommandPalette } from "../CommandPalette";
 
 // Minimal props factory
-function makeProps(overrides: Partial<Parameters<typeof CommandPalette>[0]> = {}) {
+function makeProps(
+  overrides: Partial<Parameters<typeof CommandPalette>[0]> = {},
+) {
   return {
     open: true,
     setOpen: jest.fn(),

@@ -62,7 +62,7 @@ export function EvidenceTable({
           ? params.value
           : undefined,
     }),
-    []
+    [],
   );
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
@@ -75,7 +75,7 @@ export function EvidenceTable({
         onRowClicked(event.data as EvidenceRow);
       }
     },
-    [onRowClicked]
+    [onRowClicked],
   );
 
   const handleSortChanged = useCallback(
@@ -84,7 +84,7 @@ export function EvidenceTable({
         onSortChanged(event);
       }
     },
-    [onSortChanged]
+    [onSortChanged],
   );
 
   const handleFilterChanged = useCallback(
@@ -93,7 +93,7 @@ export function EvidenceTable({
         onFilterChanged(event);
       }
     },
-    [onFilterChanged]
+    [onFilterChanged],
   );
 
   // Show empty state when no data and not loading
@@ -106,13 +106,13 @@ export function EvidenceTable({
     <div
       data-testid="evidence-table-container"
       className={cn(
-        "w-full rounded-md border border-border bg-card overflow-hidden",
-        className
+        "border-border bg-card w-full overflow-hidden rounded-md border",
+        className,
       )}
     >
       {/* Loading Overlay */}
       {showLoadingOverlay && (
-        <div className="flex items-center justify-center p-8 text-muted-foreground">
+        <div className="text-muted-foreground flex items-center justify-center p-8">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           <span>Loading evidence...</span>
         </div>
@@ -120,9 +120,9 @@ export function EvidenceTable({
 
       {/* Empty State */}
       {showEmptyState && (
-        <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
+        <div className="text-muted-foreground flex flex-col items-center justify-center p-8">
           <svg
-            className="mb-4 h-12 w-12 text-muted-foreground/50"
+            className="text-muted-foreground/50 mb-4 h-12 w-12"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -135,7 +135,7 @@ export function EvidenceTable({
             />
           </svg>
           <p className="text-sm font-medium">{emptyMessage}</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
+          <p className="text-muted-foreground/70 mt-1 text-xs">
             Try adjusting your filters or query
           </p>
         </div>
@@ -174,8 +174,8 @@ export function EvidenceTable({
             enableCellTextSelection={true}
             ensureDomOrder={true}
             loadingOverlayComponent={() => (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="text-primary h-6 w-6 animate-spin" />
               </div>
             )}
             overlayLoadingTemplate={
@@ -188,9 +188,9 @@ export function EvidenceTable({
 
       {/* Loading indicator for additional data */}
       {loading && rowData.length > 0 && (
-        <div className="flex items-center justify-center p-3 border-t bg-muted/50">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">
+        <div className="bg-muted/50 flex items-center justify-center border-t p-3">
+          <Loader2 className="text-primary mr-2 h-4 w-4 animate-spin" />
+          <span className="text-muted-foreground text-sm">
             Loading more results...
           </span>
         </div>

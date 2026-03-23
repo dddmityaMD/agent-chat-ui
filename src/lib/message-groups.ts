@@ -640,6 +640,31 @@ export function groupMessages(
   }
 
   // ---------------------------------------------------------------------------
+  // Deduplicate consecutive AI messages with identical text content.
+  // The agent loop can produce multiple AI messages in a single turn
+  // (intermediate + final) that carry the same response text.
+  // Keep only the last one in each consecutive run.
+  // ---------------------------------------------------------------------------
+  {
+    const dedup = new Set<number>();
+    for (let i = 0; i < groups.length - 1; i++) {
+      if (groups[i].message.type !== "ai") continue;
+      if (groups[i + 1].message.type !== "ai") continue;
+      const textA = getContentString(groups[i].message.content ?? []).trim();
+      const textB = getContentString(groups[i + 1].message.content ?? []).trim();
+      if (textA.length > 0 && textA === textB) {
+        dedup.add(i); // remove the earlier duplicate
+      }
+    }
+    if (dedup.size > 0) {
+      const sorted = [...dedup].sort((a, b) => b - a);
+      for (const idx of sorted) {
+        groups.splice(idx, 1);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Merge interrupt_decision blocks into their preceding interrupt_card blocks.
   // The backend emits the decision as a separate AIMessage. We merge the decision
   // data (decision, decided_at, feedback) into the card block so the resolved

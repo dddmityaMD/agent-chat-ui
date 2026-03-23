@@ -57,9 +57,8 @@ describe("SHORTCUTS constant", () => {
 // useGlobalShortcuts hook tests -- will fail until implementation exists
 describe("useGlobalShortcuts", () => {
   it("can be imported and called with handler callbacks", async () => {
-    const { useGlobalShortcuts } = await import(
-      "@/hooks/use-keyboard-shortcuts"
-    );
+    const { useGlobalShortcuts } =
+      await import("@/hooks/use-keyboard-shortcuts");
 
     const handlers = {
       onFocusInput: jest.fn(),

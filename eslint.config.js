@@ -31,25 +31,35 @@ export default tseslint.config(
       "no-restricted-syntax": [
         "error",
         {
-          selector: "MemberExpression[object.property.name='values'][property.name='sais_ui']",
-          message: "Direct access to .values.sais_ui is forbidden. Use useSaisUi() hook or extractors from @/hooks/useSaisUi instead."
+          selector:
+            "MemberExpression[object.property.name='values'][property.name='sais_ui']",
+          message:
+            "Direct access to .values.sais_ui is forbidden. Use useSaisUi() hook or extractors from @/hooks/useSaisUi instead.",
         },
         {
-          selector: "MemberExpression[object.name='values'][property.name='sais_ui']",
-          message: "Direct access to values.sais_ui (destructured) is forbidden. Use useSaisUi() hook instead."
+          selector:
+            "MemberExpression[object.name='values'][property.name='sais_ui']",
+          message:
+            "Direct access to values.sais_ui (destructured) is forbidden. Use useSaisUi() hook instead.",
         },
         {
-          selector: "MemberExpression[object.name='values'][property.value='sais_ui']",
-          message: "Direct access to values['sais_ui'] (bracket) is forbidden. Use useSaisUi() hook instead."
-        }
+          selector:
+            "MemberExpression[object.name='values'][property.value='sais_ui']",
+          message:
+            "Direct access to values['sais_ui'] (bracket) is forbidden. Use useSaisUi() hook instead.",
+        },
       ],
     },
   },
   // Exemption for adapter files that need direct sais_ui access
   {
-    files: ["src/hooks/useSaisUi.ts", "src/hooks/useSaisUi.test.ts", "src/lib/message-groups.ts"],
+    files: [
+      "src/hooks/useSaisUi.ts",
+      "src/hooks/useSaisUi.test.ts",
+      "src/lib/message-groups.ts",
+    ],
     rules: {
-      "no-restricted-syntax": "off"
-    }
+      "no-restricted-syntax": "off",
+    },
   },
 );

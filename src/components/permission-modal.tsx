@@ -89,26 +89,35 @@ export function PermissionModal({
               {showDetails ? "Hide details" : "View details"}
             </button>
             {showDetails && (
-              <div className="mt-2 rounded-md border border-amber-200 bg-card p-3 text-sm text-amber-950">
+              <div className="bg-card mt-2 rounded-md border border-amber-200 p-3 text-sm text-amber-950">
                 <div>
-                  <span className="font-medium">Tool:</span> {blockerMetadata.tool_name || "unknown"}
+                  <span className="font-medium">Tool:</span>{" "}
+                  {blockerMetadata.tool_name || "unknown"}
                 </div>
                 <div>
-                  <span className="font-medium">Action:</span> {blockerMetadata.action_name || "unknown"}
+                  <span className="font-medium">Action:</span>{" "}
+                  {blockerMetadata.action_name || "unknown"}
                 </div>
                 <div>
-                  <span className="font-medium">Target:</span> {blockerMetadata.target || "unspecified"}
+                  <span className="font-medium">Target:</span>{" "}
+                  {blockerMetadata.target || "unspecified"}
                 </div>
                 <div className="mt-2">
                   <span className="font-medium">Justification:</span>{" "}
-                  {blockerMetadata.agent_reason || "No reason provided by the agent."}
+                  {blockerMetadata.agent_reason ||
+                    "No reason provided by the agent."}
                 </div>
               </div>
             )}
           </div>
 
-          <fieldset className="grid gap-2" data-testid="permission-modal-scope">
-            <legend className="text-sm font-semibold text-amber-950">Expiration</legend>
+          <fieldset
+            className="grid gap-2"
+            data-testid="permission-modal-scope"
+          >
+            <legend className="text-sm font-semibold text-amber-950">
+              Expiration
+            </legend>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="radio"
@@ -142,13 +151,15 @@ export function PermissionModal({
           </fieldset>
 
           <label className="grid gap-1 text-sm">
-            <span className="font-semibold text-amber-950">Reason (optional)</span>
+            <span className="font-semibold text-amber-950">
+              Reason (optional)
+            </span>
             <input
               type="text"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Add context for audit trail"
-              className="h-9 rounded-md border border-amber-200 bg-background px-3 text-sm outline-none ring-amber-400 focus:ring-2"
+              className="bg-background h-9 rounded-md border border-amber-200 px-3 text-sm ring-amber-400 outline-none focus:ring-2"
               data-testid="permission-modal-reason"
             />
           </label>
@@ -158,7 +169,7 @@ export function PermissionModal({
           <Button
             type="button"
             variant="outline"
-            className="border-gray-300 bg-background"
+            className="bg-background border-gray-300"
             onClick={onDeny}
           >
             Deny

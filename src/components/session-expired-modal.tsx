@@ -48,7 +48,10 @@ export function SessionExpiredModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Button onClick={handleLogin} className="w-full">
+        <Button
+          onClick={handleLogin}
+          className="w-full"
+        >
           Log in again
         </Button>
       </DialogContent>

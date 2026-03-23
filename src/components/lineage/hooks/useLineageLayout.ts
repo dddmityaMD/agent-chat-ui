@@ -197,7 +197,15 @@ export function useLineageLayout(
       fitView({ duration: 0, padding: 0.15, includeHiddenNodes: false });
     });
     return () => window.cancelAnimationFrame(rafId);
-  }, [nodesInitialized, dataNodeCount, edges, getNodes, setNodes, fitView, options]);
+  }, [
+    nodesInitialized,
+    dataNodeCount,
+    edges,
+    getNodes,
+    setNodes,
+    fitView,
+    options,
+  ]);
 
   // Reset flag when data node count changes (e.g., new data fetched).
   // Does NOT reset when group overlay nodes are added/removed.

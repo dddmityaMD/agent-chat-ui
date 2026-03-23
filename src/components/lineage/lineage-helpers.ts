@@ -14,11 +14,16 @@ import {
 
 /** Slugify a name for Metabase URL (e.g. "E-Commerce Insights" -> "e-commerce-insights"). */
 export function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /** Extract the numeric Metabase ID from a canonical key like "metabase:card:5". */
-function extractMetabaseId(canonicalKey: string | null | undefined): string | null {
+function extractMetabaseId(
+  canonicalKey: string | null | undefined,
+): string | null {
   if (!canonicalKey) return null;
   const parts = canonicalKey.split(":");
   if (parts.length >= 3 && parts[0] === "metabase") return parts[2];

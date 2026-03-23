@@ -80,7 +80,9 @@ export function DeduplicationIndicator({
       {showHash && contentHash && (
         <p className="mt-1 text-xs">
           Hash:{" "}
-          <code className="bg-muted rounded px-1">{truncateHash(contentHash)}</code>
+          <code className="bg-muted rounded px-1">
+            {truncateHash(contentHash)}
+          </code>
         </p>
       )}
     </div>

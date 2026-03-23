@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useLLMHealth, OverallStatus } from '@/providers/LLMHealth';
+import { useLLMHealth, OverallStatus } from "@/providers/LLMHealth";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 /** Map overall status to a Tailwind color class */
 const statusColors: Record<OverallStatus, string> = {
-  healthy: 'bg-green-500',
-  degraded: 'bg-yellow-500',
-  unhealthy: 'bg-red-500',
+  healthy: "bg-green-500",
+  degraded: "bg-yellow-500",
+  unhealthy: "bg-red-500",
 };
 
 /** Capitalize first letter for display */
@@ -31,14 +31,14 @@ export function HealthDot() {
   const entries = Object.entries(statuses);
 
   const colorClass = statusColors[overallStatus];
-  const isUnhealthy = overallStatus === 'unhealthy';
+  const isUnhealthy = overallStatus === "unhealthy";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
           data-testid="health-dot"
-          className={`inline-block h-2 w-2 shrink-0 rounded-full ${colorClass} ${isUnhealthy ? 'animate-pulse' : ''}`}
+          className={`inline-block h-2 w-2 shrink-0 rounded-full ${colorClass} ${isUnhealthy ? "animate-pulse" : ""}`}
           role="status"
           aria-label={`LLM health: ${overallStatus}`}
         />
@@ -49,9 +49,12 @@ export function HealthDot() {
         ) : (
           <div className="flex flex-col gap-0.5">
             {entries.map(([provider, health]) => (
-              <p key={provider} className="text-xs">
+              <p
+                key={provider}
+                className="text-xs"
+              >
                 {capitalize(provider)}: {health.status}
-                {health.last_error ? ` -- ${health.last_error}` : ''}
+                {health.last_error ? ` -- ${health.last_error}` : ""}
               </p>
             ))}
           </div>

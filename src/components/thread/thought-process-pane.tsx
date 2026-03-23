@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Check, Loader2, Brain, Circle, Pause } from 'lucide-react';
-import type { ThoughtStage } from '@/lib/message-groups';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Check,
+  Loader2,
+  Brain,
+  Circle,
+  Pause,
+} from "lucide-react";
+import type { ThoughtStage } from "@/lib/message-groups";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Single stage row
@@ -14,32 +22,35 @@ function StageRow({
   status,
 }: {
   stage: ThoughtStage;
-  status: 'completed' | 'in-progress' | 'paused' | 'pending';
+  status: "completed" | "in-progress" | "paused" | "pending";
 }) {
-  if (status === 'pending') return null; // Not yet revealed
+  if (status === "pending") return null; // Not yet revealed
 
   return (
     <div className="flex items-center gap-2 py-0.5">
-      {status === 'paused' ? (
-        <Pause className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
-      ) : status === 'in-progress' ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 flex-shrink-0" />
-      ) : status === 'completed' ? (
-        <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+      {status === "paused" ? (
+        <Pause className="h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
+      ) : status === "in-progress" ? (
+        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-blue-500" />
+      ) : status === "completed" ? (
+        <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-500" />
       ) : (
-        <Circle className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
+        <Circle className="h-3.5 w-3.5 flex-shrink-0 text-gray-300" />
       )}
       <span
         className={cn(
-          'text-xs',
-          status === 'paused' ? 'text-orange-500' :
-          status === 'in-progress' ? 'text-foreground' : 'text-muted-foreground',
+          "text-xs",
+          status === "paused"
+            ? "text-orange-500"
+            : status === "in-progress"
+              ? "text-foreground"
+              : "text-muted-foreground",
         )}
       >
         {stage.label}
       </span>
       {stage.detail && (
-        <span className="text-xs text-muted-foreground/70">
+        <span className="text-muted-foreground/70 text-xs">
           — {stage.detail}
         </span>
       )}
@@ -137,7 +148,7 @@ function useMinSpinStatuses(
   revealedCount: number,
   isStreaming: boolean,
   minSpinMs: number = 1500,
-): (idx: number) => 'completed' | 'in-progress' | 'pending' {
+): (idx: number) => "completed" | "in-progress" | "pending" {
   // Track when each stage was first revealed (index → timestamp).
   const revealTimestamps = useRef<number[]>([]);
   // Force re-render to transition spinning → completed after min time.
@@ -177,19 +188,19 @@ function useMinSpinStatuses(
   }, []);
 
   const getStatus = useCallback(
-    (idx: number): 'completed' | 'in-progress' | 'pending' => {
-      if (!isStreaming) return 'completed';
-      if (idx >= revealedCount) return 'pending';
+    (idx: number): "completed" | "in-progress" | "pending" => {
+      if (!isStreaming) return "completed";
+      if (idx >= revealedCount) return "pending";
       // Last revealed stage is always in-progress (current work)
-      if (idx === revealedCount - 1) return 'in-progress';
+      if (idx === revealedCount - 1) return "in-progress";
       // Non-last revealed: check if min spin time has elapsed
       const revealedAt = revealTimestamps.current[idx];
       if (revealedAt && Date.now() - revealedAt < minSpinMs) {
-        return 'in-progress'; // Still within min spin → keep spinning
+        return "in-progress"; // Still within min spin → keep spinning
       }
-      return 'completed';
+      return "completed";
     },
-    [revealedCount, isStreaming, minSpinMs, /* setTick dependency via tick */],
+    [revealedCount, isStreaming, minSpinMs /* setTick dependency via tick */],
   );
 
   return getStatus;
@@ -206,7 +217,7 @@ function useMinSpinStatuses(
 function deriveCollapsedSummary(stages: ThoughtStage[]): string {
   // Count flow-specific stages (exclude pre-flow resolve/intent and respond)
   const flowStages = stages.filter(
-    (s) => s.id !== 'resolve' && s.id !== 'intent' && s.id !== 'respond',
+    (s) => s.id !== "resolve" && s.id !== "intent" && s.id !== "respond",
   );
   const stageCount = flowStages.length;
 
@@ -220,11 +231,13 @@ function deriveCollapsedSummary(stages: ThoughtStage[]): string {
     return `Complete: ${stages.length} steps`;
   }
 
-  const parts = [`${stageCount} ${stageCount === 1 ? "stage" : "stages"} complete`];
+  const parts = [
+    `${stageCount} ${stageCount === 1 ? "stage" : "stages"} complete`,
+  ];
   if (details.length > 0) {
-    parts.push(details.join(', '));
+    parts.push(details.join(", "));
   }
-  return parts.join(' — ');
+  return parts.join(" — ");
 }
 
 // ---------------------------------------------------------------------------
@@ -272,7 +285,11 @@ export function ThoughtProcessPane({
   isPaused = false,
 }: ThoughtProcessPaneProps) {
   const [isOpen, setIsOpen] = useState(!startCollapsed && isStreaming);
-  const revealedCount = useProgressiveReveal(stages, isStreaming, minRevealCount);
+  const revealedCount = useProgressiveReveal(
+    stages,
+    isStreaming,
+    minRevealCount,
+  );
   const getStageStatus = useMinSpinStatuses(revealedCount, isStreaming);
 
   // Auto-collapse when streaming ends (but not when just paused)
@@ -297,25 +314,27 @@ export function ThoughtProcessPane({
   const summaryText = allComplete
     ? deriveCollapsedSummary(stages)
     : isPaused
-      ? 'Paused — awaiting decision'
-      : 'Thinking...';
+      ? "Paused — awaiting decision"
+      : "Thinking...";
 
   // When paused, override the last in-progress stage to show paused status
-  const getEffectiveStatus = (idx: number): 'completed' | 'in-progress' | 'paused' | 'pending' => {
+  const getEffectiveStatus = (
+    idx: number,
+  ): "completed" | "in-progress" | "paused" | "pending" => {
     const base = getStageStatus(idx);
-    if (isPaused && base === 'in-progress') return 'paused';
+    if (isPaused && base === "in-progress") return "paused";
     return base;
   };
 
   return (
     <div
-      className="my-1 rounded-md border border-border/60 bg-muted/20"
+      className="border-border/60 bg-muted/20 my-1 rounded-md border"
       data-testid="thought-process-pane"
     >
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors"
       >
         {isOpen ? (
           <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
@@ -332,15 +351,15 @@ export function ThoughtProcessPane({
           <Loader2 className="ml-auto h-3 w-3 animate-spin text-blue-500" />
         )}
         {isPaused && (
-          <Pause className="ml-auto h-3 w-3 text-orange-400 flex-shrink-0" />
+          <Pause className="ml-auto h-3 w-3 flex-shrink-0 text-orange-400" />
         )}
         {allComplete && (
-          <Check className="ml-auto h-3 w-3 text-emerald-500 flex-shrink-0" />
+          <Check className="ml-auto h-3 w-3 flex-shrink-0 text-emerald-500" />
         )}
       </button>
 
       {isOpen && (
-        <div className="border-t border-border/40 px-3 py-2 space-y-0.5">
+        <div className="border-border/40 space-y-0.5 border-t px-3 py-2">
           {stages.map((stage, idx) => (
             <StageRow
               key={stage.id}
@@ -371,13 +390,26 @@ interface ThinkingIndicatorProps {
  * Stages are progressively revealed to reflect the agent's graph execution.
  * When paused (interrupt active), stages remain visible with an orange pause indicator.
  */
-export function ThinkingIndicator({ stages, minRevealCount = 0, isPaused = false }: ThinkingIndicatorProps) {
+export function ThinkingIndicator({
+  stages,
+  minRevealCount = 0,
+  isPaused = false,
+}: ThinkingIndicatorProps) {
   if (stages.length === 0) return null;
 
   return (
-    <div className="mr-auto flex w-full items-start gap-2" data-testid="thinking-indicator">
+    <div
+      className="mr-auto flex w-full items-start gap-2"
+      data-testid="thinking-indicator"
+    >
       <div className="flex w-full flex-col gap-2">
-        <ThoughtProcessPane stages={stages} isStreaming startCollapsed={false} minRevealCount={minRevealCount} isPaused={isPaused} />
+        <ThoughtProcessPane
+          stages={stages}
+          isStreaming
+          startCollapsed={false}
+          minRevealCount={minRevealCount}
+          isPaused={isPaused}
+        />
       </div>
     </div>
   );

@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * Compact project selector for the sidebar (D-07, Phase 49-07).
+ * Inline project list for the sidebar (D-07, Phase 49-07).
  *
- * Shows current project name with a dropdown to switch projects.
+ * Shows all projects as a full-width list. The selected project is highlighted.
  * Sits above the thread list in the sidebar navigation.
  *
  * Data source: GET /api/workspace/projects
  */
 
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  ChevronDown,
   FolderOpen,
   Loader2,
   Plus,
@@ -43,11 +42,9 @@ export function ProjectSelector({
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedId = controlledId ?? internalSelectedId;
 
@@ -87,26 +84,9 @@ export function ProjectSelector({
     fetchProjects();
   }, [fetchProjects]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setDropdownOpen(false);
-        setShowNewProject(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [dropdownOpen]);
-
   const handleSelect = (project: Project) => {
     setInternalSelectedId(project.id);
     onProjectSelect?.({ id: project.id, name: project.name });
-    setDropdownOpen(false);
   };
 
   const handleCreateProject = async () => {
@@ -132,9 +112,6 @@ export function ProjectSelector({
     }
   };
 
-  const selectedProject = projects.find((p) => p.id === selectedId);
-  const displayName = selectedProject?.name ?? "No project";
-
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
@@ -145,104 +122,79 @@ export function ProjectSelector({
   }
 
   return (
-    <div className="relative px-3 py-2" ref={dropdownRef}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setDropdownOpen((p) => !p)}
-        className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-          "hover:bg-muted/50 border border-transparent",
-          dropdownOpen && "bg-muted/50 border-border",
-        )}
-        data-testid="project-selector-trigger"
-      >
-        <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
-        <span className="flex-1 truncate text-left font-medium">
-          {displayName}
-        </span>
-        <ChevronDown
+    <div className="flex flex-col">
+      {/* Project list */}
+      {projects.map((project) => (
+        <button
+          key={project.id}
+          type="button"
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
-            dropdownOpen && "rotate-180",
+            "flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors",
+            selectedId === project.id
+              ? "bg-blue-50 text-blue-800 border-l-2 border-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+              : "hover:bg-muted/50 border-l-2 border-transparent",
           )}
-        />
-      </button>
+          onClick={() => handleSelect(project)}
+          data-testid={`project-item-${project.id}`}
+        >
+          <FolderOpen className={cn(
+            "h-4 w-4 shrink-0",
+            selectedId === project.id ? "text-blue-600" : "text-amber-500",
+          )} />
+          <span className="flex-1 truncate text-left">{project.name}</span>
+          {project.is_default && (
+            <span className="text-[10px] text-muted-foreground">(default)</span>
+          )}
+          {selectedId === project.id && (
+            <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+          )}
+        </button>
+      ))}
 
-      {/* Dropdown */}
-      {dropdownOpen && (
-        <div className="absolute left-3 right-3 top-full z-50 mt-1 rounded-md border bg-white shadow-lg dark:bg-zinc-900">
-          <div className="max-h-48 overflow-y-auto py-1">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors",
-                  selectedId === project.id
-                    ? "bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                    : "hover:bg-muted/50",
-                )}
-                onClick={() => handleSelect(project)}
-              >
-                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate text-left">{project.name}</span>
-                {project.is_default && (
-                  <span className="text-xs text-blue-600">(default)</span>
-                )}
-                {selectedId === project.id && (
-                  <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-                )}
-              </button>
-            ))}
+      {/* New project */}
+      <div className="px-2 py-1.5">
+        {showNewProject ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateProject();
+                if (e.key === "Escape") {
+                  setShowNewProject(false);
+                  setNewProjectName("");
+                }
+              }}
+              placeholder="Project name"
+              className="flex-1 rounded border bg-transparent px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+              autoFocus
+              disabled={creating}
+            />
+            <button
+              type="button"
+              onClick={handleCreateProject}
+              disabled={creating || !newProjectName.trim()}
+              className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:text-muted-foreground"
+            >
+              {creating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                "Create"
+              )}
+            </button>
           </div>
-
-          {/* New project */}
-          <div className="border-t px-2 py-1.5">
-            {showNewProject ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateProject();
-                    if (e.key === "Escape") {
-                      setShowNewProject(false);
-                      setNewProjectName("");
-                    }
-                  }}
-                  placeholder="Project name"
-                  className="flex-1 rounded border bg-transparent px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-400"
-                  autoFocus
-                  disabled={creating}
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateProject}
-                  disabled={creating || !newProjectName.trim()}
-                  className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:text-muted-foreground"
-                >
-                  {creating ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Create"
-                  )}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded px-1 py-1 text-xs text-muted-foreground hover:bg-muted/50"
-                onClick={() => setShowNewProject(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>New project</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+        ) : (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded px-1 py-1 text-xs text-muted-foreground hover:bg-muted/50"
+            onClick={() => setShowNewProject(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>New project</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

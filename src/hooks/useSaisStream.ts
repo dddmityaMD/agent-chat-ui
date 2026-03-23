@@ -23,7 +23,10 @@ import {
 } from "@langchain/langgraph-sdk/react-ui";
 import { SaisStreamManager } from "@/lib/sais-stream/stream-manager";
 import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
-import { BranchContext, type MessageMetadata } from "@/lib/sais-stream/branch-context";
+import {
+  BranchContext,
+  type MessageMetadata,
+} from "@/lib/sais-stream/branch-context";
 import { streamRun, joinStream } from "@/lib/sais-stream/sse-client";
 import { useMessages } from "@/hooks/useMessages";
 import { useActiveRuns } from "@/providers/ActiveRuns";
@@ -49,6 +52,8 @@ export interface SubmitOptions {
   streamSubgraphs?: boolean;
   streamResumable?: boolean;
   optimisticValues?: (prev: Record<string, unknown>) => Record<string, unknown>;
+  /** Override threadId for submitting to a just-created thread before URL state updates. */
+  threadId?: string;
 }
 
 export interface UseSaisStreamResult {
@@ -64,7 +69,10 @@ export interface UseSaisStreamResult {
   stop: () => void;
 
   // Branching
-  getMessagesMetadata: (message: Message, index?: number) => MessageMetadata | undefined;
+  getMessagesMetadata: (
+    message: Message,
+    index?: number,
+  ) => MessageMetadata | undefined;
   setBranch: (branch: string) => void;
 
   // Backward compat (preStreamIds no longer tracked; always empty)
@@ -80,15 +88,11 @@ const credentialsFetch: typeof fetch = (input, init) => {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResult {
-  const {
-    apiUrl,
-    assistantId,
-    threadId,
-    onThreadId,
-    onError,
-    onCustomEvent,
-  } = options;
+export function useSaisStream(
+  options: UseSaisStreamOptions,
+): UseSaisStreamResult {
+  const { apiUrl, assistantId, threadId, onThreadId, onError, onCustomEvent } =
+    options;
 
   // Stable refs for manager + clients (created once, survive re-renders)
   const managerRef = useRef<SaisStreamManager | null>(null);
@@ -113,7 +117,10 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
   const activeRuns = useActiveRuns();
 
   // REST-based message fetching (Phase 23.4)
-  const { messages, refetch: refetchMessages } = useMessages(threadId, threadClient);
+  const { messages, refetch: refetchMessages } = useMessages(
+    threadId,
+    threadClient,
+  );
 
   // Wire SSE onNewMessageSignal to REST refetch
   useEffect(() => {
@@ -226,11 +233,18 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
 
             // Rejoin ended naturally — check if run actually finished
             try {
-              const runResult = await threadClient.getRunStatus(threadId, active.runId);
+              const runResult = await threadClient.getRunStatus(
+                threadId,
+                active.runId,
+              );
               if (rejoinAbort.signal.aborted) return;
 
-              const isTerminal = ["success", "error", "timeout"].includes(runResult.status);
-              console.log(`[useSaisStream] rejoin: eventCount=${eventCount}, runStatus=${runResult.status}, isTerminal=${isTerminal}`);
+              const isTerminal = ["success", "error", "timeout"].includes(
+                runResult.status,
+              );
+              console.log(
+                `[useSaisStream] rejoin: eventCount=${eventCount}, runStatus=${runResult.status}, isTerminal=${isTerminal}`,
+              );
 
               if (isTerminal) {
                 // Run finished — refresh everything
@@ -245,14 +259,18 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
                 refetchMessages();
               } else if (attempt < 3) {
                 // Run still active but SSE closed with 0 events — retry after delay
-                console.log(`[useSaisStream] rejoin: run still active, retry ${attempt + 1}/3`);
+                console.log(
+                  `[useSaisStream] rejoin: run still active, retry ${attempt + 1}/3`,
+                );
                 manager.setLoading(true); // Keep stepper visible between retries
                 await new Promise((r) => setTimeout(r, 2000));
                 await attemptRejoin(attempt + 1);
               } else {
                 // Max retries — fall back to ActiveRuns poller
                 // Keep run registered so poller tracks it
-                console.warn("[useSaisStream] rejoin: max retries, falling back to polling");
+                console.warn(
+                  "[useSaisStream] rejoin: max retries, falling back to polling",
+                );
               }
             } catch (err) {
               // Can't check status — unregister to be safe
@@ -328,14 +346,28 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
         }
       };
 
-      if (!threadId) {
-        // No thread — submit is a no-op. Thread must be created explicitly
-        // via the workspace tab "Start thread" button.
+      const effectiveThreadId = submitOptions?.threadId ?? threadId;
+      if (!effectiveThreadId) {
         return;
       }
-      doSubmit(threadId);
+      // If using an override threadId (just-created thread), mark it so the
+      // threadId-change effect skips the redundant clear+fetch.
+      if (submitOptions?.threadId && submitOptions.threadId !== threadId) {
+        selfCreatedThreadRef.current = submitOptions.threadId;
+      }
+      doSubmit(effectiveThreadId);
     },
-    [apiUrl, assistantId, threadId, manager, threadClient, branch, activeRuns, onThreadId, onError],
+    [
+      apiUrl,
+      assistantId,
+      threadId,
+      manager,
+      threadClient,
+      branch,
+      activeRuns,
+      onThreadId,
+      onError,
+    ],
   );
 
   // ----- stop -----
@@ -352,13 +384,10 @@ export function useSaisStream(options: UseSaisStreamOptions): UseSaisStreamResul
   );
 
   // ----- setBranch (placeholder for future full branching support) -----
-  const setBranch = useCallback(
-    (_branch: string) => {
-      // TODO: Implement full branch switching (re-fetch state at checkpoint)
-      console.warn("[useSaisStream] setBranch not yet fully implemented");
-    },
-    [],
-  );
+  const setBranch = useCallback((_branch: string) => {
+    // TODO: Implement full branch switching (re-fetch state at checkpoint)
+    console.warn("[useSaisStream] setBranch not yet fully implemented");
+  }, []);
 
   // ----- Derive return values -----
   const values = manager.values ?? {};

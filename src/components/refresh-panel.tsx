@@ -2,45 +2,100 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useRefreshStream, type RefreshJob, type ConnectionState } from "@/hooks/use-refresh-stream";
+import {
+  useRefreshStream,
+  type RefreshJob,
+  type ConnectionState,
+} from "@/hooks/use-refresh-stream";
 import { JobStatusBadge, JobStatusDot } from "@/components/ui/job-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Icons (using simple SVGs to avoid dependency issues)
 const ChevronDownIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m6 9 6 6 6-6"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m6 9 6 6 6-6" />
   </svg>
 );
 
 const ChevronRightIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m9 18 6-6-6-6"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m9 18 6-6-6-6" />
   </svg>
 );
 
 const RefreshCwIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-    <path d="M21 3v5h-5"/>
-    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-    <path d="M8 16H3v5"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+    <path d="M8 16H3v5" />
   </svg>
 );
 
 const WifiIcon = ({ connected }: { connected: boolean }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={connected ? "text-green-500" : "text-red-500"}>
-    <path d="M12 20h.01"/>
-    <path d="M2 12.83a23 23 0 0 1 20 0"/>
-    <path d="M5 16.22a17 17 0 0 1 14 0"/>
-    <path d="M8.5 19.14a11 11 0 0 1 7 0"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={connected ? "text-green-500" : "text-red-500"}
+  >
+    <path d="M12 20h.01" />
+    <path d="M2 12.83a23 23 0 0 1 20 0" />
+    <path d="M5 16.22a17 17 0 0 1 14 0" />
+    <path d="M8.5 19.14a11 11 0 0 1 7 0" />
   </svg>
 );
 
 const ActivityIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
   </svg>
 );
 
@@ -74,8 +129,8 @@ function ConnectorSection({
       <button
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors",
-          hasIssues && "bg-red-50/50 hover:bg-red-50"
+          "flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-gray-50",
+          hasIssues && "bg-red-50/50 hover:bg-red-50",
         )}
         data-testid={`connector-section-${type}`}
       >
@@ -83,7 +138,7 @@ function ConnectorSection({
           <div className="text-gray-500">
             {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           </div>
-          <span className="font-medium text-sm">{title}</span>
+          <span className="text-sm font-medium">{title}</span>
           {runningJobs.length > 0 && (
             <span className="flex items-center gap-1 text-xs text-blue-600">
               <ActivityIcon />
@@ -91,23 +146,21 @@ function ConnectorSection({
             </span>
           )}
           {failedJobs.length > 0 && (
-            <span className="text-xs text-red-600 font-medium">
+            <span className="text-xs font-medium text-red-600">
               {failedJobs.length} failed
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">{jobs.length} jobs</span>
-          {runningJobs.length > 0 && (
-            <JobStatusDot status="running" />
-          )}
+          {runningJobs.length > 0 && <JobStatusDot status="running" />}
         </div>
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-2">
+        <div className="space-y-2 px-4 pb-4">
           {jobs.length === 0 ? (
-            <div className="text-sm text-gray-500 py-2 text-center">
+            <div className="py-2 text-center text-sm text-gray-500">
               No jobs for this connector
             </div>
           ) : (
@@ -116,7 +169,7 @@ function ConnectorSection({
               {runningJobs.map((job) => (
                 <div
                   key={job.job_id}
-                  className="flex items-center justify-between p-2 bg-blue-50/50 rounded-lg border border-blue-100"
+                  className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50/50 p-2"
                   data-testid={`job-${job.job_id}`}
                 >
                   <div className="flex items-center gap-3">
@@ -124,7 +177,10 @@ function ConnectorSection({
                     <div>
                       <div className="text-sm font-medium">{job.scope}</div>
                       <div className="text-xs text-gray-500">
-                        Started {new Date(job.started_at || Date.now()).toLocaleTimeString()}
+                        Started{" "}
+                        {new Date(
+                          job.started_at || Date.now(),
+                        ).toLocaleTimeString()}
                       </div>
                     </div>
                   </div>
@@ -143,19 +199,24 @@ function ConnectorSection({
                 .map((job) => (
                   <div
                     key={job.job_id}
-                    className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gray-50"
                     data-testid={`job-${job.job_id}`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <JobStatusBadge
                         job={job}
                         onRetry={onRetry}
                         className="shrink-0"
                       />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">{job.scope}</div>
+                        <div className="truncate text-sm font-medium">
+                          {job.scope}
+                        </div>
                         {job.last_error && (
-                          <div className="text-xs text-red-500 truncate" title={job.last_error}>
+                          <div
+                            className="truncate text-xs text-red-500"
+                            title={job.last_error}
+                          >
                             {job.last_error}
                           </div>
                         )}
@@ -187,7 +248,7 @@ export function RefreshPanel({ className }: RefreshPanelProps) {
   } = useRefreshStream();
 
   const [expandedSections, setExpandedSections] = React.useState<Set<string>>(
-    new Set(["metabase", "dbt", "warehouse"])
+    new Set(["metabase", "dbt", "warehouse"]),
   );
 
   const toggleSection = (section: string) => {
@@ -209,18 +270,22 @@ export function RefreshPanel({ className }: RefreshPanelProps) {
 
   // Group jobs by connector from summary or compute from jobs
   const grouped = summary?.grouped || {
-    metabase: jobs.filter((j) => j.connector_type?.toLowerCase().includes("metabase")),
-    dbt: jobs.filter((j) => j.connector_type?.toLowerCase().includes("dbt")),
-    warehouse: jobs.filter((j) =>
-      j.connector_type?.toLowerCase().includes("warehouse") ||
-      j.connector_type?.toLowerCase().includes("postgres")
+    metabase: jobs.filter((j) =>
+      j.connector_type?.toLowerCase().includes("metabase"),
     ),
-    other: jobs.filter((j) =>
-      !j.connector_type ||
-      (!j.connector_type.toLowerCase().includes("metabase") &&
-       !j.connector_type.toLowerCase().includes("dbt") &&
-       !j.connector_type.toLowerCase().includes("warehouse") &&
-       !j.connector_type.toLowerCase().includes("postgres"))
+    dbt: jobs.filter((j) => j.connector_type?.toLowerCase().includes("dbt")),
+    warehouse: jobs.filter(
+      (j) =>
+        j.connector_type?.toLowerCase().includes("warehouse") ||
+        j.connector_type?.toLowerCase().includes("postgres"),
+    ),
+    other: jobs.filter(
+      (j) =>
+        !j.connector_type ||
+        (!j.connector_type.toLowerCase().includes("metabase") &&
+          !j.connector_type.toLowerCase().includes("dbt") &&
+          !j.connector_type.toLowerCase().includes("warehouse") &&
+          !j.connector_type.toLowerCase().includes("postgres")),
     ),
   };
 
@@ -232,24 +297,32 @@ export function RefreshPanel({ className }: RefreshPanelProps) {
   }[connectionState];
 
   return (
-    <Card className={cn("w-full", className)} data-testid="refresh-panel">
+    <Card
+      className={cn("w-full", className)}
+      data-testid="refresh-panel"
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <ActivityIcon />
             Refresh Jobs
           </CardTitle>
           <div className="flex items-center gap-2">
             {/* Connection status */}
             <div
-              className={cn("flex items-center gap-1.5 text-xs", connectionIndicator.color)}
+              className={cn(
+                "flex items-center gap-1.5 text-xs",
+                connectionIndicator.color,
+              )}
               title={error ? error.message : undefined}
               data-testid="connection-status"
             >
               <WifiIcon connected={connectionState === "connected"} />
               <span>{connectionIndicator.label}</span>
               {reconnectAttempts > 0 && connectionState !== "connected" && (
-                <span className="text-gray-400">(retry {reconnectAttempts})</span>
+                <span className="text-gray-400">
+                  (retry {reconnectAttempts})
+                </span>
               )}
             </div>
 
@@ -270,10 +343,11 @@ export function RefreshPanel({ className }: RefreshPanelProps) {
 
         {/* Running jobs summary */}
         {summary?.has_running && (
-          <div className="mt-2 p-2 bg-blue-50 rounded-md flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50 p-2">
             <JobStatusDot status="running" />
             <span className="text-sm text-blue-700">
-              {summary.running_count} job{summary.running_count !== 1 ? "s" : ""} running
+              {summary.running_count} job
+              {summary.running_count !== 1 ? "s" : ""} running
             </span>
           </div>
         )}
@@ -319,11 +393,11 @@ export function RefreshPanel({ className }: RefreshPanelProps) {
         {/* Empty state */}
         {jobs.length === 0 && (
           <div className="p-8 text-center">
-            <div className="text-gray-400 mb-2">
+            <div className="mb-2 text-gray-400">
               <ActivityIcon />
             </div>
             <p className="text-sm text-gray-500">No refresh jobs yet</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="mt-1 text-xs text-gray-400">
               Jobs will appear here when refresh operations run
             </p>
           </div>

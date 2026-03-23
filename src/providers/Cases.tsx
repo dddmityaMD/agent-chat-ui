@@ -72,17 +72,20 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     setCases(data);
   }, []);
 
-  const createCase = useCallback(async (title?: string) => {
-    const res = await fetch(`${getBaseUrl()}/cases`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title ?? "" }),
-    });
-    if (!res.ok) throw new Error("Failed to create case");
-    const row = (await res.json()) as CaseRow;
-    await refresh();
-    return row;
-  }, [refresh]);
+  const createCase = useCallback(
+    async (title?: string) => {
+      const res = await fetch(`${getBaseUrl()}/cases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title ?? "" }),
+      });
+      if (!res.ok) throw new Error("Failed to create case");
+      const row = (await res.json()) as CaseRow;
+      await refresh();
+      return row;
+    },
+    [refresh],
+  );
 
   const deleteCase = useCallback(
     async (caseId: string) => {
@@ -114,11 +117,20 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ cases, refresh, createCase, deleteCase, getCaseSummary, getFindings }),
+    () => ({
+      cases,
+      refresh,
+      createCase,
+      deleteCase,
+      getCaseSummary,
+      getFindings,
+    }),
     [cases, refresh, createCase, deleteCase, getCaseSummary, getFindings],
   );
 
-  return <CasesContext.Provider value={value}>{children}</CasesContext.Provider>;
+  return (
+    <CasesContext.Provider value={value}>{children}</CasesContext.Provider>
+  );
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

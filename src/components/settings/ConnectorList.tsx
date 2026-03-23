@@ -1,8 +1,18 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Database, BarChart3, GitBranch, FolderCode, FileSpreadsheet } from "lucide-react";
-import type { ConnectorConfigResponse, ConnectorType } from "@/hooks/useConnectorConfig";
+import {
+  Plus,
+  Database,
+  BarChart3,
+  GitBranch,
+  FolderCode,
+  FileSpreadsheet,
+} from "lucide-react";
+import type {
+  ConnectorConfigResponse,
+  ConnectorType,
+} from "@/hooks/useConnectorConfig";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -57,25 +67,25 @@ export function ConnectorList({
 }: ConnectorListProps) {
   if (loading) {
     return (
-      <div className="flex w-80 flex-col border-r border-border/40">
-        <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">Connectors</h2>
+      <div className="border-border/40 flex w-80 flex-col border-r">
+        <div className="border-border/40 flex items-center justify-between border-b px-4 py-3">
+          <h2 className="text-foreground text-sm font-semibold">Connectors</h2>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="border-muted-foreground h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex w-80 flex-col border-r border-border/40">
+    <div className="border-border/40 flex w-80 flex-col border-r">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">Connectors</h2>
+      <div className="border-border/40 flex items-center justify-between border-b px-4 py-3">
+        <h2 className="text-foreground text-sm font-semibold">Connectors</h2>
         <button
           onClick={onAddNew}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          className="text-primary hover:bg-primary/10 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
           Add
@@ -86,13 +96,13 @@ export function ConnectorList({
       <div className="flex-1 overflow-auto">
         {connectors.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
-            <Database className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
+            <Database className="text-muted-foreground/50 h-8 w-8" />
+            <p className="text-muted-foreground text-sm">
               No connectors configured
             </p>
             <button
               onClick={onAddNew}
-              className="mt-2 flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Add connector
@@ -108,19 +118,21 @@ export function ConnectorList({
                     onClick={() => onSelect(connector)}
                     className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
                       isSelected
-                        ? "bg-primary/5 border-l-2 border-primary"
+                        ? "bg-primary/5 border-primary border-l-2"
                         : "hover:bg-accent border-l-2 border-transparent"
                     }`}
                   >
                     {/* Icon */}
-                    <div className="mt-0.5 text-muted-foreground">
-                      {TYPE_ICONS[connector.type] ?? <Database className="h-4 w-4" />}
+                    <div className="text-muted-foreground mt-0.5">
+                      {TYPE_ICONS[connector.type] ?? (
+                        <Database className="h-4 w-4" />
+                      )}
                     </div>
 
                     {/* Info */}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-foreground">
+                        <span className="text-foreground truncate text-sm font-medium">
                           {connector.name}
                         </span>
                         <span
@@ -128,17 +140,22 @@ export function ConnectorList({
                           title={statusText(connector.health_status)}
                         />
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{TYPE_LABELS[connector.type] ?? connector.type}</span>
+                      <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
+                        <span>
+                          {TYPE_LABELS[connector.type] ?? connector.type}
+                        </span>
                         <span className="text-border">|</span>
                         <span>{statusText(connector.health_status)}</span>
                       </div>
                       {connector.last_sync_at && (
-                        <div className="mt-0.5 text-xs text-muted-foreground/70">
+                        <div className="text-muted-foreground/70 mt-0.5 text-xs">
                           Synced{" "}
-                          {formatDistanceToNow(new Date(connector.last_sync_at), {
-                            addSuffix: true,
-                          })}
+                          {formatDistanceToNow(
+                            new Date(connector.last_sync_at),
+                            {
+                              addSuffix: true,
+                            },
+                          )}
                           {connector.entity_count != null && (
                             <> &middot; {connector.entity_count} entities</>
                           )}

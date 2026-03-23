@@ -5,10 +5,7 @@
  * (from source to target). Uses SVG strokeDasharray with CSS animation.
  */
 import React, { memo } from "react";
-import {
-  BaseEdge,
-  getSmoothStepPath,
-} from "@xyflow/react";
+import { BaseEdge, getSmoothStepPath } from "@xyflow/react";
 import type { EdgeProps } from "@xyflow/react";
 
 function AnimatedEdgeComponent({

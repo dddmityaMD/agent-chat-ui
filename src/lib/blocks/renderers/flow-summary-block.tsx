@@ -20,33 +20,35 @@ export function FlowSummaryBlock({ block }: BlockRendererProps) {
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 text-left text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        className="border-border bg-muted/50 text-foreground hover:bg-muted flex w-full items-center gap-2 rounded-lg border px-4 py-2.5 text-left text-sm font-medium transition-colors"
       >
         {expanded ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         )}
         <span>{summary}</span>
       </button>
 
       {expanded && data.stage_details && data.stage_details.length > 0 && (
-        <div className="ml-4 mt-2 space-y-1.5">
+        <div className="mt-2 ml-4 space-y-1.5">
           {data.stage_details.map((stage) => (
             <div
               key={stage.id}
-              className="flex items-center gap-2 text-sm text-foreground"
+              className="text-foreground flex items-center gap-2 text-sm"
             >
               <CheckCircle2
                 className={
                   stage.status === "completed"
                     ? "h-4 w-4 shrink-0 text-green-500"
-                    : "h-4 w-4 shrink-0 text-muted-foreground"
+                    : "text-muted-foreground h-4 w-4 shrink-0"
                 }
               />
               <span>{stage.label}</span>
               {stage.subtitle && (
-                <span className="text-xs text-muted-foreground">— {stage.subtitle}</span>
+                <span className="text-muted-foreground text-xs">
+                  — {stage.subtitle}
+                </span>
               )}
             </div>
           ))}

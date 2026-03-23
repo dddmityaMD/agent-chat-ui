@@ -91,10 +91,7 @@ export class SaisThreadClient {
   /**
    * Get the state history of a thread (for branching).
    */
-  async getHistory(
-    threadId: string,
-    limit?: number,
-  ): Promise<ThreadState[]> {
+  async getHistory(threadId: string, limit?: number): Promise<ThreadState[]> {
     const body: Record<string, unknown> = {};
     if (limit !== undefined) body.limit = limit;
 

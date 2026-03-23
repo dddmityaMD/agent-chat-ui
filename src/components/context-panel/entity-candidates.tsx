@@ -66,9 +66,7 @@ function ScoreBar({ score }: { score: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-muted-foreground text-xs">
-        {score.toFixed(2)}
-      </span>
+      <span className="text-muted-foreground text-xs">{score.toFixed(2)}</span>
     </div>
   );
 }
@@ -91,7 +89,7 @@ export function EntityCandidates({
       {/* Focus entities */}
       {focusEntities.length > 0 && (
         <div className="mb-2">
-          <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+          <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
             Focus Entities
           </p>
           <div className="flex flex-wrap gap-1">
@@ -123,7 +121,7 @@ export function EntityCandidates({
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase text-green-700">
+              <span className="text-xs font-bold text-green-700 uppercase">
                 Selected
               </span>
               <span className="text-sm font-medium">{candidate.name}</span>

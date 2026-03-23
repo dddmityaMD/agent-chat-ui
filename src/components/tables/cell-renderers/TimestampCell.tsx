@@ -32,7 +32,9 @@ const formatPatterns = {
  * Parse a value into a Date object.
  * Handles string (ISO), Date, and numeric (epoch ms) inputs.
  */
-function parseDate(value: string | Date | number | null | undefined): Date | null {
+function parseDate(
+  value: string | Date | number | null | undefined,
+): Date | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -112,9 +114,7 @@ export function TimestampCell(
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className={
-            className || "text-muted-foreground cursor-help"
-          }
+          className={className || "text-muted-foreground cursor-help"}
           data-testid="timestamp-cell"
         >
           {formattedDate}

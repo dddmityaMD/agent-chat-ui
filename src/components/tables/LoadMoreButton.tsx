@@ -33,8 +33,8 @@ export function LoadMoreButton({
     return (
       <div
         className={cn(
-          "flex items-center justify-center py-3 text-sm text-muted-foreground",
-          className
+          "text-muted-foreground flex items-center justify-center py-3 text-sm",
+          className,
         )}
       >
         <span>
@@ -57,19 +57,21 @@ export function LoadMoreButton({
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-3 py-4 border-t bg-muted/30",
-        className
+        "bg-muted/30 flex flex-col items-center gap-3 border-t py-4",
+        className,
       )}
     >
       {/* Progress indicator */}
-      <div className="text-sm text-muted-foreground">{progressText}</div>
+      <div className="text-muted-foreground text-sm">{progressText}</div>
 
       {/* Progress bar if total is known */}
       {totalCount && totalCount > 0 && (
-        <div className="w-full max-w-xs bg-muted rounded-full h-2 overflow-hidden">
+        <div className="bg-muted h-2 w-full max-w-xs overflow-hidden rounded-full">
           <div
             className="bg-primary h-full transition-all duration-300 ease-out"
-            style={{ width: `${Math.min((loadedCount / totalCount) * 100, 100)}%` }}
+            style={{
+              width: `${Math.min((loadedCount / totalCount) * 100, 100)}%`,
+            }}
           />
         </div>
       )}
@@ -99,21 +101,26 @@ export function LoadMoreButton({
         </Button>
 
         {/* Load All Button (optional) */}
-        {showLoadAll && onLoadAll && hasMore && !loading && remainingCount && remainingCount <= 50 && (
-          <Button
-            variant="ghost"
-            size="default"
-            onClick={onLoadAll}
-            aria-label="Load all remaining results"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            <span>Load all ({remainingCount})</span>
-          </Button>
-        )}
+        {showLoadAll &&
+          onLoadAll &&
+          hasMore &&
+          !loading &&
+          remainingCount &&
+          remainingCount <= 50 && (
+            <Button
+              variant="ghost"
+              size="default"
+              onClick={onLoadAll}
+              aria-label="Load all remaining results"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              <span>Load all ({remainingCount})</span>
+            </Button>
+          )}
       </div>
 
       {/* Keyboard hint */}
-      <div className="text-xs text-muted-foreground/60">
+      <div className="text-muted-foreground/60 text-xs">
         Press Enter or Space to load more
       </div>
     </div>
@@ -131,7 +138,7 @@ export function LoadMoreButtonCompact({
 }: Omit<LoadMoreButtonProps, "batchSize" | "showLoadAll" | "onLoadAll">) {
   if (!hasMore && !loading) {
     return (
-      <span className={cn("text-xs text-muted-foreground", className)}>
+      <span className={cn("text-muted-foreground text-xs", className)}>
         {loadedCount} total
       </span>
     );
@@ -153,7 +160,7 @@ export function LoadMoreButtonCompact({
           <ChevronDown className="mr-1 h-3 w-3" />
           <span>Load more</span>
           {totalCount && (
-            <span className="ml-1 text-muted-foreground">
+            <span className="text-muted-foreground ml-1">
               ({loadedCount}/{totalCount})
             </span>
           )}

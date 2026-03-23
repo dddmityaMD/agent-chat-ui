@@ -274,10 +274,15 @@ export interface UseReadinessPollingReturn {
 export function useReadinessPolling(
   options: UseReadinessPollingOptions = {},
 ): UseReadinessPollingReturn {
-  const { interval = 30000, baseUrl = getApiBaseUrl(), enabled = true } = options;
+  const {
+    interval = 30000,
+    baseUrl = getApiBaseUrl(),
+    enabled = true,
+  } = options;
 
   const [connectors, setConnectors] = useState<ConnectorStatus[]>([]);
-  const [overallStatus, setOverallStatus] = useState<ReadinessStatus>("unknown");
+  const [overallStatus, setOverallStatus] =
+    useState<ReadinessStatus>("unknown");
   const [statusSummary, setStatusSummary] = useState("");
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);

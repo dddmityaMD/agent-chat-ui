@@ -44,15 +44,15 @@ export interface UseTablePaginationReturn {
 export function useTablePagination(
   totalItems: number,
   initialPage: number = 1,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
 ): UseTablePaginationReturn {
   const totalPages = useMemo(
     () => calculateTotalPages(totalItems, pageSize),
-    [totalItems, pageSize]
+    [totalItems, pageSize],
   );
 
   const [page, setPageState] = useState(() =>
-    clampPage(initialPage, totalPages)
+    clampPage(initialPage, totalPages),
   );
 
   // Update page if totalPages changes and current page is out of bounds
@@ -60,20 +60,23 @@ export function useTablePagination(
     (newPage: number) => {
       setPageState(clampPage(newPage, totalPages));
     },
-    [totalPages]
+    [totalPages],
   );
 
   // Memoized slice range for current page
   const sliceRange = useMemo(
     () => getPageRange(totalItems, page, pageSize),
-    [totalItems, page, pageSize]
+    [totalItems, page, pageSize],
   );
 
   // Navigation helpers
   const goToFirst = useCallback(() => setPage(1), [setPage]);
   const goToPrev = useCallback(() => setPage(page - 1), [setPage, page]);
   const goToNext = useCallback(() => setPage(page + 1), [setPage, page]);
-  const goToLast = useCallback(() => setPage(totalPages), [setPage, totalPages]);
+  const goToLast = useCallback(
+    () => setPage(totalPages),
+    [setPage, totalPages],
+  );
 
   // Derived state
   const hasNext = page < totalPages && totalPages > 0;

@@ -535,9 +535,15 @@ describe("QueryResults", () => {
     );
 
     // Should show pagination controls for 25 items (3 pages)
-    expect(screen.getByRole("button", { name: /go to first page/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /go to previous page/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /go to next page/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to first page/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to previous page/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to next page/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows empty state when no evidence", () => {
@@ -832,11 +838,19 @@ describe("Integration: QueryResults with PaginatedEvidenceTable", () => {
     );
 
     // Should show page navigation
-    expect(screen.getByRole("button", { name: /go to first page/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /go to next page/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /go to last page/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to first page/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to next page/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /go to last page/i }),
+    ).toBeInTheDocument();
     // Page info appears twice (mobile + desktop), check for at least one
-    expect(screen.getAllByText(/page 1 of 3/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/page 1 of 3/i).length).toBeGreaterThanOrEqual(
+      1,
+    );
   });
 });
 

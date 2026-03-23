@@ -34,9 +34,7 @@ export function AssumptionCardBlock({
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
   // Track which items are in override mode (showing text input)
-  const [overrideMode, setOverrideMode] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [overrideMode, setOverrideMode] = useState<Record<string, boolean>>({});
   const [overrideValues, setOverrideValues] = useState<Record<string, string>>(
     {},
   );
@@ -87,7 +85,8 @@ export function AssumptionCardBlock({
           Assumptions to Confirm
         </h3>
         <span className="text-xs text-amber-600 dark:text-amber-400">
-          {data.assumptions.length} item{data.assumptions.length !== 1 ? "s" : ""}
+          {data.assumptions.length} item
+          {data.assumptions.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -156,8 +155,10 @@ export function AssumptionCardBlock({
                     <>
                       {(() => {
                         const isTouched = touched.has(assumption.assumption_id);
-                        const isConfirmed = isTouched && currentDecision?.action === "confirmed";
-                        const isOverridden = isTouched && currentDecision?.action === "overridden";
+                        const isConfirmed =
+                          isTouched && currentDecision?.action === "confirmed";
+                        const isOverridden =
+                          isTouched && currentDecision?.action === "overridden";
                         return (
                           <>
                             <Button
@@ -165,10 +166,12 @@ export function AssumptionCardBlock({
                               variant={isConfirmed ? "default" : "outline"}
                               className={
                                 isConfirmed
-                                  ? "gap-1 bg-green-600 hover:bg-green-700 text-white text-xs h-7"
-                                  : "gap-1 text-xs h-7"
+                                  ? "h-7 gap-1 bg-green-600 text-xs text-white hover:bg-green-700"
+                                  : "h-7 gap-1 text-xs"
                               }
-                              onClick={() => handleConfirm(assumption.assumption_id)}
+                              onClick={() =>
+                                handleConfirm(assumption.assumption_id)
+                              }
                             >
                               <Check className="h-3 w-3" />
                               {isConfirmed ? "Confirmed" : "Confirm"}
@@ -178,8 +181,8 @@ export function AssumptionCardBlock({
                               variant={isOverridden ? "default" : "outline"}
                               className={
                                 isOverridden
-                                  ? "gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
-                                  : "gap-1 text-xs h-7"
+                                  ? "h-7 gap-1 bg-blue-600 text-xs text-white hover:bg-blue-700"
+                                  : "h-7 gap-1 text-xs"
                               }
                               onClick={() =>
                                 handleStartOverride(assumption.assumption_id)
@@ -210,10 +213,8 @@ export function AssumptionCardBlock({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs h-7"
-                        onClick={() =>
-                          handleConfirm(assumption.assumption_id)
-                        }
+                        className="h-7 text-xs"
+                        onClick={() => handleConfirm(assumption.assumption_id)}
                       >
                         Cancel
                       </Button>

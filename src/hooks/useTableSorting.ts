@@ -42,7 +42,11 @@ function defaultCompare(a: unknown, b: unknown): number {
   const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
   const strA = String(a);
   const strB = String(b);
-  if (a instanceof Date || b instanceof Date || (ISO_DATE_RE.test(strA) && ISO_DATE_RE.test(strB))) {
+  if (
+    a instanceof Date ||
+    b instanceof Date ||
+    (ISO_DATE_RE.test(strA) && ISO_DATE_RE.test(strB))
+  ) {
     const aDate = a instanceof Date ? a.getTime() : Date.parse(strA);
     const bDate = b instanceof Date ? b.getTime() : Date.parse(strB);
     if (!isNaN(aDate) && !isNaN(bDate)) {
@@ -71,7 +75,7 @@ function defaultCompare(a: unknown, b: unknown): number {
  */
 export function useTableSorting<T extends Record<string, unknown>>(
   initialSort: SortState = { colId: null, sort: null },
-  customCompare?: (a: unknown, b: unknown) => number
+  customCompare?: (a: unknown, b: unknown) => number,
 ): UseTableSortingReturn<T> {
   const [sortState, setSortState] = useState<SortState>(initialSort);
   const compare = customCompare || defaultCompare;
@@ -90,27 +94,24 @@ export function useTableSorting<T extends Record<string, unknown>>(
    * - Second click: descending
    * - Third click: no sort (clear)
    */
-  const toggleSort = useCallback(
-    (colId: string) => {
-      setSortState((current) => {
-        // If clicking a different column, start with asc
-        if (current.colId !== colId) {
-          return { colId, sort: "asc" };
-        }
+  const toggleSort = useCallback((colId: string) => {
+    setSortState((current) => {
+      // If clicking a different column, start with asc
+      if (current.colId !== colId) {
+        return { colId, sort: "asc" };
+      }
 
-        // Cycle: asc -> desc -> null
-        switch (current.sort) {
-          case "asc":
-            return { colId, sort: "desc" };
-          case "desc":
-            return { colId: null, sort: null };
-          default:
-            return { colId, sort: "asc" };
-        }
-      });
-    },
-    []
-  );
+      // Cycle: asc -> desc -> null
+      switch (current.sort) {
+        case "asc":
+          return { colId, sort: "desc" };
+        case "desc":
+          return { colId: null, sort: null };
+        default:
+          return { colId, sort: "asc" };
+      }
+    });
+  }, []);
 
   /**
    * Clear all sorting
@@ -132,7 +133,7 @@ export function useTableSorting<T extends Record<string, unknown>>(
       const result = compare(aVal, bVal);
       return sortState.sort === "asc" ? result : -result;
     },
-    [sortState, compare]
+    [sortState, compare],
   );
 
   /**
@@ -143,7 +144,7 @@ export function useTableSorting<T extends Record<string, unknown>>(
       if (!sortState.colId || !sortState.sort) return data;
       return [...data].sort(comparator);
     },
-    [comparator, sortState]
+    [comparator, sortState],
   );
 
   return {

@@ -57,7 +57,10 @@ function ConfidenceBar({ confidence }: { confidence: number }) {
   const percentage = Math.round(confidence * 100);
 
   return (
-    <div className="flex items-center gap-2" data-testid="confidence-bar">
+    <div
+      className="flex items-center gap-2"
+      data-testid="confidence-bar"
+    >
       <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">
         <div
           className={cn(
@@ -72,7 +75,9 @@ function ConfidenceBar({ confidence }: { confidence: number }) {
           data-confidence={percentage}
         />
       </div>
-      <span className={cn("text-xs font-medium", getConfidenceColor(confidence))}>
+      <span
+        className={cn("text-xs font-medium", getConfidenceColor(confidence))}
+      >
         {percentage}%
       </span>
     </div>
@@ -86,14 +91,20 @@ function highlightTerms(text: string, terms: string[]): React.ReactNode {
   if (!terms.length) return text;
 
   // Create regex to match any of the terms (case-insensitive)
-  const pattern = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join("|")})`, "gi");
+  const pattern = new RegExp(
+    `(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    "gi",
+  );
   const parts = text.split(pattern);
 
   return parts.map((part, i) => {
     const isMatch = terms.some((t) => t.toLowerCase() === part.toLowerCase());
     if (isMatch) {
       return (
-        <mark key={i} className="rounded bg-yellow-100 px-0.5 text-yellow-800">
+        <mark
+          key={i}
+          className="rounded bg-yellow-100 px-0.5 text-yellow-800"
+        >
           {part}
         </mark>
       );
@@ -110,13 +121,19 @@ function SimpleMatchReason({
   showConfidence,
   className,
 }: Omit<MatchReasonDisplayProps, "variant">) {
-  const { matchedTerms, matchedFields, confidence, explanation, isDuplicate } = matchReason;
+  const { matchedTerms, matchedFields, confidence, explanation, isDuplicate } =
+    matchReason;
 
   // Build explanation if not provided
   const displayText =
     explanation ||
     (matchedTerms.length > 0 && matchedFields.length > 0
-      ? `Matched: ${matchedTerms.slice(0, 3).map((t) => `'${t}'`).join(", ")} in ${matchedFields.slice(0, 3).map(formatFieldName).join(", ")}`
+      ? `Matched: ${matchedTerms
+          .slice(0, 3)
+          .map((t) => `'${t}'`)
+          .join(
+            ", ",
+          )} in ${matchedFields.slice(0, 3).map(formatFieldName).join(", ")}`
       : "No match details");
 
   return (
@@ -132,7 +149,9 @@ function SimpleMatchReason({
         <span className="text-muted-foreground/70 text-xs">(reused)</span>
       )}
       {showConfidence && (
-        <span className={cn("text-xs font-medium", getConfidenceColor(confidence))}>
+        <span
+          className={cn("text-xs font-medium", getConfidenceColor(confidence))}
+        >
           ({Math.round(confidence * 100)}%)
         </span>
       )}
@@ -148,11 +167,20 @@ function DetailedMatchReason({
   className,
 }: Omit<MatchReasonDisplayProps, "variant" | "showConfidence">) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const { matchedTerms, matchedFields, confidence, fieldConfidences, isDuplicate, explanation } =
-    matchReason;
+  const {
+    matchedTerms,
+    matchedFields,
+    confidence,
+    fieldConfidences,
+    isDuplicate,
+    explanation,
+  } = matchReason;
 
   return (
-    <div className={cn("rounded-lg border bg-white", className)} data-testid="match-reason-detailed">
+    <div
+      className={cn("rounded-lg border bg-white", className)}
+      data-testid="match-reason-detailed"
+    >
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -162,7 +190,8 @@ function DetailedMatchReason({
       >
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">
-            {explanation || `Matched in ${matchedFields.length} field${matchedFields.length !== 1 ? "s" : ""}`}
+            {explanation ||
+              `Matched in ${matchedFields.length} field${matchedFields.length !== 1 ? "s" : ""}`}
           </span>
           {isDuplicate && (
             <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs">
@@ -209,12 +238,17 @@ function DetailedMatchReason({
               {matchedFields.map((field) => {
                 const fieldConf = fieldConfidences?.[field] ?? confidence;
                 return (
-                  <div key={field} className="flex items-center justify-between text-sm">
+                  <div
+                    key={field}
+                    className="flex items-center justify-between text-sm"
+                  >
                     <div className="flex items-center gap-1.5">
                       <Check className="h-3 w-3 text-green-500" />
                       <span>{formatFieldName(field)}</span>
                     </div>
-                    <span className={cn("text-xs", getConfidenceColor(fieldConf))}>
+                    <span
+                      className={cn("text-xs", getConfidenceColor(fieldConf))}
+                    >
                       {Math.round(fieldConf * 100)}%
                     </span>
                   </div>
@@ -226,7 +260,8 @@ function DetailedMatchReason({
           {/* Deduplication note */}
           {isDuplicate && (
             <div className="mt-3 rounded bg-gray-50 p-2 text-xs text-gray-600">
-              This evidence was reused from a previous query with the same content.
+              This evidence was reused from a previous query with the same
+              content.
             </div>
           )}
         </div>
@@ -263,7 +298,12 @@ export function MatchReasonDisplay({
   className,
 }: MatchReasonDisplayProps) {
   if (variant === "detailed") {
-    return <DetailedMatchReason matchReason={matchReason} className={className} />;
+    return (
+      <DetailedMatchReason
+        matchReason={matchReason}
+        className={className}
+      />
+    );
   }
 
   return (

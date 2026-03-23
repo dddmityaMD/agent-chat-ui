@@ -5,7 +5,11 @@
  * and backend edges to animated React Flow edges.
  */
 import type { Node, Edge } from "@xyflow/react";
-import type { LineageGraphResponse, ImpactResult, RiskLevel } from "@/lib/lineage-api";
+import type {
+  LineageGraphResponse,
+  ImpactResult,
+  RiskLevel,
+} from "@/lib/lineage-api";
 
 // -- Node type mapping ----------------------------------------------------
 
@@ -102,9 +106,9 @@ export function transformToReactFlow(data: LineageGraphResponse): {
   // Edge types where the backend direction is opposite to the data-flow direction.
   // Backend stores semantic "A reads B" (A→B), but visually data flows B→A.
   const REVERSE_EDGE_TYPES = new Set([
-    "card_reads_table",          // card→table  → visual: table→card
-    "card_reads_column",         // card→column → visual: column→card
-    "dbt_model_depends_on_model",  // model→dep → visual: dep→model
+    "card_reads_table", // card→table  → visual: table→card
+    "card_reads_column", // card→column → visual: column→card
+    "dbt_model_depends_on_model", // model→dep → visual: dep→model
     "dbt_model_depends_on_source", // model→src → visual: src→model
   ]);
 
@@ -136,9 +140,9 @@ export function transformToReactFlow(data: LineageGraphResponse): {
  */
 const RISK_BORDER_COLOR: Record<RiskLevel, string> = {
   critical: "#ef4444", // red-500
-  high: "#f97316",     // orange-500
-  medium: "#eab308",   // yellow-500
-  low: "#60a5fa",      // blue-400
+  high: "#f97316", // orange-500
+  medium: "#eab308", // yellow-500
+  low: "#60a5fa", // blue-400
 };
 
 /**
@@ -163,12 +167,19 @@ export function applyImpactStyling(
     return nodes.map((node) => ({
       ...node,
       hidden: false,
-      style: { ...node.style, opacity: 1, borderColor: undefined, borderWidth: undefined },
+      style: {
+        ...node.style,
+        opacity: 1,
+        borderColor: undefined,
+        borderWidth: undefined,
+      },
       data: { ...node.data, impactRiskLevel: undefined },
     }));
   }
 
-  const impactedIds = new Set(impactResult.impacted_nodes.map((n) => n.node_id));
+  const impactedIds = new Set(
+    impactResult.impacted_nodes.map((n) => n.node_id),
+  );
   const riskByNodeId = new Map(
     impactResult.impacted_nodes.map((n) => [n.node_id, n.risk_level]),
   );

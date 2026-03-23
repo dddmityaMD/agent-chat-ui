@@ -41,12 +41,20 @@ export function BatchReview({
   });
 
   const [confirmingFixId, setConfirmingFixId] = useState<string | null>(null);
-  const confirmingProposal = proposals.find((p) => p.fix_id === confirmingFixId);
+  const confirmingProposal = proposals.find(
+    (p) => p.fix_id === confirmingFixId,
+  );
 
   // Counts
-  const approvedCount = Object.values(statuses).filter((s) => s === "approved").length;
-  const rejectedCount = Object.values(statuses).filter((s) => s === "rejected").length;
-  const pendingCount = Object.values(statuses).filter((s) => s === "pending").length;
+  const approvedCount = Object.values(statuses).filter(
+    (s) => s === "approved",
+  ).length;
+  const rejectedCount = Object.values(statuses).filter(
+    (s) => s === "rejected",
+  ).length;
+  const pendingCount = Object.values(statuses).filter(
+    (s) => s === "pending",
+  ).length;
 
   // Apply a fix via the API
   const handleConfirm = useCallback(
@@ -105,7 +113,9 @@ export function BatchReview({
   // Batch actions
   const handleApproveAll = useCallback(() => {
     // Approve all pending items one by one (each opens confirmation dialog)
-    const firstPending = proposals.find((p) => statuses[p.fix_id] === "pending");
+    const firstPending = proposals.find(
+      (p) => statuses[p.fix_id] === "pending",
+    );
     if (firstPending) {
       setConfirmingFixId(firstPending.fix_id);
     }
@@ -133,7 +143,10 @@ export function BatchReview({
   }
 
   return (
-    <div className="space-y-4" data-testid="batch-review">
+    <div
+      className="space-y-4"
+      data-testid="batch-review"
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">

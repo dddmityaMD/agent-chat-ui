@@ -25,7 +25,6 @@ import {
   extractBuildVerification,
   extractHandoffProposal,
   extractRemediationProposals,
-  extractMultiIntent,
   extractMetadataResults,
   extractDisambiguation,
   extractResolutionSteps,
@@ -58,15 +57,21 @@ describe("useSaisUi accessors", () => {
     });
 
     it("returns flow type string", () => {
-      expect(extractMethodologyType({ active_methodology: "investigation" })).toBe("investigation");
+      expect(
+        extractMethodologyType({ active_methodology: "investigation" }),
+      ).toBe("investigation");
     });
 
     it("returns catalog flow type", () => {
-      expect(extractMethodologyType({ active_methodology: "catalog" })).toBe("catalog");
+      expect(extractMethodologyType({ active_methodology: "catalog" })).toBe(
+        "catalog",
+      );
     });
 
     it("returns build flow type", () => {
-      expect(extractMethodologyType({ active_methodology: "build" })).toBe("build");
+      expect(extractMethodologyType({ active_methodology: "build" })).toBe(
+        "build",
+      );
     });
   });
 
@@ -88,7 +93,9 @@ describe("useSaisUi accessors", () => {
     });
 
     it("returns empty array when blockers have invalid shape", () => {
-      expect(extractBlockers({ blockers: [{ type: "MISSING_ENTITY" }] })).toEqual([]);
+      expect(
+        extractBlockers({ blockers: [{ type: "MISSING_ENTITY" }] }),
+      ).toEqual([]);
     });
 
     it("returns valid blockers array", () => {
@@ -105,7 +112,12 @@ describe("useSaisUi accessors", () => {
 
     it("returns multiple blockers", () => {
       const blockers = [
-        { type: "MISSING_ENTITY", severity: "WARNING", message: "A", hint: "B" },
+        {
+          type: "MISSING_ENTITY",
+          severity: "WARNING",
+          message: "A",
+          hint: "B",
+        },
         { type: "LLM_ERROR", severity: "ERROR", message: "C", hint: "D" },
       ];
       expect(extractBlockers({ blockers })).toEqual(blockers);
@@ -163,7 +175,9 @@ describe("useSaisUi accessors", () => {
     });
 
     it("returns status string", () => {
-      expect(extractBuildPlanStatus({ build_plan_status: "proposed" })).toBe("proposed");
+      expect(extractBuildPlanStatus({ build_plan_status: "proposed" })).toBe(
+        "proposed",
+      );
     });
 
     it("returns null for non-string status", () => {
@@ -178,7 +192,9 @@ describe("useSaisUi accessors", () => {
 
     it("returns verification result", () => {
       const result = { status: "VERIFIED_FIXED", comparison_summary: "OK" };
-      expect(extractBuildVerification({ build_verification_result: result })).toEqual(result);
+      expect(
+        extractBuildVerification({ build_verification_result: result }),
+      ).toEqual(result);
     });
   });
 
@@ -192,7 +208,10 @@ describe("useSaisUi accessors", () => {
     });
 
     it("returns handoff object", () => {
-      const handoff = { target_flow: "investigation", reason: "Need deeper analysis" };
+      const handoff = {
+        target_flow: "investigation",
+        reason: "Need deeper analysis",
+      };
       expect(extractHandoffProposal({ handoff })).toEqual(handoff);
     });
   });
@@ -204,18 +223,9 @@ describe("useSaisUi accessors", () => {
 
     it("returns proposals array", () => {
       const proposals = [{ fix_id: "f1", title: "Add index" }];
-      expect(extractRemediationProposals({ remediation_proposals: proposals })).toEqual(proposals);
-    });
-  });
-
-  describe("extractMultiIntent", () => {
-    it("returns null for null input", () => {
-      expect(extractMultiIntent(null)).toBeNull();
-    });
-
-    it("returns multi intent object", () => {
-      const mi = { intents: [], results: [], was_parallel: false };
-      expect(extractMultiIntent({ multi_intent: mi })).toEqual(mi);
+      expect(
+        extractRemediationProposals({ remediation_proposals: proposals }),
+      ).toEqual(proposals);
     });
   });
 
@@ -226,7 +236,9 @@ describe("useSaisUi accessors", () => {
 
     it("returns metadata results array", () => {
       const results = [{ entity_type: "table", name: "users" }];
-      expect(extractMetadataResults({ metadata_results: results })).toEqual(results);
+      expect(extractMetadataResults({ metadata_results: results })).toEqual(
+        results,
+      );
     });
   });
 
@@ -248,7 +260,9 @@ describe("useSaisUi accessors", () => {
 
     it("returns resolution steps object", () => {
       const steps = { type: "resolution_steps", steps: [] };
-      expect(extractResolutionSteps({ resolution_steps: steps })).toEqual(steps);
+      expect(extractResolutionSteps({ resolution_steps: steps })).toEqual(
+        steps,
+      );
     });
   });
 });

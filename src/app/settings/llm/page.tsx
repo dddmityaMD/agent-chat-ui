@@ -6,7 +6,7 @@ import { EmbeddingConfigSection } from "@/components/embedding-config";
 export default function LLMConfigPage() {
   return (
     <div>
-      <h1 className="text-xl font-semibold text-foreground mb-4">
+      <h1 className="text-foreground mb-4 text-xl font-semibold">
         LLM Configuration
       </h1>
       <LLMRoutingEditor />

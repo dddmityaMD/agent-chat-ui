@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import type { AvailableModel } from '@/lib/types';
-import { getApiBaseUrl } from '@/lib/api-url';
+import { useCallback, useEffect, useState } from "react";
+import type { AvailableModel } from "@/lib/types";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 const getBaseUrl = getApiBaseUrl;
 
@@ -56,14 +56,14 @@ export function ModelPicker({ onSelect, currentProvider }: ModelPickerProps) {
   );
 
   if (loading) {
-    return (
-      <span className="text-xs opacity-60">Loading models...</span>
-    );
+    return <span className="text-xs opacity-60">Loading models...</span>;
   }
 
   if (models.length === 0) {
     return (
-      <span className="text-xs opacity-60">No alternative models available</span>
+      <span className="text-xs opacity-60">
+        No alternative models available
+      </span>
     );
   }
 
@@ -74,7 +74,10 @@ export function ModelPicker({ onSelect, currentProvider }: ModelPickerProps) {
       defaultValue=""
       onChange={handleChange}
     >
-      <option value="" disabled>
+      <option
+        value=""
+        disabled
+      >
         Switch model...
       </option>
       {models.map((m, idx) => {
@@ -82,9 +85,13 @@ export function ModelPicker({ onSelect, currentProvider }: ModelPickerProps) {
           currentProvider &&
           m.provider.toLowerCase() === currentProvider.toLowerCase() &&
           m.is_primary;
-        const label = `${m.model} (${m.provider})${m.is_primary ? ' [primary]' : ''}${m.is_fallback ? ' [fallback]' : ''}`;
+        const label = `${m.model} (${m.provider})${m.is_primary ? " [primary]" : ""}${m.is_fallback ? " [fallback]" : ""}`;
         return (
-          <option key={`${m.provider}-${m.model}-${idx}`} value={idx} disabled={!!isCurrent}>
+          <option
+            key={`${m.provider}-${m.model}-${idx}`}
+            value={idx}
+            disabled={!!isCurrent}
+          >
             {isCurrent ? `${label} (current)` : label}
           </option>
         );

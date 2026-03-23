@@ -92,7 +92,9 @@ export function EntityIconCell(
     entityType = params.value;
 
     // Check colDef for showLabel configuration
-    const colDef = params.colDef as { cellRendererParams?: { showLabel?: boolean } };
+    const colDef = params.colDef as {
+      cellRendererParams?: { showLabel?: boolean };
+    };
     showLabel = colDef?.cellRendererParams?.showLabel !== false;
   }
 

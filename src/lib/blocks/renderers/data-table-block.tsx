@@ -13,18 +13,18 @@ export function DataTableBlock({ block }: BlockRendererProps) {
   return (
     <div className="my-3">
       {data.title && (
-        <h4 className="mb-2 text-sm font-semibold text-foreground">
+        <h4 className="text-foreground mb-2 text-sm font-semibold">
           {data.title}
         </h4>
       )}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="border-border overflow-x-auto rounded-lg border">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-muted">
               {data.columns.map((col) => (
                 <th
                   key={col}
-                  className="px-4 py-2 text-left font-semibold text-foreground"
+                  className="text-foreground px-4 py-2 text-left font-semibold"
                 >
                   {col}
                 </th>
@@ -40,7 +40,7 @@ export function DataTableBlock({ block }: BlockRendererProps) {
                 {data.columns.map((col) => (
                   <td
                     key={col}
-                    className="border-t border-border px-4 py-2 text-foreground"
+                    className="border-border text-foreground border-t px-4 py-2"
                   >
                     {row[col] != null ? String(row[col]) : ""}
                   </td>

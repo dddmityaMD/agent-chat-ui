@@ -26,19 +26,23 @@ const METHODOLOGY_CONFIG: Record<string, MethodologyConfig> = {
   },
   investigation: {
     label: "Investigation",
-    classes: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    classes:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   },
   build: {
     label: "Build",
-    classes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    classes:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   },
   remediation: {
     label: "Remediation",
-    classes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    classes:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   },
   ops: {
     label: "Ops",
-    classes: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    classes:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   },
 };
 
@@ -53,24 +57,28 @@ interface FlowIndicatorProps {
   } | null;
 }
 
-export function FlowIndicator({ activeMethodology, flowTransition }: FlowIndicatorProps) {
+export function FlowIndicator({
+  activeMethodology,
+  flowTransition,
+}: FlowIndicatorProps) {
   const config = useMemo(() => {
     if (!activeMethodology) return null;
-    return METHODOLOGY_CONFIG[activeMethodology] ?? {
-      label: activeMethodology.charAt(0).toUpperCase() + activeMethodology.slice(1),
-      classes: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    };
+    return (
+      METHODOLOGY_CONFIG[activeMethodology] ?? {
+        label:
+          activeMethodology.charAt(0).toUpperCase() +
+          activeMethodology.slice(1),
+        classes:
+          "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+      }
+    );
   }, [activeMethodology]);
 
   if (!config) return null;
 
   return (
     <span
-      className={`
-        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
-        transition-all duration-300 ease-in-out
-        ${config.classes}
-      `}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all duration-300 ease-in-out ${config.classes} `}
       title={
         flowTransition
           ? `Transitioned from ${flowTransition.from} to ${flowTransition.to}`
@@ -78,13 +86,7 @@ export function FlowIndicator({ activeMethodology, flowTransition }: FlowIndicat
       }
     >
       <span
-        className={`
-          inline-block w-1.5 h-1.5 rounded-full
-          ${activeMethodology === "investigation" ? "bg-amber-500" : ""}
-          ${activeMethodology === "catalog" ? "bg-blue-500" : ""}
-          ${activeMethodology === "build" || activeMethodology === "remediation" ? "bg-green-500" : ""}
-          ${activeMethodology === "ops" ? "bg-purple-500" : ""}
-        `}
+        className={`inline-block h-1.5 w-1.5 rounded-full ${activeMethodology === "investigation" ? "bg-amber-500" : ""} ${activeMethodology === "catalog" ? "bg-blue-500" : ""} ${activeMethodology === "build" || activeMethodology === "remediation" ? "bg-green-500" : ""} ${activeMethodology === "ops" ? "bg-purple-500" : ""} `}
       />
       {config.label}
     </span>

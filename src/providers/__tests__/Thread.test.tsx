@@ -101,8 +101,12 @@ function ThreadConsumer() {
 }
 
 function PermissionConsumer() {
-  const { permissionState, addPermissionGrant, revokePermissionGrant, clearPermissionGrants } =
-    usePermissionState();
+  const {
+    permissionState,
+    addPermissionGrant,
+    revokePermissionGrant,
+    clearPermissionGrants,
+  } = usePermissionState();
 
   return (
     <div>
@@ -128,7 +132,10 @@ function PermissionConsumer() {
       >
         Revoke
       </button>
-      <button data-testid="clear-grants" onClick={clearPermissionGrants}>
+      <button
+        data-testid="clear-grants"
+        onClick={clearPermissionGrants}
+      >
         Clear
       </button>
     </div>
@@ -205,7 +212,9 @@ describe("ThreadProvider", () => {
   });
 
   it("getThreads returns empty on network error", async () => {
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("Network error"));
+    (global.fetch as jest.Mock).mockRejectedValueOnce(
+      new Error("Network error"),
+    );
 
     render(
       <ThreadProvider>

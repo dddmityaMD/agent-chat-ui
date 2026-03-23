@@ -16,7 +16,7 @@ export default function ConnectorsPage() {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="border-muted-foreground h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
         </div>
       }
     >
@@ -64,7 +64,8 @@ function ConnectorsPageContent() {
     }
   }, [connectors, loading, selectedParam, paramHandled, router]);
 
-  const selectedConnector = connectors.find((c) => c.name === selectedName) ?? null;
+  const selectedConnector =
+    connectors.find((c) => c.name === selectedName) ?? null;
 
   const handleSelect = useCallback((connector: ConnectorConfigResponse) => {
     setSelectedName(connector.name);
@@ -76,13 +77,10 @@ function ConnectorsPageContent() {
     setMode("create");
   }, []);
 
-  const handleSaved = useCallback(
-    (connector: ConnectorConfigResponse) => {
-      setSelectedName(connector.name);
-      setMode("view");
-    },
-    [],
-  );
+  const handleSaved = useCallback((connector: ConnectorConfigResponse) => {
+    setSelectedName(connector.name);
+    setMode("view");
+  }, []);
 
   const handleDeleted = useCallback(() => {
     setSelectedName(null);
@@ -99,7 +97,7 @@ function ConnectorsPageContent() {
   }, [selectedConnector]);
 
   return (
-    <div className="flex h-full -m-6">
+    <div className="-m-6 flex h-full">
       <ConnectorList
         connectors={connectors}
         selectedName={selectedName}
@@ -110,7 +108,7 @@ function ConnectorsPageContent() {
 
       <div className="flex-1 overflow-auto">
         {error && (
-          <div className="m-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="bg-destructive/10 text-destructive m-4 rounded-md px-4 py-3 text-sm">
             {error}
           </div>
         )}
@@ -148,12 +146,12 @@ function ConnectorsPageContent() {
             pollConnector={pollConnector}
           />
         ) : !loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
             Select a connector or add a new one
           </div>
         ) : (
           <div className="flex h-full items-center justify-center">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+            <div className="border-muted-foreground h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
           </div>
         )}
       </div>

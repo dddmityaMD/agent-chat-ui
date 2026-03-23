@@ -18,8 +18,7 @@ function isExternalUrl(url: string): boolean {
   try {
     const urlObj = new URL(url, window?.location?.origin || "http://localhost");
     return (
-      typeof window !== "undefined" &&
-      urlObj.origin !== window.location.origin
+      typeof window !== "undefined" && urlObj.origin !== window.location.origin
     );
   } catch {
     // If URL parsing fails, treat as external to be safe
@@ -85,7 +84,7 @@ export function LinkCell(
       href={url}
       {...linkProps}
       className={cn(
-        "text-primary inline-flex items-center gap-1 hover:underline max-w-full",
+        "text-primary inline-flex max-w-full items-center gap-1 hover:underline",
         className,
       )}
       onClick={(e) => e.stopPropagation()}

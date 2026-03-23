@@ -107,9 +107,7 @@ export function generateDbtUrl(
   const normalizedBase = base.replace(/\/+$/, "");
 
   // dbt docs uses hash-based routing
-  const path = project
-    ? `#!/${type}/${project}.${name}`
-    : `#!/${type}/${name}`;
+  const path = project ? `#!/${type}/${project}.${name}` : `#!/${type}/${name}`;
 
   return `${normalizedBase}/${path}`;
 }
@@ -200,7 +198,11 @@ export function generateDeepLinkUrl(
     case "metabase_card":
       return generateMetabaseUrl("card", targetId, fullConfig.metabaseBaseUrl);
     case "metabase_dashboard":
-      return generateMetabaseUrl("dashboard", targetId, fullConfig.metabaseBaseUrl);
+      return generateMetabaseUrl(
+        "dashboard",
+        targetId,
+        fullConfig.metabaseBaseUrl,
+      );
     case "dbt_model":
       return generateDbtUrl("model", targetId);
     case "dbt_source":

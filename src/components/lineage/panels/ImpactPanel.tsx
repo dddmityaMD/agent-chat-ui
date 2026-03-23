@@ -29,7 +29,13 @@ import type { ImpactResult, ImpactedNode, RiskLevel } from "@/lib/lineage-api";
 
 const RISK_CONFIG: Record<
   RiskLevel,
-  { label: string; bg: string; text: string; border: string; Icon: React.ElementType }
+  {
+    label: string;
+    bg: string;
+    text: string;
+    border: string;
+    Icon: React.ElementType;
+  }
 > = {
   critical: {
     label: "Critical",
@@ -104,13 +110,7 @@ function NodeTypeIcon({ type }: { type: string }) {
 
 // -- Count strip badge --------------------------------------------------------
 
-function RiskBadge({
-  level,
-  count,
-}: {
-  level: RiskLevel;
-  count: number;
-}) {
+function RiskBadge({ level, count }: { level: RiskLevel; count: number }) {
   if (count === 0) return null;
   const config = RISK_CONFIG[level];
 
@@ -188,7 +188,7 @@ export function ImpactPanel({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 320, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="absolute right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute top-0 right-0 z-50 flex h-full w-80 flex-col border-l border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
           data-testid="impact-panel"
         >
           {/* Header */}

@@ -81,7 +81,11 @@ export function CommandPalette({
         selected.scrollIntoView({ block: "nearest" });
       }
     });
-    observer.observe(el, { attributes: true, subtree: true, attributeFilter: ["aria-selected"] });
+    observer.observe(el, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["aria-selected"],
+    });
     return () => observer.disconnect();
   }, [open]);
 
@@ -126,7 +130,10 @@ export function CommandPalette({
         />
       </div>
 
-      <Command.List ref={listRef} className="max-h-[min(400px,50vh)] overflow-y-auto overscroll-contain px-1 py-2">
+      <Command.List
+        ref={listRef}
+        className="max-h-[min(400px,50vh)] overflow-y-auto overscroll-contain px-1 py-2"
+      >
         <Command.Empty className="py-6 text-center text-sm text-gray-500">
           No results found.
         </Command.Empty>
@@ -173,7 +180,7 @@ export function CommandPalette({
                   onSelectThread(thread.id);
                   setOpen(false);
                 }}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-700 scroll-my-2 aria-selected:bg-gray-100 dark:text-gray-200 dark:aria-selected:bg-gray-800"
+                className="flex cursor-pointer scroll-my-2 items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-700 aria-selected:bg-gray-100 dark:text-gray-200 dark:aria-selected:bg-gray-800"
               >
                 <MessageCircle className="h-4 w-4 text-gray-400" />
                 <span className="flex-1 truncate">{thread.title}</span>
@@ -200,7 +207,7 @@ function CommandItemRow({
     <Command.Item
       value={item.label}
       onSelect={onSelect}
-      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-700 scroll-my-2 aria-selected:bg-gray-100 dark:text-gray-200 dark:aria-selected:bg-gray-800"
+      className="flex cursor-pointer scroll-my-2 items-center gap-2 rounded-md px-2 py-2 text-sm text-gray-700 aria-selected:bg-gray-100 dark:text-gray-200 dark:aria-selected:bg-gray-800"
     >
       {Icon && <Icon className="h-4 w-4 text-gray-400" />}
       <span className="flex-1">{item.label}</span>

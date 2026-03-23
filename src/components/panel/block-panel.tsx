@@ -8,6 +8,9 @@ import { useBlockStore } from "@/stores/block-store";
 import type { PanelBlock, SALevel } from "@/lib/panel-blocks/types";
 import { SA_LEVEL_ORDER } from "@/lib/panel-blocks/constants";
 
+/** Stable selector — returns the raw blocks record (referentially stable between renders) */
+const selectBlocks = (s: { blocks: Record<string, PanelBlock> }) => s.blocks;
+
 import { BlockRenderer } from "./block-renderer";
 import { PanelEmptyState } from "./panel-empty-state";
 
@@ -61,24 +64,32 @@ export function BlockPanel({
   onCanvasOpen,
   onAction,
 }: BlockPanelProps) {
-  const allBlocks = useBlockStore((s) => s.getAllBlocksSorted());
+  const blocks = useBlockStore(selectBlocks);
 
-  // Split blocks into current and earlier turns
-  const { currentBlocks, earlierBlocks } = useMemo(() => {
+  // Derive sorted list + split into current/earlier turns (stable while blocks ref unchanged)
+  const { allBlocks, currentBlocks, earlierBlocks } = useMemo(() => {
+    const all = Object.values(blocks);
+    const levelIndex = new Map(SA_LEVEL_ORDER.map((level, idx) => [level, idx]));
+    all.sort((a, b) => {
+      const levelDiff = (levelIndex.get(a.level) ?? 99) - (levelIndex.get(b.level) ?? 99);
+      if (levelDiff !== 0) return levelDiff;
+      return b.priority - a.priority;
+    });
+
     if (!currentTurnId) {
-      return { currentBlocks: allBlocks, earlierBlocks: [] as PanelBlock[] };
+      return { allBlocks: all, currentBlocks: all, earlierBlocks: [] as PanelBlock[] };
     }
     const current: PanelBlock[] = [];
     const earlier: PanelBlock[] = [];
-    for (const block of allBlocks) {
+    for (const block of all) {
       if (block.turnId && block.turnId !== currentTurnId) {
         earlier.push(block);
       } else {
         current.push(block);
       }
     }
-    return { currentBlocks: current, earlierBlocks: earlier };
-  }, [allBlocks, currentTurnId]);
+    return { allBlocks: all, currentBlocks: current, earlierBlocks: earlier };
+  }, [blocks, currentTurnId]);
 
   // Empty state
   if (allBlocks.length === 0) {

@@ -21,7 +21,9 @@ import type { RemediationProposalData } from "./DiffCard";
 export interface ConfirmationDialogProps {
   proposal: RemediationProposalData;
   isOpen: boolean;
-  onConfirm: (fixId: string) => Promise<{ success: boolean; audit_id?: string }>;
+  onConfirm: (
+    fixId: string,
+  ) => Promise<{ success: boolean; audit_id?: string }>;
   onCancel: () => void;
 }
 
@@ -86,11 +88,14 @@ export function ConfirmationDialog({
   const scopeLabel = SCOPE_LABELS[proposal.scope] || proposal.scope;
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(open) => !open && handleClose()}
+    >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-0 shadow-xl dark:bg-gray-900"
+          className="fixed top-1/2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-0 shadow-xl dark:bg-gray-900"
           data-testid="confirmation-dialog"
         >
           {/* Header */}
@@ -130,25 +135,33 @@ export function ConfirmationDialog({
                   <h4 className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                     Changes
                   </h4>
-                  <DiffViewer diff={proposal.diff_preview} maxHeight={250} />
+                  <DiffViewer
+                    diff={proposal.diff_preview}
+                    maxHeight={250}
+                  />
                 </div>
 
                 {/* Downstream impact */}
                 {impactCount > 0 && (
                   <div className="mt-4">
                     <h4 className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Downstream Impact ({impactCount} item{impactCount !== 1 ? "s" : ""})
+                      Downstream Impact ({impactCount} item
+                      {impactCount !== 1 ? "s" : ""})
                     </h4>
                     <ul className="space-y-1">
-                      {proposal.downstream_impact.slice(0, 5).map((item, idx) => (
-                        <li
-                          key={idx}
-                          className="text-xs text-gray-600 dark:text-gray-400"
-                        >
-                          {item.label || item.node_id} ({item.type}) -{" "}
-                          <span className="font-medium">{item.risk_level}</span>
-                        </li>
-                      ))}
+                      {proposal.downstream_impact
+                        .slice(0, 5)
+                        .map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="text-xs text-gray-600 dark:text-gray-400"
+                          >
+                            {item.label || item.node_id} ({item.type}) -{" "}
+                            <span className="font-medium">
+                              {item.risk_level}
+                            </span>
+                          </li>
+                        ))}
                       {impactCount > 5 && (
                         <li className="text-xs text-gray-500">
                           ...and {impactCount - 5} more
@@ -191,15 +204,19 @@ export function ConfirmationDialog({
                       This action will modify {scopeLabel} content
                     </p>
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                      Target: <code className="font-mono">{proposal.target_ref}</code>
+                      Target:{" "}
+                      <code className="font-mono">{proposal.target_ref}</code>
                     </p>
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
                       Risk level:{" "}
-                      <span className="font-medium uppercase">{proposal.risk_level}</span>
+                      <span className="font-medium uppercase">
+                        {proposal.risk_level}
+                      </span>
                     </p>
                     {impactCount > 0 && (
                       <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                        This will affect {impactCount} downstream item{impactCount !== 1 ? "s" : ""}.
+                        This will affect {impactCount} downstream item
+                        {impactCount !== 1 ? "s" : ""}.
                       </p>
                     )}
                     <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-300">
@@ -286,9 +303,7 @@ export function ConfirmationDialog({
                 <p className="mt-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                   Application failed
                 </p>
-                {error && (
-                  <p className="mt-1 text-xs text-red-500">{error}</p>
-                )}
+                {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
               </div>
               <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
                 <button

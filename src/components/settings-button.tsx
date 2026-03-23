@@ -11,14 +11,16 @@ export function SettingsButton() {
   return (
     <button
       onClick={() => router.push("/settings")}
-      className="relative flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-      aria-label={hasPluginErrors ? "Settings (plugin errors detected)" : "Settings"}
+      className="text-muted-foreground hover:bg-accent hover:text-foreground relative flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors"
+      aria-label={
+        hasPluginErrors ? "Settings (plugin errors detected)" : "Settings"
+      }
     >
       <Settings className="h-4 w-4 flex-shrink-0" />
       {hasPluginErrors && (
         <span
           aria-hidden="true"
-          className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive"
+          className="bg-destructive absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full"
         />
       )}
     </button>

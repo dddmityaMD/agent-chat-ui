@@ -30,7 +30,7 @@ export interface PageRange {
 export function paginateArray<T>(
   items: T[],
   page: number,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
 ): T[] {
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
@@ -47,7 +47,7 @@ export function paginateArray<T>(
 export function getPageRange(
   totalItems: number,
   page: number,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
 ): PageRange {
   const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
@@ -62,7 +62,7 @@ export function getPageRange(
  */
 export function calculateTotalPages(
   totalItems: number,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
 ): number {
   return Math.ceil(totalItems / pageSize);
 }
@@ -88,7 +88,7 @@ export function clampPage(page: number, totalPages: number): number {
 export function paginate<T>(
   items: T[],
   page: number,
-  pageSize: number = PAGE_SIZE
+  pageSize: number = PAGE_SIZE,
 ): PaginationResult<T> {
   const totalItems = items.length;
   const totalPages = calculateTotalPages(totalItems, pageSize);

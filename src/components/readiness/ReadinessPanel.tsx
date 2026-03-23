@@ -138,24 +138,86 @@ const AlertCircleIcon = () => (
 
 /** Connector type icons for the empty state */
 const DatabaseIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-gray-400"
+  >
+    <ellipse
+      cx="12"
+      cy="5"
+      rx="9"
+      ry="3"
+    />
     <path d="M3 5V19A9 3 0 0 0 21 19V5" />
     <path d="M3 12A9 3 0 0 0 21 12" />
   </svg>
 );
 
 const DashboardIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-    <rect width="7" height="9" x="3" y="3" rx="1" />
-    <rect width="7" height="5" x="14" y="3" rx="1" />
-    <rect width="7" height="9" x="14" y="12" rx="1" />
-    <rect width="7" height="5" x="3" y="16" rx="1" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-gray-400"
+  >
+    <rect
+      width="7"
+      height="9"
+      x="3"
+      y="3"
+      rx="1"
+    />
+    <rect
+      width="7"
+      height="5"
+      x="14"
+      y="3"
+      rx="1"
+    />
+    <rect
+      width="7"
+      height="9"
+      x="14"
+      y="12"
+      rx="1"
+    />
+    <rect
+      width="7"
+      height="5"
+      x="3"
+      y="16"
+      rx="1"
+    />
   </svg>
 );
 
 const CodeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-gray-400"
+  >
     <path d="M10 12.5 8 15l2 2.5" />
     <path d="m14 12.5 2 2.5-2 2.5" />
     <path d="M14 2v4a2 2 0 0 0 2 2h4" />
@@ -164,10 +226,34 @@ const CodeIcon = () => (
 );
 
 const GitIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-    <line x1="6" x2="6" y1="3" y2="15" />
-    <circle cx="18" cy="6" r="3" />
-    <circle cx="6" cy="18" r="3" />
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-gray-400"
+  >
+    <line
+      x1="6"
+      x2="6"
+      y1="3"
+      y2="15"
+    />
+    <circle
+      cx="18"
+      cy="6"
+      r="3"
+    />
+    <circle
+      cx="6"
+      cy="18"
+      r="3"
+    />
     <path d="M18 9a9 9 0 0 1-9 9" />
   </svg>
 );
@@ -320,9 +406,7 @@ export function ReadinessPanel({
   const degradedCount = connectors.filter(
     (c) => c.status === "degraded",
   ).length;
-  const healthyCount = connectors.filter(
-    (c) => c.status === "healthy",
-  ).length;
+  const healthyCount = connectors.filter((c) => c.status === "healthy").length;
   const totalEntities = connectors.reduce(
     (sum, c) => sum + (c.entity_count ?? 0),
     0,
@@ -380,9 +464,15 @@ export function ReadinessPanel({
 
         {/* Overall status indicator */}
         {!hasNoConnectors && (
-          <div className="mt-2 flex items-center gap-3" data-testid="overall-status">
+          <div
+            className="mt-2 flex items-center gap-3"
+            data-testid="overall-status"
+          >
             <div
-              className={cn("h-4 w-4 shrink-0 rounded-full", overallStatusColor)}
+              className={cn(
+                "h-4 w-4 shrink-0 rounded-full",
+                overallStatusColor,
+              )}
               title={`Overall: ${overallStatus}`}
               data-status={overallStatus}
             />
@@ -397,7 +487,9 @@ export function ReadinessPanel({
                     </span>
                   )}
                   {degradedCount > 0 && (
-                    <span className="text-yellow-600">{degradedCount} degraded</span>
+                    <span className="text-yellow-600">
+                      {degradedCount} degraded
+                    </span>
                   )}
                 </div>
               )}
@@ -416,7 +508,10 @@ export function ReadinessPanel({
             ) : (
               <div className="mt-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
                 Some connectors need attention{" "}
-                <Link href="/settings/connectors" className="font-medium underline hover:text-yellow-900">
+                <Link
+                  href="/settings/connectors"
+                  className="font-medium underline hover:text-yellow-900"
+                >
                   View in settings
                 </Link>
               </div>
@@ -437,12 +532,16 @@ export function ReadinessPanel({
         <CardContent className="pt-0">
           {/* No-connector state (ONBOARD-02) */}
           {hasNoConnectors && (
-            <div className="flex flex-col items-center py-8 text-center" data-testid="no-connectors-state">
+            <div
+              className="flex flex-col items-center py-8 text-center"
+              data-testid="no-connectors-state"
+            >
               <div className="mb-4 text-lg font-semibold text-gray-700">
                 No data sources connected
               </div>
               <p className="mb-6 max-w-md text-sm text-gray-500">
-                Connect your databases, BI tools, and dbt projects to get started
+                Connect your databases, BI tools, and dbt projects to get
+                started
               </p>
               {/* Supported connector type icons */}
               <div className="mb-6 flex items-center gap-6">
@@ -464,7 +563,10 @@ export function ReadinessPanel({
                 </div>
               </div>
               <Link href="/settings/connectors">
-                <Button size="lg" data-testid="connect-data-sources-btn">
+                <Button
+                  size="lg"
+                  data-testid="connect-data-sources-btn"
+                >
                   Connect Data Sources
                 </Button>
               </Link>
@@ -511,10 +613,13 @@ export function ReadinessPanel({
             <>
               {/* Summary line */}
               {connectors.length > 0 && (
-                <div className="mb-3 text-sm text-gray-600" data-testid="connector-summary">
-                  {connectors.length} connector{connectors.length !== 1 ? "s" : ""}{" "}
-                  &middot; {healthyCount} healthy{" "}
-                  &middot; {totalEntities} total entities
+                <div
+                  className="mb-3 text-sm text-gray-600"
+                  data-testid="connector-summary"
+                >
+                  {connectors.length} connector
+                  {connectors.length !== 1 ? "s" : ""} &middot; {healthyCount}{" "}
+                  healthy &middot; {totalEntities} total entities
                 </div>
               )}
 

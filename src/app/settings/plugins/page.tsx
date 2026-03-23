@@ -36,7 +36,7 @@ export default function PluginsPage() {
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="border-muted-foreground h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
         </div>
       }
     >
@@ -99,7 +99,7 @@ function PluginsPageContent() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        <div className="border-muted-foreground h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
       </div>
     );
   }
@@ -109,16 +109,16 @@ function PluginsPageContent() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-foreground text-lg font-semibold">Plugins</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Manage loaded connector plugins
           </p>
         </div>
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <p className="text-sm font-medium text-destructive">
+        <div className="border-destructive/30 bg-destructive/5 rounded-lg border p-4">
+          <p className="text-destructive text-sm font-medium">
             Failed to load plugin data
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{fetchError}</p>
+          <p className="text-muted-foreground mt-1 text-xs">{fetchError}</p>
         </div>
       </div>
     );
@@ -129,14 +129,14 @@ function PluginsPageContent() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-foreground text-lg font-semibold">Plugins</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Manage loaded connector plugins
           </p>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No plugins loaded.</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <div className="border-border/60 flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
+          <p className="text-muted-foreground text-sm">No plugins loaded.</p>
+          <p className="text-muted-foreground mt-1 text-xs">
             Place plugin directories with plugin.yaml in the built-in plugins/
             directory or set SAIS_PLUGIN_DIRS environment variable.
           </p>
@@ -149,8 +149,8 @@ function PluginsPageContent() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Plugins</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-foreground text-lg font-semibold">Plugins</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
           {pluginData.loaded} plugin{pluginData.loaded !== 1 ? "s" : ""} loaded
           {pluginData.errors > 0 && (
             <span className="text-destructive">
@@ -165,37 +165,37 @@ function PluginsPageContent() {
         {pluginData.plugins.map((plugin) => (
           <div
             key={plugin.name}
-            className="rounded-lg border border-border/60 bg-card p-4"
+            className="border-border/60 bg-card rounded-lg border p-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 {/* Name + version */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-foreground text-sm font-medium">
                     {plugin.name}
                   </span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
                     v{plugin.version}
                   </span>
                 </div>
 
                 {/* Description */}
                 {plugin.description && (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="text-muted-foreground mt-1 text-xs">
                     {plugin.description}
                   </p>
                 )}
 
                 {/* Metadata row */}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
                     {plugin.connector_type}
                   </span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
                     {plugin.tier}
                   </span>
                   {plugin.author && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-muted-foreground text-[10px]">
                       by {plugin.author}
                     </span>
                   )}
@@ -205,11 +205,11 @@ function PluginsPageContent() {
               {/* Status badge */}
               <div className="flex-shrink-0">
                 {plugin.status === "loaded" ? (
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  <span className="bg-primary/10 text-primary inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
                     Loaded
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                  <span className="bg-destructive/10 text-destructive inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
                     Error
                   </span>
                 )}
@@ -218,17 +218,17 @@ function PluginsPageContent() {
 
             {/* Error details (expandable) */}
             {plugin.status === "error" && plugin.error_message && (
-              <div className="mt-3 border-t border-border/40 pt-2">
+              <div className="border-border/40 mt-3 border-t pt-2">
                 <button
                   onClick={() => toggleError(plugin.name)}
-                  className="text-xs text-destructive hover:underline"
+                  className="text-destructive text-xs hover:underline"
                 >
                   {expandedErrors.has(plugin.name)
                     ? "Hide error details"
                     : "Show error details"}
                 </button>
                 {expandedErrors.has(plugin.name) && (
-                  <pre className="mt-2 overflow-x-auto rounded bg-destructive/5 p-2 text-xs text-destructive">
+                  <pre className="bg-destructive/5 text-destructive mt-2 overflow-x-auto rounded p-2 text-xs">
                     {plugin.error_message}
                   </pre>
                 )}

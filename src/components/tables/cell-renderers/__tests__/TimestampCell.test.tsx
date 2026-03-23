@@ -26,7 +26,9 @@ describe("TimestampCell", () => {
     });
 
     it("returns null for undefined value", () => {
-      const { container } = renderWithTooltip(<TimestampCell value={undefined} />);
+      const { container } = renderWithTooltip(
+        <TimestampCell value={undefined} />,
+      );
       expect(container.textContent).toBe("");
     });
 
@@ -37,7 +39,9 @@ describe("TimestampCell", () => {
     });
 
     it("renders formatted date for Date object", () => {
-      renderWithTooltip(<TimestampCell value={new Date("2024-01-15T14:30:00Z")} />);
+      renderWithTooltip(
+        <TimestampCell value={new Date("2024-01-15T14:30:00Z")} />,
+      );
       expect(screen.getByText(/Jan 15, 2024/)).toBeInTheDocument();
     });
 
@@ -57,13 +61,23 @@ describe("TimestampCell", () => {
     });
 
     it("supports long format", () => {
-      renderWithTooltip(<TimestampCell value="2024-01-15T14:30:45Z" format="long" />);
+      renderWithTooltip(
+        <TimestampCell
+          value="2024-01-15T14:30:45Z"
+          format="long"
+        />,
+      );
       // Long format: "January 15, 2024 at 2:30:45 PM"
       expect(screen.getByText(/January 15, 2024/)).toBeInTheDocument();
     });
 
     it("supports relative format", () => {
-      renderWithTooltip(<TimestampCell value="2024-01-15T14:30:00Z" format="relative" />);
+      renderWithTooltip(
+        <TimestampCell
+          value="2024-01-15T14:30:00Z"
+          format="relative"
+        />,
+      );
       // Mocked to return "2 hours ago"
       expect(screen.getByText("2 hours ago")).toBeInTheDocument();
     });
@@ -96,7 +110,10 @@ describe("TimestampCell", () => {
   describe("Custom className", () => {
     it("applies custom className", () => {
       renderWithTooltip(
-        <TimestampCell value="2024-01-15T14:30:00Z" className="custom-class" />
+        <TimestampCell
+          value="2024-01-15T14:30:00Z"
+          className="custom-class"
+        />,
       );
       const element = screen.getByText(/Jan 15, 2024/);
       expect(element).toHaveClass("custom-class");

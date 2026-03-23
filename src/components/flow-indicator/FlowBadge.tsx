@@ -6,7 +6,13 @@
  * Renders nothing if methodologyType is null/empty.
  */
 
-import { BookOpen, Search, Wrench, Settings, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  Search,
+  Wrench,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 
 interface FlowConfig {
   label: string;
@@ -18,8 +24,7 @@ const METHODOLOGY_CONFIGS: Record<string, FlowConfig> = {
   catalog: {
     label: "Catalog",
     icon: BookOpen,
-    className:
-      "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+    className: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
   },
   investigation: {
     label: "Investigation",
@@ -30,14 +35,12 @@ const METHODOLOGY_CONFIGS: Record<string, FlowConfig> = {
   remediation: {
     label: "Remediation",
     icon: Wrench,
-    className:
-      "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+    className: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
   },
   ops: {
     label: "Operations",
     icon: Settings,
-    className:
-      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   },
 };
 
@@ -59,7 +62,10 @@ export function FlowBadge({ methodologyType }: FlowBadgeProps) {
       data-testid="flow-badge"
       aria-label={`Active flow: ${config.label}`}
     >
-      <Icon className="h-3 w-3" aria-hidden="true" />
+      <Icon
+        className="h-3 w-3"
+        aria-hidden="true"
+      />
       {config.label}
     </span>
   );

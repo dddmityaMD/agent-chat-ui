@@ -58,7 +58,10 @@ jest.mock("../ConnectorStatusCard", () => ({
       <span data-testid={`status-${connector.name}`}>{connector.status}</span>
       <span>{connector.name}</span>
       <button onClick={onToggle}>Toggle</button>
-      <button onClick={() => onRefresh(connector.name)} disabled={isRefreshing}>
+      <button
+        onClick={() => onRefresh(connector.name)}
+        disabled={isRefreshing}
+      >
         Refresh
       </button>
     </div>
@@ -67,7 +70,7 @@ jest.mock("../ConnectorStatusCard", () => ({
 
 const createMockConnector = (
   name: string,
-  status: ReadinessStatus = "healthy"
+  status: ReadinessStatus = "healthy",
 ): ConnectorStatus => ({
   connector_id: `conn-${name}`,
   name,
@@ -275,7 +278,9 @@ describe("ReadinessPanel", () => {
       fireEvent.click(collapseButton);
 
       // After collapse - connectors should not be visible
-      expect(screen.queryByTestId("connector-metabase")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("connector-metabase"),
+      ).not.toBeInTheDocument();
     });
 
     it("expands when expand button clicked", () => {
@@ -286,7 +291,9 @@ describe("ReadinessPanel", () => {
       fireEvent.click(collapseButton);
 
       // Verify collapsed
-      expect(screen.queryByTestId("connector-metabase")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("connector-metabase"),
+      ).not.toBeInTheDocument();
 
       // Expand
       const expandButton = screen.getByTitle("Expand");
@@ -374,7 +381,9 @@ describe("ReadinessPanel", () => {
       });
 
       render(<ReadinessPanel showParallelExecution />);
-      expect(screen.queryByText("Collecting evidence...")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Collecting evidence..."),
+      ).not.toBeInTheDocument();
     });
 
     it("uses external parallelJobs when provided", () => {
@@ -382,7 +391,7 @@ describe("ReadinessPanel", () => {
         <ReadinessPanel
           showParallelExecution
           parallelJobs={[{ id: "ext-1", source: "External", status: "done" }]}
-        />
+        />,
       );
       expect(screen.getByText("Collecting evidence...")).toBeInTheDocument();
       expect(screen.getByText("External")).toBeInTheDocument();
@@ -393,14 +402,14 @@ describe("ReadinessPanel", () => {
     it("passes polling interval to hook", () => {
       render(<ReadinessPanel pollingInterval={60000} />);
       expect(mockUseReadinessPolling).toHaveBeenCalledWith(
-        expect.objectContaining({ interval: 60000 })
+        expect.objectContaining({ interval: 60000 }),
       );
     });
 
     it("passes enabled flag to hook", () => {
       render(<ReadinessPanel enabled={false} />);
       expect(mockUseReadinessPolling).toHaveBeenCalledWith(
-        expect.objectContaining({ enabled: false })
+        expect.objectContaining({ enabled: false }),
       );
     });
   });

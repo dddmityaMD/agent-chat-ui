@@ -1,5 +1,9 @@
 import { getApiBaseUrl } from "@/lib/api-url";
-import type { PermissionGrant, PermissionState, ThreadWithMeta } from "@/lib/types";
+import type {
+  PermissionGrant,
+  PermissionState,
+  ThreadWithMeta,
+} from "@/lib/types";
 import {
   createContext,
   useContext,
@@ -10,7 +14,10 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
-import { extractMethodologyType, extractHandoffProposal } from "@/hooks/useSaisUi";
+import {
+  extractMethodologyType,
+  extractHandoffProposal,
+} from "@/hooks/useSaisUi";
 import { useAuth } from "@/providers/Auth";
 
 // ---------------------------------------------------------------------------
@@ -47,8 +54,16 @@ interface ThreadContextType {
   setThreads: Dispatch<SetStateAction<ThreadWithMeta[]>>;
   threadsLoading: boolean;
   setThreadsLoading: Dispatch<SetStateAction<boolean>>;
-  registerThread: (threadId: string, title?: string, preview?: string, projectId?: string) => Promise<ThreadWithMeta | null>;
-  updateThread: (threadId: string, updates: { title?: string; is_pinned?: boolean }) => Promise<void>;
+  registerThread: (
+    threadId: string,
+    title?: string,
+    preview?: string,
+    projectId?: string,
+  ) => Promise<ThreadWithMeta | null>;
+  updateThread: (
+    threadId: string,
+    updates: { title?: string; is_pinned?: boolean },
+  ) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   permissionState: PermissionState;
   addPermissionGrant: (grant: PermissionGrant) => void;
@@ -64,88 +79,114 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   const { setSessionExpired } = useAuth();
   const [threads, setThreads] = useState<ThreadWithMeta[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
-  const [permissionState, setPermissionState] = useState<PermissionState>({ grants: [] });
+  const [permissionState, setPermissionState] = useState<PermissionState>({
+    grants: [],
+  });
 
-  const getThreads = useCallback(async (includeArchived = false): Promise<ThreadWithMeta[]> => {
-    const baseUrl = getApiBaseUrl();
-    const params = new URLSearchParams();
-    if (includeArchived) params.set("include_archived", "true");
-    try {
-      const res = await fetch(`${baseUrl}/api/threads?${params}`, {
-        credentials: "include",
-      });
-      if (res.status === 401) { setSessionExpired(true); return []; }
-      if (!res.ok) return [];
-      return (await res.json()) as ThreadWithMeta[];
-    } catch (err) {
-      console.error("Failed to fetch threads:", err);
-      return [];
-    }
-  }, [setSessionExpired]);
+  const getThreads = useCallback(
+    async (includeArchived = false): Promise<ThreadWithMeta[]> => {
+      const baseUrl = getApiBaseUrl();
+      const params = new URLSearchParams();
+      if (includeArchived) params.set("include_archived", "true");
+      try {
+        const res = await fetch(`${baseUrl}/api/threads?${params}`, {
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          setSessionExpired(true);
+          return [];
+        }
+        if (!res.ok) return [];
+        return (await res.json()) as ThreadWithMeta[];
+      } catch (err) {
+        console.error("Failed to fetch threads:", err);
+        return [];
+      }
+    },
+    [setSessionExpired],
+  );
 
-  const registerThread = useCallback(async (
-    threadId: string,
-    title?: string,
-    preview?: string,
-    projectId?: string,
-  ): Promise<ThreadWithMeta | null> => {
-    const baseUrl = getApiBaseUrl();
-    try {
-      const body: Record<string, string> = {};
-      if (title) body.title = title;
-      if (preview) body.last_message_preview = preview;
-      if (projectId) body.project_id = projectId;
-      const res = await fetch(`${baseUrl}/api/threads/${threadId}/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        credentials: "include",
-      });
-      if (res.status === 401) { setSessionExpired(true); return null; }
-      if (!res.ok) return null;
-      return (await res.json()) as ThreadWithMeta;
-    } catch (err) {
-      console.error("Failed to register thread:", err);
-      return null;
-    }
-  }, [setSessionExpired]);
+  const registerThread = useCallback(
+    async (
+      threadId: string,
+      title?: string,
+      preview?: string,
+      projectId?: string,
+    ): Promise<ThreadWithMeta | null> => {
+      const baseUrl = getApiBaseUrl();
+      try {
+        const body: Record<string, string> = {};
+        if (title) body.title = title;
+        if (preview) body.last_message_preview = preview;
+        if (projectId) body.project_id = projectId;
+        const res = await fetch(`${baseUrl}/api/threads/${threadId}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          setSessionExpired(true);
+          return null;
+        }
+        if (!res.ok) return null;
+        return (await res.json()) as ThreadWithMeta;
+      } catch (err) {
+        console.error("Failed to register thread:", err);
+        return null;
+      }
+    },
+    [setSessionExpired],
+  );
 
-  const updateThread = useCallback(async (
-    threadId: string,
-    updates: { title?: string; is_pinned?: boolean },
-  ): Promise<void> => {
-    const baseUrl = getApiBaseUrl();
-    try {
-      const res = await fetch(`${baseUrl}/api/threads/${threadId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-        credentials: "include",
-      });
-      if (res.status === 401) { setSessionExpired(true); return; }
-      // Optimistically update local state so header and sidebar stay in sync
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.thread_id === threadId ? { ...t, ...updates } : t,
-        ),
-      );
-    } catch (err) {
-      console.error("Failed to update thread:", err);
-    }
-  }, [setSessionExpired]);
+  const updateThread = useCallback(
+    async (
+      threadId: string,
+      updates: { title?: string; is_pinned?: boolean },
+    ): Promise<void> => {
+      const baseUrl = getApiBaseUrl();
+      try {
+        const res = await fetch(`${baseUrl}/api/threads/${threadId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          setSessionExpired(true);
+          return;
+        }
+        // Optimistically update local state so header and sidebar stay in sync
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.thread_id === threadId ? { ...t, ...updates } : t,
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to update thread:", err);
+      }
+    },
+    [setSessionExpired],
+  );
 
-  const archiveThread = useCallback(async (threadId: string): Promise<void> => {
-    const baseUrl = getApiBaseUrl();
-    try {
-      const res = await fetch(`${baseUrl}/api/threads/${threadId}/archive`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (res.status === 401) { setSessionExpired(true); return; }
-    } catch (err) {
-      console.error("Failed to archive thread:", err);
-    }
-  }, [setSessionExpired]);
+  const archiveThread = useCallback(
+    async (threadId: string): Promise<void> => {
+      const baseUrl = getApiBaseUrl();
+      try {
+        const res = await fetch(`${baseUrl}/api/threads/${threadId}/archive`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          setSessionExpired(true);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to archive thread:", err);
+      }
+    },
+    [setSessionExpired],
+  );
 
   const addPermissionGrant = useCallback((grant: PermissionGrant) => {
     setPermissionState((prev) => {
@@ -163,11 +204,16 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const revokePermissionGrant = useCallback((pendingActionId: string | null) => {
-    setPermissionState((prev) => ({
-      grants: prev.grants.filter((grant) => grant.pending_action_id !== pendingActionId),
-    }));
-  }, []);
+  const revokePermissionGrant = useCallback(
+    (pendingActionId: string | null) => {
+      setPermissionState((prev) => ({
+        grants: prev.grants.filter(
+          (grant) => grant.pending_action_id !== pendingActionId,
+        ),
+      }));
+    },
+    [],
+  );
 
   const clearPermissionGrants = useCallback(() => {
     setPermissionState({ grants: [] });
@@ -241,7 +287,11 @@ export function usePermissionState() {
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function extractFlowInfo(saisUi: unknown): FlowInfo {
-  const empty: FlowInfo = { activeMethodology: null, handoff: null, flowTransition: null };
+  const empty: FlowInfo = {
+    activeMethodology: null,
+    handoff: null,
+    flowTransition: null,
+  };
   if (!saisUi || typeof saisUi !== "object") return empty;
 
   const activeMethodology = extractMethodologyType(saisUi);

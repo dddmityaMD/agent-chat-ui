@@ -29,7 +29,7 @@ function GroupNodeComponent({ data }: NodeProps) {
       }}
     >
       <span
-        className="absolute left-3 top-1 text-xs font-semibold uppercase tracking-wider"
+        className="absolute top-1 left-3 text-xs font-semibold tracking-wider uppercase"
         style={{ color: payload.border }}
       >
         {payload.label}

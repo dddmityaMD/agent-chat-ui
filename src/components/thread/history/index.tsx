@@ -295,7 +295,13 @@ function ThreadHistoryLoading() {
 // Main ThreadHistory sidebar
 // ---------------------------------------------------------------------------
 
-export default function ThreadHistory() {
+export default function ThreadHistory({
+  onProjectSelect,
+  selectedProjectId,
+}: {
+  onProjectSelect?: (project: { id: string; name: string } | null) => void;
+  selectedProjectId?: string | null;
+} = {}) {
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const [chatHistoryOpen, setChatHistoryOpen] = useQueryState(
     "chatHistoryOpen",
@@ -313,8 +319,13 @@ export default function ThreadHistory() {
     archiveThread: archiveThreadApi,
   } = useThreads();
 
-  const { query, setQuery, showArchived, setShowArchived, filtered } =
+  const { query, setQuery, showArchived, setShowArchived, filtered: searchFiltered } =
     useThreadSearch(threads);
+
+  // Filter threads by selected project
+  const filtered = selectedProjectId
+    ? searchFiltered.filter((t) => t.project_id === selectedProjectId)
+    : searchFiltered;
 
   // Fetch threads on mount
   useEffect(() => {
@@ -398,6 +409,11 @@ export default function ThreadHistory() {
         </Button>
       </div>
 
+      {/* Project selector (D-07, Phase 49-07) */}
+      <div className="border-b">
+        <ProjectSelector onProjectSelect={onProjectSelect} selectedProjectId={selectedProjectId} />
+      </div>
+
       {/* Search bar */}
       <div className="relative px-3 pt-2">
         <Search className="text-muted-foreground absolute top-4.5 left-5 size-4" />
@@ -407,11 +423,6 @@ export default function ThreadHistory() {
           placeholder="Search threads..."
           className="pl-8 text-sm"
         />
-      </div>
-
-      {/* Project selector (D-07, Phase 49-07) */}
-      <div className="border-b">
-        <ProjectSelector />
       </div>
 
       {/* Show archived toggle */}

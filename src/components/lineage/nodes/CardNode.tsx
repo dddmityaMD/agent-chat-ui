@@ -26,16 +26,28 @@ function CardNodeComponent({ data }: NodeProps) {
     : (payload.props?.display as string | undefined);
 
   return (
-    <div className={`flex flex-col items-center gap-1 rounded-lg border ${borderClass} ${bgClass} px-3 py-2 shadow-sm`}>
-      <Handle type="target" position={Position.Left} className={handleClass} />
+    <div
+      className={`flex flex-col items-center gap-1 rounded-lg border ${borderClass} ${bgClass} px-3 py-2 shadow-sm`}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={handleClass}
+      />
       <Icon className={`h-5 w-5 ${iconClass}`} />
-      <span className={`max-w-[140px] truncate text-xs font-medium ${textClass}`}>
+      <span
+        className={`max-w-[140px] truncate text-xs font-medium ${textClass}`}
+      >
         {payload.label}
       </span>
       {subtitle && (
         <span className={`text-[10px] ${subtitleClass}`}>{subtitle}</span>
       )}
-      <Handle type="source" position={Position.Right} className={handleClass} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={handleClass}
+      />
     </div>
   );
 }

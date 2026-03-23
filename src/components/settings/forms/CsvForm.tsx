@@ -6,8 +6,15 @@ interface CsvFormProps {
   mode: "create" | "edit" | "view";
   initialConfig?: Record<string, unknown>;
   initialCredentials?: Record<string, string> | null;
-  onTest: (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => void;
-  onSave: (formData: { name: string; config: Record<string, unknown>; credentials: Record<string, string> }) => void;
+  onTest: (formData: {
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
+  onSave: (formData: {
+    name: string;
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
   testLoading?: boolean;
   saveLoading?: boolean;
   connectorName?: string;
@@ -24,7 +31,9 @@ export function CsvForm({
   connectorName = "",
 }: CsvFormProps) {
   const [name, setName] = useState(connectorName);
-  const [sourceDir, setSourceDir] = useState(String(initialConfig.source_dir ?? ""));
+  const [sourceDir, setSourceDir] = useState(
+    String(initialConfig.source_dir ?? ""),
+  );
   const [targetDsn, setTargetDsn] = useState("");
 
   const isView = mode === "view";
@@ -57,10 +66,13 @@ export function CsvForm({
     (isEdit || name.trim().length > 0) && sourceDir.trim().length > 0;
 
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <form
+      onSubmit={handleSave}
+      className="space-y-4"
+    >
       {mode === "create" && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label className="text-foreground mb-1 block text-sm font-medium">
             Name <span className="text-destructive">*</span>
           </label>
           <input
@@ -68,14 +80,14 @@ export function CsvForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. hotel-data-csv"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             required
           />
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           Source Directory <span className="text-destructive">*</span>
         </label>
         <input
@@ -84,36 +96,40 @@ export function CsvForm({
           onChange={(e) => setSourceDir(e.target.value)}
           disabled={isView}
           placeholder="/path/to/csv/files"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           required
         />
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           Directory containing .csv files to discover and load
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           Target PostgreSQL DSN{" "}
-          <span className="text-xs text-muted-foreground">(optional)</span>
+          <span className="text-muted-foreground text-xs">(optional)</span>
         </label>
         {isView ? (
           <input
             type="text"
             value={initialCredentials?.target_dsn ?? ""}
             disabled
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+            className="border-border bg-background text-muted-foreground w-full rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : (
           <input
             type="text"
             value={targetDsn}
             onChange={(e) => setTargetDsn(e.target.value)}
-            placeholder={isEdit ? "Leave blank to keep existing" : "postgresql://user:pass@host:5432/db"}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            placeholder={
+              isEdit
+                ? "Leave blank to keep existing"
+                : "postgresql://user:pass@host:5432/db"
+            }
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
           />
         )}
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           Defaults to BI_POSTGRES_DSN if not set
         </p>
       </div>
@@ -123,7 +139,7 @@ export function CsvForm({
           type="button"
           onClick={handleTest}
           disabled={testLoading}
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {testLoading ? "Testing..." : "Test Connection"}
         </button>
@@ -131,7 +147,7 @@ export function CsvForm({
           <button
             type="submit"
             disabled={!isValid || saveLoading}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saveLoading ? "Saving..." : "Save"}
           </button>

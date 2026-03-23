@@ -36,14 +36,15 @@ export function LLMRoutingEditor() {
             const primary = (r?.primary as Record<string, unknown>) || {};
             return {
               operation_type: opType,
-              provider: (primary.provider as string) || (data.provider as string) || "",
+              provider:
+                (primary.provider as string) || (data.provider as string) || "",
               model: (primary.model as string) || "",
               temperature: (primary.temperature as number) ?? 0,
               is_default: !r?.error,
             };
-          }
+          },
         );
-        setConfigs(parsed.filter(c => c.operation_type !== "embedding"));
+        setConfigs(parsed.filter((c) => c.operation_type !== "embedding"));
       } else if (Array.isArray(data)) {
         // Backward compatibility if API ever returns flat array
         setConfigs(data);
@@ -107,10 +108,10 @@ export function LLMRoutingEditor() {
   };
 
   return (
-    <div className="border-t border-border/40">
+    <div className="border-border/40 border-t">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors"
       >
         <span className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>
           {"\u25B6"}
@@ -119,14 +120,16 @@ export function LLMRoutingEditor() {
       </button>
 
       {isOpen && (
-        <div className="px-3 pb-2 space-y-2">
+        <div className="space-y-2 px-3 pb-2">
           {configs.length === 0 && (
-            <p className="text-xs text-muted-foreground">No routing configs loaded.</p>
+            <p className="text-muted-foreground text-xs">
+              No routing configs loaded.
+            </p>
           )}
           {configs.map((cfg, idx) => (
             <div
               key={cfg.operation_type}
-              className="flex flex-col gap-1 rounded border border-border/50 p-2 text-xs"
+              className="border-border/50 flex flex-col gap-1 rounded border p-2 text-xs"
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium">{cfg.operation_type}</span>
@@ -153,7 +156,7 @@ export function LLMRoutingEditor() {
               {editingIdx === idx ? (
                 <div className="flex flex-col gap-1">
                   <input
-                    className="rounded border px-1.5 py-0.5 text-xs bg-background"
+                    className="bg-background rounded border px-1.5 py-0.5 text-xs"
                     value={draft.provider || ""}
                     onChange={(e) =>
                       setDraft({ ...draft, provider: e.target.value })
@@ -161,7 +164,7 @@ export function LLMRoutingEditor() {
                     placeholder="provider"
                   />
                   <input
-                    className="rounded border px-1.5 py-0.5 text-xs bg-background"
+                    className="bg-background rounded border px-1.5 py-0.5 text-xs"
                     value={draft.model || ""}
                     onChange={(e) =>
                       setDraft({ ...draft, model: e.target.value })
@@ -169,7 +172,7 @@ export function LLMRoutingEditor() {
                     placeholder="model"
                   />
                   <input
-                    className="rounded border px-1.5 py-0.5 text-xs bg-background"
+                    className="bg-background rounded border px-1.5 py-0.5 text-xs"
                     type="number"
                     step="0.1"
                     min="0"
@@ -183,11 +186,11 @@ export function LLMRoutingEditor() {
                     }
                     placeholder="temperature"
                   />
-                  <div className="flex gap-1 mt-1">
+                  <div className="mt-1 flex gap-1">
                     <button
                       onClick={() => handleSave(cfg.operation_type)}
                       disabled={loading}
-                      className="rounded bg-primary px-2 py-0.5 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-2 py-0.5 disabled:opacity-50"
                     >
                       {loading ? "..." : "Save"}
                     </button>

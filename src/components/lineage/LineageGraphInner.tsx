@@ -46,7 +46,11 @@ import type { Direction } from "./controls/DirectionToggle";
 import { computeLayerMap } from "./utils/layer-classifier";
 import { Maximize2, Minimize2 } from "lucide-react";
 
-import { toLineageNodeData, buildSourceUrl, buildLayerOverlayNodes } from "./lineage-helpers";
+import {
+  toLineageNodeData,
+  buildSourceUrl,
+  buildLayerOverlayNodes,
+} from "./lineage-helpers";
 import { NodeContextMenu, type ContextMenuState } from "./NodeContextMenu";
 
 // Node and edge type registries (MUST be defined outside component)
@@ -91,7 +95,9 @@ export function LineageGraphInner({
 }: LineageGraphInnerProps) {
   // State: direction, selected node, layers
   const [direction, setDirection] = useState<Direction>("both");
-  const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(null);
+  const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(
+    null,
+  );
   const [panelOpen, setPanelOpen] = useState(false);
   const [layersEnabled, setLayersEnabled] = useState(false);
 
@@ -111,7 +117,9 @@ export function LineageGraphInner({
     error,
   } = useLineageData(rootNodeId, direction);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(rawNodes as Node[]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
+    rawNodes as Node[],
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState(rawEdges);
 
   // Sync fetched data into React Flow state
@@ -136,7 +144,10 @@ export function LineageGraphInner({
         if (nonGroupNodes.length === 0) return current;
 
         const nodeLayerMap = computeLayerMap(nonGroupNodes, edges);
-        const overlayNodes = buildLayerOverlayNodes(nonGroupNodes, nodeLayerMap);
+        const overlayNodes = buildLayerOverlayNodes(
+          nonGroupNodes,
+          nodeLayerMap,
+        );
         return [...overlayNodes, ...nonGroupNodes];
       });
     });
@@ -148,11 +159,11 @@ export function LineageGraphInner({
   React.useEffect(() => {
     if (!selectedNode) {
       setNodes((current) =>
-        current.map((n) => (n.type === "groupNode" ? n : { ...n, hidden: false })),
+        current.map((n) =>
+          n.type === "groupNode" ? n : { ...n, hidden: false },
+        ),
       );
-      setEdges((current) =>
-        current.map((e) => ({ ...e, hidden: false })),
-      );
+      setEdges((current) => current.map((e) => ({ ...e, hidden: false })));
       return;
     }
 
@@ -277,29 +288,31 @@ export function LineageGraphInner({
       fitView({ duration: 300, padding: 0.15, includeHiddenNodes: false });
     }, 150);
     return () => clearTimeout(tid);
-  }, [filterEntities, selectedNode, rawNodes, rawEdges, setNodes, setEdges, fitView]);
+  }, [
+    filterEntities,
+    selectedNode,
+    rawNodes,
+    rawEdges,
+    setNodes,
+    setEdges,
+    fitView,
+  ]);
 
   // -- Event handlers
 
-  const onNodeClick: NodeMouseHandler = useCallback(
-    (_event, rfNode) => {
-      const nodeData = toLineageNodeData(rfNode);
-      setSelectedNode(nodeData);
-      setPanelOpen(true);
-    },
-    [],
-  );
+  const onNodeClick: NodeMouseHandler = useCallback((_event, rfNode) => {
+    const nodeData = toLineageNodeData(rfNode);
+    setSelectedNode(nodeData);
+    setPanelOpen(true);
+  }, []);
 
-  const onNodeDoubleClick: NodeMouseHandler = useCallback(
-    (_event, rfNode) => {
-      const nodeData = toLineageNodeData(rfNode);
-      const url = buildSourceUrl(nodeData);
-      if (url) {
-        window.open(url, "_blank");
-      }
-    },
-    [],
-  );
+  const onNodeDoubleClick: NodeMouseHandler = useCallback((_event, rfNode) => {
+    const nodeData = toLineageNodeData(rfNode);
+    const url = buildSourceUrl(nodeData);
+    if (url) {
+      window.open(url, "_blank");
+    }
+  }, []);
 
   const onClosePanel = useCallback(() => {
     setPanelOpen(false);
@@ -307,48 +320,40 @@ export function LineageGraphInner({
 
   // -- Impact analysis handlers
 
-  const triggerImpactAnalysis = useCallback(
-    async (nodeId: string) => {
-      setImpactLoading(true);
-      try {
-        const result = await fetchImpactAnalysis(nodeId);
-        setImpactResult(result);
-        setDimUnaffected(true);
-        setHideUnaffected(false);
-      } catch (err) {
-        console.error("Impact analysis failed:", err);
-      } finally {
-        setImpactLoading(false);
-      }
-    },
-    [],
-  );
+  const triggerImpactAnalysis = useCallback(async (nodeId: string) => {
+    setImpactLoading(true);
+    try {
+      const result = await fetchImpactAnalysis(nodeId);
+      setImpactResult(result);
+      setDimUnaffected(true);
+      setHideUnaffected(false);
+    } catch (err) {
+      console.error("Impact analysis failed:", err);
+    } finally {
+      setImpactLoading(false);
+    }
+  }, []);
 
   const clearImpact = useCallback(() => {
     setImpactResult(null);
     setContextMenu(null);
   }, []);
 
-  const onNodeContextMenu: NodeMouseHandler = useCallback(
-    (event, rfNode) => {
-      event.preventDefault();
-      const payload = rfNode.data as unknown as LineageNodePayload;
-      const container = (event.target as HTMLElement).closest(
-        ".react-flow",
-      );
-      const rect = container?.getBoundingClientRect() ?? {
-        left: 0,
-        top: 0,
-      };
-      setContextMenu({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-        nodeId: rfNode.id,
-        nodeLabel: payload.label,
-      });
-    },
-    [],
-  );
+  const onNodeContextMenu: NodeMouseHandler = useCallback((event, rfNode) => {
+    event.preventDefault();
+    const payload = rfNode.data as unknown as LineageNodePayload;
+    const container = (event.target as HTMLElement).closest(".react-flow");
+    const rect = container?.getBoundingClientRect() ?? {
+      left: 0,
+      top: 0,
+    };
+    setContextMenu({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      nodeId: rfNode.id,
+      nodeLabel: payload.label,
+    });
+  }, []);
 
   const onPaneClick = useCallback(() => {
     setContextMenu(null);
@@ -399,15 +404,21 @@ export function LineageGraphInner({
 
   if (loading) {
     return (
-      <div className={`flex h-full items-center justify-center ${className ?? ""}`}>
-        <div className="text-sm text-muted-foreground">Loading lineage graph...</div>
+      <div
+        className={`flex h-full items-center justify-center ${className ?? ""}`}
+      >
+        <div className="text-muted-foreground text-sm">
+          Loading lineage graph...
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={`flex h-full items-center justify-center ${className ?? ""}`}>
+      <div
+        className={`flex h-full items-center justify-center ${className ?? ""}`}
+      >
         <div className="text-sm text-red-500">Error: {error}</div>
       </div>
     );
@@ -415,8 +426,10 @@ export function LineageGraphInner({
 
   if (rawNodes.length === 0) {
     return (
-      <div className={`flex h-full items-center justify-center ${className ?? ""}`}>
-        <div className="text-sm text-muted-foreground">
+      <div
+        className={`flex h-full items-center justify-center ${className ?? ""}`}
+      >
+        <div className="text-muted-foreground text-sm">
           No lineage data available.
         </div>
       </div>
@@ -426,9 +439,15 @@ export function LineageGraphInner({
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
       {/* Control bar */}
-      <div className="absolute right-2 top-2 z-40 flex flex-col gap-1">
-        <DirectionToggle direction={direction} onChange={setDirection} />
-        <LayerToggle enabled={layersEnabled} onToggle={setLayersEnabled} />
+      <div className="absolute top-2 right-2 z-40 flex flex-col gap-1">
+        <DirectionToggle
+          direction={direction}
+          onChange={setDirection}
+        />
+        <LayerToggle
+          enabled={layersEnabled}
+          onToggle={setLayersEnabled}
+        />
         {onToggleFullscreen && (
           <button
             type="button"
@@ -447,7 +466,7 @@ export function LineageGraphInner({
       </div>
 
       {/* Node count indicator */}
-      <div className="absolute left-2 top-2 z-40 rounded-md bg-white/80 px-2 py-1 text-xs text-zinc-500 shadow-sm backdrop-blur-sm">
+      <div className="absolute top-2 left-2 z-40 rounded-md bg-white/80 px-2 py-1 text-xs text-zinc-500 shadow-sm backdrop-blur-sm">
         {rawNodes.length} nodes
       </div>
 
@@ -467,13 +486,16 @@ export function LineageGraphInner({
         defaultViewport={{ x: 0, y: 0, zoom: DEFAULT_ZOOM }}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={16} size={1} />
+        <Background
+          gap={16}
+          size={1}
+        />
         <Controls showFitView />
         <MiniMap
           nodeStrokeWidth={2}
           zoomable
           pannable
-          className="!bottom-2 !right-2"
+          className="!right-2 !bottom-2"
         />
       </ReactFlow>
 
@@ -488,7 +510,7 @@ export function LineageGraphInner({
 
       {/* Impact loading indicator */}
       {impactLoading && (
-        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-md bg-zinc-800 px-3 py-1.5 text-xs text-white shadow-lg">
+        <div className="absolute top-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-zinc-800 px-3 py-1.5 text-xs text-white shadow-lg">
           Analyzing impact...
         </div>
       )}

@@ -12,8 +12,6 @@ import type { StreamingStateValues } from "@/lib/message-groups";
  */
 const DETAIL_FIELDS = [
   "resolved_entities",
-  "intent",
-  "intent_confidence",
   "active_methodology",
   "evidence_result",
   "findings",

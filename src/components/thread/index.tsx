@@ -16,7 +16,7 @@ import { useStreamContext } from "@/providers/Stream";
 import { useState, useCallback, FormEvent } from "react";
 import { Button } from "../ui/button";
 import { Message } from "@langchain/langgraph-sdk";
-import { AssistantMessage } from "./messages/ai";
+import { AssistantMessage, AssistantMessageLoading } from "./messages/ai";
 import { HumanMessage } from "./messages/human";
 import {
   DO_NOT_RENDER_ID_PREFIX,
@@ -65,7 +65,7 @@ import { SettingsButton } from "@/components/settings-button";
 import { BudgetIndicator } from "@/components/header/budget-indicator";
 import { EmptyState } from "./empty-state";
 import { useBlockSync } from "@/hooks/useBlockSync";
-import { useBlockStore } from "@/stores/block-store";
+// useBlockStore accessed via useBlockSync — no direct subscription needed here
 import { ChatActivityIndicator } from "./chat-activity-indicator";
 
 // Sub-components extracted from this file
@@ -144,14 +144,8 @@ export function Thread() {
   // Canvas store (Phase 49-07)
   const canvasStore = useCanvasStore();
 
-  // Block store thread hydration (Phase 49-07)
-  const blockStore = useBlockStore();
-  const prevHydrationThreadId = useRef<string | null>(null);
-  useEffect(() => {
-    if (threadId === prevHydrationThreadId.current) return;
-    prevHydrationThreadId.current = threadId;
-    blockStore.switchThread(threadId);
-  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Block store thread hydration handled by useBlockSync (Phase 49-05).
+  // Do NOT call blockStore.switchThread here — useBlockSync already does it.
 
   // Canvas open handler — wired to BlockPanel's onCanvasOpen
   const handleCanvasOpen = useCallback(
@@ -529,26 +523,15 @@ export function Thread() {
         }}
       />
 
-      <div className="relative hidden lg:flex">
-        <motion.div
-          className="bg-background absolute z-20 h-full overflow-hidden border-r"
-          style={{ width: 300 }}
-          animate={{ x: chatHistoryOpen ? 0 : -300 }}
-          initial={{ x: -300 }}
-          transition={
-            isLargeScreen
-              ? { type: "spring", stiffness: 300, damping: 30 }
-              : { duration: 0 }
-          }
+      {/* Desktop sidebar — resizable via CSS resize */}
+      {chatHistoryOpen && isLargeScreen && (
+        <div
+          className="bg-background hidden h-full shrink-0 flex-col border-r lg:flex"
+          style={{ width: 300, minWidth: 220, maxWidth: 500, resize: "horizontal", overflow: "hidden" }}
         >
-          <div
-            className="relative h-full"
-            style={{ width: 300 }}
-          >
-            <ThreadHistory />
-          </div>
-        </motion.div>
-      </div>
+          <ThreadHistory onProjectSelect={setSelectedProject} selectedProjectId={selectedProject?.id} />
+        </div>
+      )}
 
       <DualSurfaceLayout
         panelOpen={casePanelOpen ?? true}
@@ -562,25 +545,11 @@ export function Thread() {
         }
         canvasContent={<CanvasPane />}
         chat={
-        <motion.div
+        <div
           className={cn(
             "relative flex min-w-0 flex-1 flex-col overflow-hidden h-full",
             !chatStarted && "grid-rows-[1fr]",
           )}
-          layout={isLargeScreen}
-          animate={{
-            marginLeft: chatHistoryOpen ? (isLargeScreen ? 300 : 0) : 0,
-            width: chatHistoryOpen
-              ? isLargeScreen
-                ? "calc(100% - 300px)"
-                : "100%"
-              : "100%",
-          }}
-          transition={
-            isLargeScreen
-              ? { type: "spring", stiffness: 300, damping: 30 }
-              : { duration: 0 }
-          }
         >
           {!chatStarted && (
             <div className="absolute top-0 left-0 z-10 flex w-full items-center justify-between gap-3 p-2 pl-4">
@@ -720,7 +689,6 @@ export function Thread() {
                           message={group.message}
                           isLoading={isLoading}
                           handleRegenerate={handleRegenerate}
-                          stages={group.stages}
                           nextHumanMessage={group.nextHumanMessage}
                           streamingValues={
                             isLoading && index === messageGroups.length - 1
@@ -741,6 +709,10 @@ export function Thread() {
                         />
                       </MessageErrorBoundary>
                     )}
+                  {/* Loading dots while waiting for first AI token */}
+                  {isLoading && messageGroups.length > 0 && messageGroups[messageGroups.length - 1].message.type === "human" && (
+                    <AssistantMessageLoading />
+                  )}
                   {/* Special rendering case: no AI/tool messages, but there is an interrupt */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
                     <MessageErrorBoundary>
@@ -928,7 +900,7 @@ export function Thread() {
               }
             />
           </StickToBottom>
-        </motion.div>
+        </div>
         }
       />
     </div>

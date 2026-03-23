@@ -104,7 +104,12 @@ function LineageSummaryCard({
 
 export default function LineageGraph(props: LineageGraphProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [stats, setStats] = useState({ nodes: 0, edges: 0, loading: true, error: null as string | null });
+  const [stats, setStats] = useState({
+    nodes: 0,
+    edges: 0,
+    loading: true,
+    error: null as string | null,
+  });
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((v) => !v);
@@ -117,17 +122,37 @@ export default function LineageGraph(props: LineageGraphProps) {
       try {
         const data = await fetchLineageGraph(props.rootNodeId);
         if (cancelled) return;
-        const visibleNodes = data.nodes.filter((n) => n.type !== "warehouse.column").length;
-        const columnIds = new Set(data.nodes.filter((n) => n.type === "warehouse.column").map((n) => n.id));
-        const visibleEdges = data.edges.filter((e) => !columnIds.has(e.source) && !columnIds.has(e.target)).length;
-        setStats({ nodes: visibleNodes, edges: visibleEdges, loading: false, error: null });
+        const visibleNodes = data.nodes.filter(
+          (n) => n.type !== "warehouse.column",
+        ).length;
+        const columnIds = new Set(
+          data.nodes
+            .filter((n) => n.type === "warehouse.column")
+            .map((n) => n.id),
+        );
+        const visibleEdges = data.edges.filter(
+          (e) => !columnIds.has(e.source) && !columnIds.has(e.target),
+        ).length;
+        setStats({
+          nodes: visibleNodes,
+          edges: visibleEdges,
+          loading: false,
+          error: null,
+        });
       } catch (err) {
         if (cancelled) return;
-        setStats({ nodes: 0, edges: 0, loading: false, error: err instanceof Error ? err.message : "Unknown error" });
+        setStats({
+          nodes: 0,
+          edges: 0,
+          loading: false,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
       }
     }
     loadStats();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [props.rootNodeId]);
 
   // Close fullscreen on Escape

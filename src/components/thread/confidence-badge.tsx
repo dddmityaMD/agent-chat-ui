@@ -46,7 +46,10 @@ interface ConfidenceBadgeProps {
   saisUiConfidence?: ConfidenceData | null;
 }
 
-export function ConfidenceBadge({ content, saisUiConfidence }: ConfidenceBadgeProps) {
+export function ConfidenceBadge({
+  content,
+  saisUiConfidence,
+}: ConfidenceBadgeProps) {
   const level = getConfidence(saisUiConfidence, content);
   if (!level) return null;
 
@@ -74,12 +77,12 @@ export function ConfidenceBadge({ content, saisUiConfidence }: ConfidenceBadgePr
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${color}`}
       title={tooltipText}
       data-testid="confidence-badge"
       data-confidence-level={level}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {label}
     </div>
   );

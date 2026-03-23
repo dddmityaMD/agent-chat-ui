@@ -50,13 +50,13 @@ export function GraphTiming({ nodes }: GraphTimingProps) {
                       isLong && "bg-yellow-50",
                     )}
                   >
-                    <td className="px-2 py-1 font-mono text-xs">
-                      {node.name}
-                    </td>
+                    <td className="px-2 py-1 font-mono text-xs">{node.name}</td>
                     <td
                       className={cn(
                         "px-2 py-1 text-right text-xs",
-                        isLong ? "font-medium text-yellow-700" : "text-gray-600",
+                        isLong
+                          ? "font-medium text-yellow-700"
+                          : "text-gray-600",
                       )}
                     >
                       {node.duration_ms >= 1000

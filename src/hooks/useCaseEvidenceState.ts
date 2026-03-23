@@ -58,7 +58,10 @@ export interface UseCaseEvidenceStateReturn {
    * 1. User explicitly requested that type
    * 2. AND the evidence is missing
    */
-  shouldShowMissingWarning: (type: EvidenceType, evidenceExists: boolean) => boolean;
+  shouldShowMissingWarning: (
+    type: EvidenceType,
+    evidenceExists: boolean,
+  ) => boolean;
   /** Get a friendly message for missing evidence (if should be shown) */
   getMissingMessage: (type: EvidenceType) => string | null;
   /** Reset all requested types (e.g., when changing cases) */

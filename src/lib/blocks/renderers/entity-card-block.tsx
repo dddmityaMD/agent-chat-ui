@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { BlockRendererProps, EntityCardBlockData, EntityGroup } from "../types";
+import type {
+  BlockRendererProps,
+  EntityCardBlockData,
+  EntityGroup,
+} from "../types";
 import {
   LayoutDashboard,
   BarChart3,
@@ -20,7 +24,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { navigateToLineage } from "@/components/lineage-link";
 
-const ENTITY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+const ENTITY_ICON_MAP: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   dashboard: LayoutDashboard,
   card: BarChart3,
   model: FileCode,
@@ -92,7 +99,9 @@ function EntityListItem({
         type="button"
         onClick={() => hasDetails && setExpanded((prev) => !prev)}
         className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
-          hasDetails ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-default"
+          hasDetails
+            ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+            : "cursor-default"
         }`}
       >
         <EntityIcon
@@ -147,7 +156,10 @@ function EntityListItem({
               </p>
               <div className="space-y-0.5">
                 {Object.entries(entity.properties).map(([key, value]) => (
-                  <div key={key} className="flex gap-2 text-xs">
+                  <div
+                    key={key}
+                    className="flex gap-2 text-xs"
+                  >
                     <span className="shrink-0 font-medium text-gray-600 dark:text-gray-400">
                       {key}:
                     </span>
@@ -205,7 +217,9 @@ function EntityGridItem({
         type="button"
         onClick={hasDetails ? onExpand : undefined}
         className={`flex w-full flex-col items-center gap-1.5 p-3 text-center ${
-          hasDetails ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-default"
+          hasDetails
+            ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+            : "cursor-default"
         }`}
       >
         <EntityIcon
@@ -242,7 +256,10 @@ function EntityGridItem({
               </p>
               <div className="space-y-0.5">
                 {Object.entries(entity.properties).map(([key, value]) => (
-                  <div key={key} className="flex gap-2 text-xs">
+                  <div
+                    key={key}
+                    className="flex gap-2 text-xs"
+                  >
                     <span className="shrink-0 font-medium text-gray-600 dark:text-gray-400">
                       {key}:
                     </span>
@@ -391,7 +408,10 @@ export function EntityCardBlock({ block }: BlockRendererProps) {
       {data.layout === "list" && (
         <div className="space-y-1.5">
           {visibleEntities.map((entity) => (
-            <EntityListItem key={entity.uri || entity.display_name} entity={entity} />
+            <EntityListItem
+              key={entity.uri || entity.display_name}
+              entity={entity}
+            />
           ))}
         </div>
       )}

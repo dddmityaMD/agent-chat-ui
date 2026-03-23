@@ -14,7 +14,11 @@ function ColumnNodeComponent({ data }: NodeProps) {
 
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
-      <Handle type="target" position={Position.Left} className="!bg-gray-400" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-gray-400"
+      />
       <Columns3 className="h-5 w-5 text-gray-600" />
       <span className="max-w-[140px] truncate text-xs font-medium text-gray-900">
         {payload.label}
@@ -22,7 +26,11 @@ function ColumnNodeComponent({ data }: NodeProps) {
       {dataType && (
         <span className="text-[10px] text-gray-500">{dataType}</span>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-gray-400" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-gray-400"
+      />
     </div>
   );
 }

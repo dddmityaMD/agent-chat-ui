@@ -24,7 +24,10 @@ const MAX_NAME_LENGTH = 20;
 /**
  * Truncate text with ellipsis if too long.
  */
-function truncateName(name: string, maxLength: number = MAX_NAME_LENGTH): string {
+function truncateName(
+  name: string,
+  maxLength: number = MAX_NAME_LENGTH,
+): string {
   if (name.length <= maxLength) {
     return name;
   }
@@ -74,9 +77,7 @@ export function DashboardCardBadge({
   };
 
   if (relations.length === 0) {
-    return (
-      <span className="text-xs text-muted-foreground italic">None</span>
-    );
+    return <span className="text-muted-foreground text-xs italic">None</span>;
   }
 
   // Determine badge styling based on what we're showing
@@ -86,10 +87,14 @@ export function DashboardCardBadge({
       ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
       : "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100";
 
-  const IconComponent = entityType === "dashboard" ? BarChart3 : LayoutDashboard;
+  const IconComponent =
+    entityType === "dashboard" ? BarChart3 : LayoutDashboard;
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-1", className)} data-testid="relationship-badges">
+    <div
+      className={cn("flex flex-wrap items-center gap-1", className)}
+      data-testid="relationship-badges"
+    >
       {visibleBadges.map((relation) => {
         const truncatedName = truncateName(relation.name);
         const showTooltip = relation.name.length > MAX_NAME_LENGTH;
@@ -101,13 +106,13 @@ export function DashboardCardBadge({
             title={showTooltip ? relation.name : undefined}
             className={cn(
               "inline-flex items-center gap-1 rounded-full border px-2 py-0.5",
-              "text-xs font-medium cursor-pointer transition-colors",
+              "cursor-pointer text-xs font-medium transition-colors",
               badgeClasses,
             )}
             data-testid={`relationship-badge-${relation.type}`}
           >
             <IconComponent className="h-3 w-3" />
-            <span className="truncate max-w-[120px]">{truncatedName}</span>
+            <span className="max-w-[120px] truncate">{truncatedName}</span>
           </button>
         );
       })}
@@ -117,7 +122,7 @@ export function DashboardCardBadge({
           className={cn(
             "inline-flex items-center rounded-full border px-2 py-0.5",
             "text-xs font-medium",
-            "bg-gray-100 text-gray-600 border-gray-200",
+            "border-gray-200 bg-gray-100 text-gray-600",
           )}
           title={`${overflowCount} more ${entityType === "dashboard" ? "cards" : "dashboards"}`}
           data-testid="overflow-badge"
@@ -145,9 +150,13 @@ export function DashboardCardBadgeCell(
 
   // Determine entity type from column field or data
   const field = colDef?.field;
-  const isForDashboard = field === "dashboard_cards" || data?.entity_type === "dashboard";
+  const isForDashboard =
+    field === "dashboard_cards" || data?.entity_type === "dashboard";
   // isForCard is used implicitly: if not isForDashboard, treat as card row
-  const _isForCard = field === "parent_dashboards" || data?.entity_type === "report" || data?.entity_type === "card";
+  const _isForCard =
+    field === "parent_dashboards" ||
+    data?.entity_type === "report" ||
+    data?.entity_type === "card";
   void _isForCard; // Suppress unused variable warning - kept for documentation
 
   // Get relations from row data if available
@@ -172,13 +181,14 @@ export function DashboardCardBadgeCell(
   const relations = rowRelations ?? fetchedRelations;
 
   if (loading) {
-    return (
-      <span className="text-xs text-muted-foreground">Loading...</span>
-    );
+    return <span className="text-muted-foreground text-xs">Loading...</span>;
   }
 
   return (
-    <DashboardCardBadge relations={relations} entityType={entityType} />
+    <DashboardCardBadge
+      relations={relations}
+      entityType={entityType}
+    />
   );
 }
 

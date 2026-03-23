@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Pencil, Trash2, Database, BarChart3, GitBranch, FolderCode, FileSpreadsheet, RefreshCw } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Database,
+  BarChart3,
+  GitBranch,
+  FolderCode,
+  FileSpreadsheet,
+  RefreshCw,
+} from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-url";
 import type {
   ConnectorConfigResponse,
@@ -18,7 +27,10 @@ import { DbtForm } from "./forms/DbtForm";
 import { GitForm } from "./forms/GitForm";
 import { CsvForm } from "./forms/CsvForm";
 import { ConnectorTestResult } from "./ConnectorTestResult";
-import { ConnectorSyncProgress, type SyncStatus } from "./ConnectorSyncProgress";
+import {
+  ConnectorSyncProgress,
+  type SyncStatus,
+} from "./ConnectorSyncProgress";
 import { DeleteConnectorDialog } from "./DeleteConnectorDialog";
 
 // ---------------------------------------------------------------------------
@@ -75,8 +87,13 @@ interface ConnectorDetailProps {
   onDelete: () => void;
   onEdit: () => void;
   onCancel: () => void;
-  createConnector: (data: ConnectorConfigCreate) => Promise<ConnectorConfigResponse>;
-  updateConnector: (name: string, data: ConnectorConfigUpdate) => Promise<ConnectorConfigResponse>;
+  createConnector: (
+    data: ConnectorConfigCreate,
+  ) => Promise<ConnectorConfigResponse>;
+  updateConnector: (
+    name: string,
+    data: ConnectorConfigUpdate,
+  ) => Promise<ConnectorConfigResponse>;
   deleteConnector: (name: string) => Promise<void>;
   testConnection: (name: string) => Promise<TestConnectionResponse>;
   triggerSync: (name: string) => Promise<SyncResponse>;
@@ -103,7 +120,9 @@ export function ConnectorDetail({
   pollConnector,
 }: ConnectorDetailProps) {
   const [selectedType, setSelectedType] = useState<ConnectorType | null>(null);
-  const [testResult, setTestResult] = useState<TestConnectionResponse | null>(null);
+  const [testResult, setTestResult] = useState<TestConnectionResponse | null>(
+    null,
+  );
   const [testLoading, setTestLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -145,7 +164,10 @@ export function ConnectorDetail({
 
   // ----- Test Connection -----
   const handleTest = useCallback(
-    async (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => {
+    async (formData: {
+      config: Record<string, unknown>;
+      credentials: Record<string, string>;
+    }) => {
       if (!connector && !selectedType) return;
 
       setTestLoading(true);
@@ -217,7 +239,10 @@ export function ConnectorDetail({
             name: formData.name,
             type: selectedType,
             config: formData.config,
-            credentials: Object.keys(formData.credentials).length > 0 ? formData.credentials : null,
+            credentials:
+              Object.keys(formData.credentials).length > 0
+                ? formData.credentials
+                : null,
           });
         } else {
           if (!connector) return;
@@ -306,8 +331,8 @@ export function ConnectorDetail({
   if (mode === "create" && !selectedType) {
     return (
       <div className="p-6">
-        <h2 className="text-lg font-semibold text-foreground">Add Connector</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h2 className="text-foreground text-lg font-semibold">Add Connector</h2>
+        <p className="text-muted-foreground mt-1 text-sm">
           Choose a connector type to get started.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-4">
@@ -315,11 +340,15 @@ export function ConnectorDetail({
             <button
               key={ct.type}
               onClick={() => setSelectedType(ct.type)}
-              className="flex flex-col items-center gap-2 rounded-lg border border-border p-6 text-center transition-colors hover:border-primary hover:bg-primary/5"
+              className="border-border hover:border-primary hover:bg-primary/5 flex flex-col items-center gap-2 rounded-lg border p-6 text-center transition-colors"
             >
               <div className="text-muted-foreground">{ct.icon}</div>
-              <span className="text-sm font-medium text-foreground">{ct.label}</span>
-              <span className="text-xs text-muted-foreground">{ct.description}</span>
+              <span className="text-foreground text-sm font-medium">
+                {ct.label}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {ct.description}
+              </span>
             </button>
           ))}
         </div>
@@ -328,7 +357,8 @@ export function ConnectorDetail({
   }
 
   // ----- Form rendering -----
-  const formMode = mode === "create" ? "create" : mode === "edit" ? "edit" : "view";
+  const formMode =
+    mode === "create" ? "create" : mode === "edit" ? "edit" : "view";
 
   const renderForm = () => {
     const commonProps = {
@@ -360,7 +390,7 @@ export function ConnectorDetail({
         return <CsvForm {...commonProps} />;
       default:
         return (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Unknown connector type: {connectorType}
           </p>
         );
@@ -368,20 +398,21 @@ export function ConnectorDetail({
   };
 
   const typeLabel =
-    CONNECTOR_TYPES.find((ct) => ct.type === connectorType)?.label ?? connectorType;
+    CONNECTOR_TYPES.find((ct) => ct.type === connectorType)?.label ??
+    connectorType;
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-foreground text-lg font-semibold">
             {mode === "create"
               ? `New ${typeLabel} Connector`
-              : connector?.name ?? "Connector"}
+              : (connector?.name ?? "Connector")}
           </h2>
           {mode !== "create" && connector && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{typeLabel}</p>
+            <p className="text-muted-foreground mt-0.5 text-sm">{typeLabel}</p>
           )}
         </div>
 
@@ -390,21 +421,23 @@ export function ConnectorDetail({
             <button
               onClick={handleSync}
               disabled={syncStatus === "syncing"}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              className="border-border text-foreground hover:bg-accent flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`}
+              />
               {syncStatus === "syncing" ? "Syncing..." : "Sync"}
             </button>
             <button
               onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              className="border-border text-foreground hover:bg-accent flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit
             </button>
             <button
               onClick={() => setDeleteOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
@@ -415,7 +448,7 @@ export function ConnectorDetail({
         {mode === "edit" && (
           <button
             onClick={onCancel}
-            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            className="border-border text-foreground hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Cancel
           </button>
@@ -424,7 +457,7 @@ export function ConnectorDetail({
         {mode === "create" && selectedType && (
           <button
             onClick={() => setSelectedType(null)}
-            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            className="border-border text-foreground hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Back
           </button>
@@ -433,7 +466,7 @@ export function ConnectorDetail({
 
       {/* Save error */}
       {saveError && (
-        <div className="mt-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="bg-destructive/10 text-destructive mt-4 rounded-md px-3 py-2 text-sm">
           {saveError}
         </div>
       )}

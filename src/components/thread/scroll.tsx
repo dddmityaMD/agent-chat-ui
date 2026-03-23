@@ -45,7 +45,7 @@ export function ScrollToBottom(props: {
     <button
       type="button"
       className={cn(
-        "flex items-center justify-center gap-1.5 rounded-full border bg-background shadow-md transition-all hover:bg-accent",
+        "bg-background hover:bg-accent flex items-center justify-center gap-1.5 rounded-full border shadow-md transition-all",
         props.hasNewMessages ? "h-8 px-3" : "h-8 w-8",
         props.className,
       )}
@@ -53,7 +53,11 @@ export function ScrollToBottom(props: {
         scrollToBottom();
         props.onScrollToBottom?.();
       }}
-      aria-label={props.hasNewMessages ? "New messages - scroll to bottom" : "Scroll to bottom"}
+      aria-label={
+        props.hasNewMessages
+          ? "New messages - scroll to bottom"
+          : "Scroll to bottom"
+      }
     >
       {props.hasNewMessages && (
         <span className="text-xs font-medium text-blue-600">New messages</span>

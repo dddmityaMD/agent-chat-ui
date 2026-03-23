@@ -17,14 +17,19 @@ import { navigateToLineage } from "@/components/lineage-link";
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
   const pct = Math.round(confidence * 100);
-  let colorClass = "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400";
+  let colorClass =
+    "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400";
   if (pct >= 80) {
-    colorClass = "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400";
+    colorClass =
+      "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400";
   } else if (pct >= 50) {
-    colorClass = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400";
+    colorClass =
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400";
   }
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}
+    >
       {pct}%
     </span>
   );
@@ -94,7 +99,7 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
       {data.root_cause && (
         <div className="mx-4 mb-3 rounded-md border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400">
+            <span className="text-xs font-semibold tracking-wide text-blue-700 uppercase dark:text-blue-400">
               Root Cause
             </span>
             <ConfidenceBadge confidence={data.root_cause.confidence} />
@@ -108,12 +113,15 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
       {/* Key Observations — always visible */}
       {data.key_observations && data.key_observations.length > 0 && (
         <div className="px-4 pb-3">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <p className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
             Key Observations
           </p>
           <ul className="space-y-1">
             {data.key_observations.map((obs, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <li
+                key={i}
+                className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
+              >
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" />
                 <span className="flex-1">{obs.statement}</span>
                 <ConfidenceBadge confidence={obs.confidence} />
@@ -135,18 +143,19 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
               <li key={i}>{step}</li>
             ))}
           </ol>
-          {data.recommended_fix.risks && data.recommended_fix.risks.length > 0 && (
-            <div className="mt-2">
-              <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                Risks
-              </p>
-              <ul className="ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
-                {data.recommended_fix.risks.map((risk, i) => (
-                  <li key={i}>{risk}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {data.recommended_fix.risks &&
+            data.recommended_fix.risks.length > 0 && (
+              <div className="mt-2">
+                <p className="mb-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Risks
+                </p>
+                <ul className="ml-4 list-disc space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                  {data.recommended_fix.risks.map((risk, i) => (
+                    <li key={i}>{risk}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           {data.recommended_fix.validation_steps &&
             data.recommended_fix.validation_steps.length > 0 && (
               <div className="mt-2">
@@ -171,7 +180,10 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
       >
         <ul className="space-y-1.5">
           {data.rejected_hypotheses?.map((h, i) => (
-            <li key={i} className="text-sm">
+            <li
+              key={i}
+              className="text-sm"
+            >
               <span className="font-medium text-gray-700 dark:text-gray-300">
                 {h.statement}
               </span>
@@ -189,7 +201,10 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
       >
         <ul className="space-y-1.5">
           {data.open_questions?.map((q, i) => (
-            <li key={i} className="text-sm">
+            <li
+              key={i}
+              className="text-sm"
+            >
               <span className="font-medium text-gray-700 dark:text-gray-300">
                 {q.question}
               </span>
@@ -209,7 +224,10 @@ export function FindingsCardBlock({ block }: BlockRendererProps) {
       >
         <ul className="space-y-1.5">
           {data.next_tests?.map((t, i) => (
-            <li key={i} className="text-sm">
+            <li
+              key={i}
+              className="text-sm"
+            >
               <span className="font-medium text-gray-700 dark:text-gray-300">
                 {t.test}
               </span>

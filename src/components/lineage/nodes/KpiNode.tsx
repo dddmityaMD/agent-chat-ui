@@ -13,12 +13,20 @@ function KpiNodeComponent({ data }: NodeProps) {
 
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 shadow-sm">
-      <Handle type="target" position={Position.Left} className="!bg-orange-400" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-orange-400"
+      />
       <Target className="h-5 w-5 text-orange-600" />
       <span className="max-w-[140px] truncate text-xs font-medium text-orange-900">
         {payload.label}
       </span>
-      <Handle type="source" position={Position.Right} className="!bg-orange-400" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-orange-400"
+      />
     </div>
   );
 }

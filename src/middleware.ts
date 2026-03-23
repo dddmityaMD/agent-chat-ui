@@ -21,7 +21,8 @@ export function middleware(request: NextRequest) {
 
   // Allow public paths
   if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
-  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)))
+    return NextResponse.next();
 
   // Check for session cookie (inline name -- edge runtime constraint)
   const session = request.cookies.get("sais_session");

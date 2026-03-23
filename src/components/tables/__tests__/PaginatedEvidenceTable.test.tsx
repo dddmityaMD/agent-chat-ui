@@ -10,12 +10,23 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Mock the EvidenceTable component
 jest.mock("../EvidenceTable", () => ({
-  EvidenceTable: ({ rowData, loading, emptyMessage }: { rowData: unknown[]; loading?: boolean; emptyMessage?: string }) => (
+  EvidenceTable: ({
+    rowData,
+    loading,
+    emptyMessage,
+  }: {
+    rowData: unknown[];
+    loading?: boolean;
+    emptyMessage?: string;
+  }) => (
     <div data-testid="mock-evidence-table">
       {loading && <div>Loading...</div>}
       {!loading && rowData.length === 0 && <div>{emptyMessage}</div>}
       {rowData.map((row: unknown, i: number) => (
-        <div key={i} data-testid={`row-${i}`}>
+        <div
+          key={i}
+          data-testid={`row-${i}`}
+        >
           {JSON.stringify(row)}
         </div>
       ))}
@@ -25,7 +36,11 @@ jest.mock("../EvidenceTable", () => ({
 
 // Mock the useTablePagination hook
 jest.mock("@/hooks/useTablePagination", () => ({
-  useTablePagination: (totalItems: number, initialPage: number = 1, pageSize: number = 10) => {
+  useTablePagination: (
+    totalItems: number,
+    initialPage: number = 1,
+    pageSize: number = 10,
+  ) => {
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const page = Math.min(Math.max(1, initialPage), totalPages);
     const start = Math.min((page - 1) * pageSize + 1, totalItems);
@@ -73,7 +88,7 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(5)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       expect(screen.getByTestId("mock-evidence-table")).toBeInTheDocument();
@@ -84,7 +99,7 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       // Should show "Showing 1 to 10 of 25 results" - find by container text
@@ -99,7 +114,7 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={[]}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       expect(screen.getByText("No results")).toBeInTheDocument();
@@ -111,7 +126,7 @@ describe("PaginatedEvidenceTable", () => {
           rowData={generateTestRows(10)}
           columnDefs={mockColumnDefs}
           totalCount={100}
-        />
+        />,
       );
 
       expect(screen.getByText("100")).toBeInTheDocument();
@@ -124,14 +139,22 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       // Should have pagination buttons
-      expect(screen.getByRole("button", { name: /go to first page/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /go to previous page/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /go to next page/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /go to last page/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to first page/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to previous page/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to next page/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to last page/i }),
+      ).toBeInTheDocument();
     });
 
     it("hides pagination when only one page", () => {
@@ -139,11 +162,13 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(5)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       // Should not have pagination buttons (only 5 items, < 10 per page)
-      expect(screen.queryByRole("button", { name: /go to first page/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /go to first page/i }),
+      ).not.toBeInTheDocument();
     });
 
     it("disables previous/first buttons on first page", () => {
@@ -152,11 +177,15 @@ describe("PaginatedEvidenceTable", () => {
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
           initialPage={1}
-        />
+        />,
       );
 
-      expect(screen.getByRole("button", { name: /go to first page/i })).toBeDisabled();
-      expect(screen.getByRole("button", { name: /go to previous page/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /go to first page/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /go to previous page/i }),
+      ).toBeDisabled();
     });
 
     it("renders page numbers for small page counts", () => {
@@ -164,13 +193,19 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(30)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
       // Should show page 1, 2, 3 buttons
-      expect(screen.getByRole("button", { name: /go to page 1/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /go to page 2/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /go to page 3/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to page 1/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to page 2/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /go to page 3/i }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -181,7 +216,7 @@ describe("PaginatedEvidenceTable", () => {
           rowData={[]}
           columnDefs={mockColumnDefs}
           loading={true}
-        />
+        />,
       );
 
       expect(screen.getByText("Loading...")).toBeInTheDocument();
@@ -196,7 +231,7 @@ describe("PaginatedEvidenceTable", () => {
           rowData={[]}
           columnDefs={mockColumnDefs}
           emptyMessage={customMessage}
-        />
+        />,
       );
 
       expect(screen.getByText(customMessage)).toBeInTheDocument();
@@ -211,7 +246,7 @@ describe("PaginatedEvidenceTable", () => {
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
           onPageChange={onPageChange}
-        />
+        />,
       );
 
       // Click page 2 button
@@ -228,13 +263,21 @@ describe("PaginatedEvidenceTable", () => {
         <PaginatedEvidenceTable
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
-        />
+        />,
       );
 
-      expect(screen.getByRole("button", { name: /go to first page/i })).toHaveAttribute("aria-label");
-      expect(screen.getByRole("button", { name: /go to previous page/i })).toHaveAttribute("aria-label");
-      expect(screen.getByRole("button", { name: /go to next page/i })).toHaveAttribute("aria-label");
-      expect(screen.getByRole("button", { name: /go to last page/i })).toHaveAttribute("aria-label");
+      expect(
+        screen.getByRole("button", { name: /go to first page/i }),
+      ).toHaveAttribute("aria-label");
+      expect(
+        screen.getByRole("button", { name: /go to previous page/i }),
+      ).toHaveAttribute("aria-label");
+      expect(
+        screen.getByRole("button", { name: /go to next page/i }),
+      ).toHaveAttribute("aria-label");
+      expect(
+        screen.getByRole("button", { name: /go to last page/i }),
+      ).toHaveAttribute("aria-label");
     });
 
     it("marks current page button with aria-current", () => {
@@ -243,7 +286,7 @@ describe("PaginatedEvidenceTable", () => {
           rowData={generateTestRows(25)}
           columnDefs={mockColumnDefs}
           initialPage={1}
-        />
+        />,
       );
 
       const page1Button = screen.getByRole("button", { name: /go to page 1/i });

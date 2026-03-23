@@ -13,10 +13,10 @@ interface EmptyStateProps {
 export function EmptyState({ onSelect }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center gap-4 pt-4">
-      <h2 className="text-lg font-medium text-foreground">
+      <h2 className="text-foreground text-lg font-medium">
         What would you like to know about your data?
       </h2>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Ask about your data sources, lineage, quality, or start an
         investigation.
       </p>
@@ -26,7 +26,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
             key={query}
             type="button"
             onClick={() => onSelect(query)}
-            className="rounded-full border px-4 py-2 text-sm transition-colors hover:bg-accent"
+            className="hover:bg-accent rounded-full border px-4 py-2 text-sm transition-colors"
           >
             {query}
           </button>

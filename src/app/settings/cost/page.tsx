@@ -138,11 +138,15 @@ function MemberBudgetView() {
   }, [setSessionExpired]);
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading usage...</p>;
+    return <p className="text-muted-foreground text-sm">Loading usage...</p>;
   }
 
   if (!budget) {
-    return <p className="text-sm text-muted-foreground">Unable to load usage data.</p>;
+    return (
+      <p className="text-muted-foreground text-sm">
+        Unable to load usage data.
+      </p>
+    );
   }
 
   const pctInt = Math.round(budget.percent_used * 100);
@@ -150,41 +154,44 @@ function MemberBudgetView() {
   return (
     <div className="space-y-4">
       {budget.warning_active && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3">
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/30">
           <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
             You&apos;ve used {pctInt}% of your monthly budget ($
-            {budget.used_usd.toFixed(2)} / ${budget.monthly_limit_usd.toFixed(2)})
+            {budget.used_usd.toFixed(2)} / $
+            {budget.monthly_limit_usd.toFixed(2)})
           </p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
             Approaching budget limit
           </p>
         </div>
       )}
 
-      <div className="rounded-md border bg-card p-6 text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <DollarSign className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold text-foreground">Your Monthly Usage</h2>
+      <div className="bg-card rounded-md border p-6 text-center">
+        <div className="mb-2 flex items-center justify-center gap-2">
+          <DollarSign className="text-muted-foreground h-5 w-5" />
+          <h2 className="text-foreground text-lg font-semibold">
+            Your Monthly Usage
+          </h2>
         </div>
-        <p className="text-3xl font-bold text-foreground tabular-nums">
+        <p className="text-foreground text-3xl font-bold tabular-nums">
           ${budget.used_usd.toFixed(2)}
         </p>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 text-sm">
           of ${budget.monthly_limit_usd.toFixed(2)} limit
         </p>
 
         {/* Progress bar */}
-        <div className="mt-4 h-2 w-full rounded-full bg-muted overflow-hidden">
+        <div className="bg-muted mt-4 h-2 w-full overflow-hidden rounded-full">
           <div
             className={`h-full rounded-full transition-all ${
-              budget.warning_active
-                ? "bg-amber-500"
-                : "bg-primary"
+              budget.warning_active ? "bg-amber-500" : "bg-primary"
             }`}
             style={{ width: `${Math.min(pctInt, 100)}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{pctInt}% used this month</p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          {pctInt}% used this month
+        </p>
       </div>
     </div>
   );
@@ -248,15 +255,18 @@ function AdminUserCostTable() {
 
   const saveBudget = async (userId: string) => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/cost/users/${userId}/budget`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          monthly_limit_usd: budgetForm.limit,
-          warning_threshold: budgetForm.threshold / 100,
-        }),
-      });
+      const res = await fetch(
+        `${getApiBaseUrl()}/api/cost/users/${userId}/budget`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            monthly_limit_usd: budgetForm.limit,
+            warning_threshold: budgetForm.threshold / 100,
+          }),
+        },
+      );
       if (res.ok) {
         toast.success("Budget saved");
         setEditingBudget(null);
@@ -279,58 +289,64 @@ function AdminUserCostTable() {
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading user costs...</p>;
+    return (
+      <p className="text-muted-foreground text-sm">Loading user costs...</p>
+    );
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-lg font-semibold text-foreground">Per-User Cost Breakdown</h2>
+        <Users className="text-muted-foreground h-4 w-4" />
+        <h2 className="text-foreground text-lg font-semibold">
+          Per-User Cost Breakdown
+        </h2>
       </div>
 
       {users.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No user cost data available.</p>
+        <p className="text-muted-foreground text-sm">
+          No user cost data available.
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50 text-left text-muted-foreground">
-                <th className="px-3 py-2 w-8"></th>
+              <tr className="bg-muted/50 text-muted-foreground border-b text-left">
+                <th className="w-8 px-3 py-2"></th>
                 <th className="px-3 py-2 font-medium">User</th>
                 <th className="px-3 py-2 font-medium">This Month</th>
                 <th className="px-3 py-2 font-medium">Budget Limit</th>
                 <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 w-10"></th>
+                <th className="w-10 px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <React.Fragment key={user.user_id}>
                   <tr
-                    className="border-b last:border-b-0 cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="hover:bg-muted/30 cursor-pointer border-b transition-colors last:border-b-0"
                     onClick={() => toggleUser(user.user_id)}
                   >
                     <td className="px-3 py-2">
                       {expandedUser === user.user_id ? (
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
                       ) : (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ChevronRight className="text-muted-foreground h-3.5 w-3.5" />
                       )}
                     </td>
                     <td className="px-3 py-2">
                       <div>
-                        <span className="font-medium text-foreground">
+                        <span className="text-foreground font-medium">
                           {user.name || user.email}
                         </span>
                         {user.name && (
-                          <span className="ml-2 text-xs text-muted-foreground">
+                          <span className="text-muted-foreground ml-2 text-xs">
                             {user.email}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 tabular-nums font-medium">
+                    <td className="px-3 py-2 font-medium tabular-nums">
                       ${user.total_cost_usd.toFixed(2)}
                     </td>
                     <td className="px-3 py-2 tabular-nums">
@@ -355,7 +371,7 @@ function AdminUserCostTable() {
                           e.stopPropagation();
                           startEditBudget(user);
                         }}
-                        className="rounded p-1 text-muted-foreground hover:bg-accent transition-colors"
+                        className="text-muted-foreground hover:bg-accent rounded p-1 transition-colors"
                         title="Edit budget"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -365,11 +381,16 @@ function AdminUserCostTable() {
 
                   {/* Budget editor row */}
                   {editingBudget === user.user_id && (
-                    <tr className="border-b bg-muted/20">
-                      <td colSpan={6} className="px-6 py-3">
+                    <tr className="bg-muted/20 border-b">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-3"
+                      >
                         <div className="flex items-end gap-4">
                           <div className="space-y-1">
-                            <label className="text-xs font-medium">Monthly Limit ($)</label>
+                            <label className="text-xs font-medium">
+                              Monthly Limit ($)
+                            </label>
                             <input
                               type="number"
                               step="1"
@@ -381,12 +402,14 @@ function AdminUserCostTable() {
                                   limit: parseFloat(e.target.value) || 0,
                                 }))
                               }
-                              className="w-28 rounded border bg-background px-2 py-1 text-sm"
+                              className="bg-background w-28 rounded border px-2 py-1 text-sm"
                               onClick={(e) => e.stopPropagation()}
                             />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs font-medium">Warning at (%)</label>
+                            <label className="text-xs font-medium">
+                              Warning at (%)
+                            </label>
                             <input
                               type="number"
                               step="1"
@@ -399,7 +422,7 @@ function AdminUserCostTable() {
                                   threshold: parseFloat(e.target.value) || 0,
                                 }))
                               }
-                              className="w-20 rounded border bg-background px-2 py-1 text-sm"
+                              className="bg-background w-20 rounded border px-2 py-1 text-sm"
                               onClick={(e) => e.stopPropagation()}
                             />
                           </div>
@@ -408,7 +431,7 @@ function AdminUserCostTable() {
                               e.stopPropagation();
                               saveBudget(user.user_id);
                             }}
-                            className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground hover:bg-primary/90"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1 text-sm"
                           >
                             Save
                           </button>
@@ -417,7 +440,7 @@ function AdminUserCostTable() {
                               e.stopPropagation();
                               setEditingBudget(null);
                             }}
-                            className="rounded border px-3 py-1 text-sm hover:bg-accent"
+                            className="hover:bg-accent rounded border px-3 py-1 text-sm"
                           >
                             Cancel
                           </button>
@@ -428,16 +451,23 @@ function AdminUserCostTable() {
 
                   {/* Expanded detail row */}
                   {expandedUser === user.user_id && (
-                    <tr className="border-b bg-muted/10">
-                      <td colSpan={6} className="px-6 py-3">
+                    <tr className="bg-muted/10 border-b">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-3"
+                      >
                         {userDetail === null ? (
-                          <p className="text-xs text-muted-foreground">Loading...</p>
+                          <p className="text-muted-foreground text-xs">
+                            Loading...
+                          </p>
                         ) : userDetail.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No model data.</p>
+                          <p className="text-muted-foreground text-xs">
+                            No model data.
+                          </p>
                         ) : (
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-left text-muted-foreground">
+                              <tr className="text-muted-foreground text-left">
                                 <th className="pb-1 font-medium">Model</th>
                                 <th className="pb-1 font-medium">Cost</th>
                                 <th className="pb-1 font-medium">Requests</th>
@@ -450,7 +480,9 @@ function AdminUserCostTable() {
                                   <td className="py-0.5 tabular-nums">
                                     ${m.total_cost_usd.toFixed(4)}
                                   </td>
-                                  <td className="py-0.5 tabular-nums">{m.request_count}</td>
+                                  <td className="py-0.5 tabular-nums">
+                                    {m.request_count}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -503,7 +535,11 @@ function ModelPricesSection() {
     fetchPrices();
   }, [fetchPrices]);
 
-  const updateRow = (index: number, field: keyof ModelPriceRow, value: string | number) => {
+  const updateRow = (
+    index: number,
+    field: keyof ModelPriceRow,
+    value: string | number,
+  ) => {
     setPrices((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -554,17 +590,17 @@ function ModelPricesSection() {
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading prices...</p>;
+    return <p className="text-muted-foreground text-sm">Loading prices...</p>;
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Model Prices</h2>
+        <h2 className="text-foreground text-lg font-semibold">Model Prices</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={addRow}
-            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+            className="hover:bg-accent inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Model
@@ -572,7 +608,7 @@ function ModelPricesSection() {
           <button
             onClick={savePrices}
             disabled={saving}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
             {saving ? "Saving..." : "Save"}
@@ -583,30 +619,37 @@ function ModelPricesSection() {
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50 text-left text-muted-foreground">
+            <tr className="bg-muted/50 text-muted-foreground border-b text-left">
               <th className="px-3 py-2 font-medium">Provider</th>
               <th className="px-3 py-2 font-medium">Model</th>
               <th className="px-3 py-2 font-medium">Input $/M</th>
               <th className="px-3 py-2 font-medium">Output $/M</th>
-              <th className="px-3 py-2 w-10"></th>
+              <th className="w-10 px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {prices.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
-                  No model prices configured. Click &quot;Add Model&quot; to add one.
+                <td
+                  colSpan={5}
+                  className="text-muted-foreground px-3 py-4 text-center"
+                >
+                  No model prices configured. Click &quot;Add Model&quot; to add
+                  one.
                 </td>
               </tr>
             )}
             {prices.map((row, i) => (
-              <tr key={i} className="border-b last:border-b-0">
+              <tr
+                key={i}
+                className="border-b last:border-b-0"
+              >
                 <td className="px-3 py-1.5">
                   <input
                     type="text"
                     value={row.provider}
                     onChange={(e) => updateRow(i, "provider", e.target.value)}
-                    className="w-full rounded border bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background focus:ring-primary w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1"
                     placeholder="openai"
                   />
                 </td>
@@ -615,7 +658,7 @@ function ModelPricesSection() {
                     type="text"
                     value={row.model}
                     onChange={(e) => updateRow(i, "model", e.target.value)}
-                    className="w-full rounded border bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+                    className="bg-background focus:ring-primary w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1"
                     placeholder="gpt-4o-mini"
                   />
                 </td>
@@ -625,8 +668,14 @@ function ModelPricesSection() {
                     step="0.01"
                     min="0"
                     value={row.input_per_million}
-                    onChange={(e) => updateRow(i, "input_per_million", parseFloat(e.target.value) || 0)}
-                    className="w-24 rounded border bg-background px-2 py-1 text-sm tabular-nums outline-none focus:ring-1 focus:ring-primary"
+                    onChange={(e) =>
+                      updateRow(
+                        i,
+                        "input_per_million",
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                    className="bg-background focus:ring-primary w-24 rounded border px-2 py-1 text-sm tabular-nums outline-none focus:ring-1"
                   />
                 </td>
                 <td className="px-3 py-1.5">
@@ -635,14 +684,20 @@ function ModelPricesSection() {
                     step="0.01"
                     min="0"
                     value={row.output_per_million}
-                    onChange={(e) => updateRow(i, "output_per_million", parseFloat(e.target.value) || 0)}
-                    className="w-24 rounded border bg-background px-2 py-1 text-sm tabular-nums outline-none focus:ring-1 focus:ring-primary"
+                    onChange={(e) =>
+                      updateRow(
+                        i,
+                        "output_per_million",
+                        parseFloat(e.target.value) || 0,
+                      )
+                    }
+                    className="bg-background focus:ring-primary w-24 rounded border px-2 py-1 text-sm tabular-nums outline-none focus:ring-1"
                   />
                 </td>
                 <td className="px-3 py-1.5">
                   <button
                     onClick={() => removeRow(i)}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded p-1 transition-colors"
                     title="Remove row"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -678,7 +733,9 @@ function BudgetConfigSection() {
     let cancelled = false;
 
     Promise.all([
-      fetch(`${getApiBaseUrl()}/api/cost/budget/config`, { credentials: "include" }),
+      fetch(`${getApiBaseUrl()}/api/cost/budget/config`, {
+        credentials: "include",
+      }),
       fetch(`${getApiBaseUrl()}/api/cost/budget`, { credentials: "include" }),
     ])
       .then(async ([configRes, budgetRes]) => {
@@ -734,17 +791,21 @@ function BudgetConfigSection() {
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading budget config...</p>;
+    return (
+      <p className="text-muted-foreground text-sm">Loading budget config...</p>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Budget Configuration</h2>
+        <h2 className="text-foreground text-lg font-semibold">
+          Budget Configuration
+        </h2>
         <button
           onClick={saveConfig}
           disabled={saving}
-          className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
         >
           <Save className="h-3.5 w-3.5" />
           {saving ? "Saving..." : "Save"}
@@ -752,10 +813,10 @@ function BudgetConfigSection() {
       </div>
 
       {usageSummary && (
-        <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-sm text-muted-foreground">
+        <div className="bg-muted/30 rounded-md border p-3">
+          <p className="text-muted-foreground text-sm">
             Current month usage:{" "}
-            <span className="font-medium text-foreground">
+            <span className="text-foreground font-medium">
               ${usageSummary.used_usd.toFixed(2)}
             </span>{" "}
             ({Math.round(usageSummary.percent_used * 100)}% of limit)
@@ -765,7 +826,7 @@ function BudgetConfigSection() {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
+          <label className="text-foreground text-sm font-medium">
             Monthly Limit (USD)
           </label>
           <input
@@ -779,11 +840,11 @@ function BudgetConfigSection() {
                 monthly_limit_usd: parseFloat(e.target.value) || 0,
               }))
             }
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+            className="bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-1"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
+          <label className="text-foreground text-sm font-medium">
             Warning Threshold (%)
           </label>
           <input
@@ -798,9 +859,9 @@ function BudgetConfigSection() {
                 warning_threshold_pct: (parseFloat(e.target.value) || 0) / 100,
               }))
             }
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+            className="bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-1"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             A warning toast will appear when usage reaches this percentage.
           </p>
         </div>
@@ -819,8 +880,10 @@ export default function CostSettingsPage() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <h1 className="text-xl font-semibold text-foreground">Cost Management</h1>
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <h1 className="text-foreground text-xl font-semibold">
+          Cost Management
+        </h1>
+        <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
   }
@@ -829,7 +892,9 @@ export default function CostSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="space-y-8">
-        <h1 className="text-xl font-semibold text-foreground">Cost Management</h1>
+        <h1 className="text-foreground text-xl font-semibold">
+          Cost Management
+        </h1>
         <MemberBudgetView />
       </div>
     );
@@ -838,7 +903,7 @@ export default function CostSettingsPage() {
   // Admin view: full management
   return (
     <div className="space-y-8">
-      <h1 className="text-xl font-semibold text-foreground">Cost Management</h1>
+      <h1 className="text-foreground text-xl font-semibold">Cost Management</h1>
       <AdminUserCostTable />
       <hr className="border-border/40" />
       <ModelPricesSection />

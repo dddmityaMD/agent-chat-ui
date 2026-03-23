@@ -62,7 +62,9 @@ export function useConnectorConfig() {
 
   const base = getApiBaseUrl();
 
-  const fetchConnectors = useCallback(async (): Promise<ConnectorConfigResponse[]> => {
+  const fetchConnectors = useCallback(async (): Promise<
+    ConnectorConfigResponse[]
+  > => {
     setLoading(true);
     setError(null);
     try {
@@ -97,8 +99,12 @@ export function useConnectorConfig() {
         body: JSON.stringify(data),
       });
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
-        throw new Error(body.detail || `Failed to create connector: ${resp.status}`);
+        const body = await resp
+          .json()
+          .catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(
+          body.detail || `Failed to create connector: ${resp.status}`,
+        );
       }
       const created: ConnectorConfigResponse = await resp.json();
       setConnectors((prev) => [...prev, created]);
@@ -108,21 +114,29 @@ export function useConnectorConfig() {
   );
 
   const updateConnector = useCallback(
-    async (name: string, data: ConnectorConfigUpdate): Promise<ConnectorConfigResponse> => {
-      const resp = await fetch(`${base}/api/connectors/config/${encodeURIComponent(name)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
+    async (
+      name: string,
+      data: ConnectorConfigUpdate,
+    ): Promise<ConnectorConfigResponse> => {
+      const resp = await fetch(
+        `${base}/api/connectors/config/${encodeURIComponent(name)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        },
+      );
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
-        throw new Error(body.detail || `Failed to update connector: ${resp.status}`);
+        const body = await resp
+          .json()
+          .catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(
+          body.detail || `Failed to update connector: ${resp.status}`,
+        );
       }
       const updated: ConnectorConfigResponse = await resp.json();
-      setConnectors((prev) =>
-        prev.map((c) => (c.name === name ? updated : c)),
-      );
+      setConnectors((prev) => prev.map((c) => (c.name === name ? updated : c)));
       return updated;
     },
     [base],
@@ -130,13 +144,20 @@ export function useConnectorConfig() {
 
   const deleteConnector = useCallback(
     async (name: string): Promise<void> => {
-      const resp = await fetch(`${base}/api/connectors/config/${encodeURIComponent(name)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const resp = await fetch(
+        `${base}/api/connectors/config/${encodeURIComponent(name)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
-        throw new Error(body.detail || `Failed to delete connector: ${resp.status}`);
+        const body = await resp
+          .json()
+          .catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(
+          body.detail || `Failed to delete connector: ${resp.status}`,
+        );
       }
       setConnectors((prev) => prev.filter((c) => c.name !== name));
     },
@@ -153,8 +174,12 @@ export function useConnectorConfig() {
         },
       );
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
-        throw new Error(body.detail || `Test connection failed: ${resp.status}`);
+        const body = await resp
+          .json()
+          .catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(
+          body.detail || `Test connection failed: ${resp.status}`,
+        );
       }
       return resp.json();
     },
@@ -171,7 +196,9 @@ export function useConnectorConfig() {
         },
       );
       if (!resp.ok) {
-        const body = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+        const body = await resp
+          .json()
+          .catch(() => ({ detail: `HTTP ${resp.status}` }));
         throw new Error(body.detail || `Sync trigger failed: ${resp.status}`);
       }
       return resp.json();
@@ -192,9 +219,7 @@ export function useConnectorConfig() {
       }
       const data: ConnectorConfigResponse = await resp.json();
       // Update connector in local state
-      setConnectors((prev) =>
-        prev.map((c) => (c.name === name ? data : c)),
-      );
+      setConnectors((prev) => prev.map((c) => (c.name === name ? data : c)));
       return data;
     },
     [base],

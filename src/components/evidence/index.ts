@@ -5,8 +5,5 @@
  * deduplication indicators and match transparency.
  */
 
-export {
-  DeduplicationIndicator,
-  isDebugMode,
-} from "./DeduplicationIndicator";
+export { DeduplicationIndicator, isDebugMode } from "./DeduplicationIndicator";
 export type { DeduplicationIndicatorProps } from "./DeduplicationIndicator";

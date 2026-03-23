@@ -4,35 +4,43 @@
 
 // --- Blocker types (from backend blockers module) ---
 
-export type BlockerSeverity = 'INFO' | 'WARNING' | 'ERROR';
+export type BlockerSeverity = "INFO" | "WARNING" | "ERROR";
 
 export type BlockerType =
-  | 'MISSING_ENTITY'
-  | 'CONNECTOR_UNAVAILABLE'
-  | 'AMBIGUOUS_REFERENCE'
-  | 'INTENT_UNCLEAR'
-  | 'RESOLUTION_FAILED'
-  | 'SKILL_UNAVAILABLE'
-  | 'SKILL_EXECUTION_FAILED'
-  | 'LLM_ERROR'
-  | 'PERMISSION_REQUIRED'
-  | 'POLICY_VIOLATION';
+  | "MISSING_ENTITY"
+  | "CONNECTOR_UNAVAILABLE"
+  | "AMBIGUOUS_REFERENCE"
+  | "INTENT_UNCLEAR"
+  | "RESOLUTION_FAILED"
+  | "SKILL_UNAVAILABLE"
+  | "SKILL_EXECUTION_FAILED"
+  | "LLM_ERROR"
+  | "PERMISSION_REQUIRED"
+  | "POLICY_VIOLATION";
 
-export const blockerSeverityConfig: Record<BlockerSeverity, { className: string }> = {
+export const blockerSeverityConfig: Record<
+  BlockerSeverity,
+  { className: string }
+> = {
   INFO: {
-    className: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200',
+    className:
+      "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200",
   },
   WARNING: {
-    className: 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200',
+    className:
+      "bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200",
   },
   ERROR: {
-    className: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200',
+    className:
+      "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200",
   },
 };
 
-export const blockerTypeSeverityOverrides: Partial<Record<BlockerType, BlockerSeverity>> = {
-  PERMISSION_REQUIRED: 'WARNING',
-  POLICY_VIOLATION: 'ERROR',
+export const blockerTypeSeverityOverrides: Partial<
+  Record<BlockerType, BlockerSeverity>
+> = {
+  PERMISSION_REQUIRED: "WARNING",
+  POLICY_VIOLATION: "ERROR",
 };
 
 export interface Blocker {
@@ -145,7 +153,7 @@ export interface DisambiguationCandidate {
 }
 
 export interface PendingDisambiguation {
-  type: 'pending_disambiguation';
+  type: "pending_disambiguation";
   mention: string;
   candidates: DisambiguationCandidate[];
   skip_option?: string;
@@ -164,7 +172,7 @@ export interface ResolutionStep {
 }
 
 export interface ResolutionStepsPayload {
-  type: 'resolution_steps';
+  type: "resolution_steps";
   steps: ResolutionStep[];
   final_result?: string;
 }
@@ -172,7 +180,7 @@ export interface ResolutionStepsPayload {
 // --- LLM Health types (from backend llm wrapper / health endpoint) ---
 
 export interface LLMHealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   last_error?: string | null;
   consecutive_failures: number;
 }
@@ -187,8 +195,18 @@ export interface AvailableModel {
 
 // --- Build flow types (Phase 11) ---
 
-export type VerificationStatus = "VERIFIED_FIXED" | "PARTIALLY_FIXED" | "NOT_FIXED" | "REGRESSION_DETECTED";
-export type BuildPlanStatus = "proposed" | "approved" | "rejected" | "executing" | "completed" | "failed";
+export type VerificationStatus =
+  | "VERIFIED_FIXED"
+  | "PARTIALLY_FIXED"
+  | "NOT_FIXED"
+  | "REGRESSION_DETECTED";
+export type BuildPlanStatus =
+  | "proposed"
+  | "approved"
+  | "rejected"
+  | "executing"
+  | "completed"
+  | "failed";
 
 export interface BuildStep {
   step_number: number;

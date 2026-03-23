@@ -1,8 +1,12 @@
-'use client';
+"use client";
 
-import { GitBranch, GitMerge, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { MultiIntentPayload, DecomposedIntent, IntentResult } from '@/lib/types';
+import { GitBranch, GitMerge, AlertCircle, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type {
+  MultiIntentPayload,
+  DecomposedIntent,
+  IntentResult,
+} from "@/lib/types";
 
 interface MultiIntentResultProps {
   payload: MultiIntentPayload;
@@ -23,10 +27,13 @@ export function MultiIntentResult({ payload }: MultiIntentResultProps) {
   return (
     <div
       data-testid="multi-intent-result"
-      className="rounded-lg border border-purple-200 bg-purple-50 p-4 my-2 dark:border-purple-800 dark:bg-purple-950"
+      className="my-2 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950"
     >
       {/* Header with execution mode */}
-      <div className="flex items-center gap-2 mb-3" data-testid="multi-intent-header">
+      <div
+        className="mb-3 flex items-center gap-2"
+        data-testid="multi-intent-header"
+      >
         {was_parallel ? (
           <GitBranch className="h-4 w-4 text-purple-600 dark:text-purple-400" />
         ) : (
@@ -34,7 +41,9 @@ export function MultiIntentResult({ payload }: MultiIntentResultProps) {
         )}
         <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
           {intents.length} intents detected
-          {was_parallel ? ' (executed in parallel)' : ' (executed sequentially)'}
+          {was_parallel
+            ? " (executed in parallel)"
+            : " (executed sequentially)"}
         </span>
       </div>
 
@@ -56,11 +65,11 @@ export function MultiIntentResult({ payload }: MultiIntentResultProps) {
 
       {/* Merged output summary (expandable) */}
       {merged_output && Object.keys(merged_output).length > 0 && (
-        <details className="mt-3 pt-2 border-t border-purple-200 dark:border-purple-700">
-          <summary className="text-xs cursor-pointer text-purple-600 dark:text-purple-400 hover:underline">
+        <details className="mt-3 border-t border-purple-200 pt-2 dark:border-purple-700">
+          <summary className="cursor-pointer text-xs text-purple-600 hover:underline dark:text-purple-400">
             View merged output
           </summary>
-          <pre className="mt-2 p-2 bg-white dark:bg-purple-900 rounded text-xs overflow-x-auto">
+          <pre className="mt-2 overflow-x-auto rounded bg-white p-2 text-xs dark:bg-purple-900">
             {JSON.stringify(merged_output, null, 2)}
           </pre>
         </details>
@@ -84,10 +93,8 @@ function IntentItem({
     <div
       data-testid="intent-item"
       className={cn(
-        'flex items-start gap-2 p-2 rounded',
-        success
-          ? 'bg-white dark:bg-purple-900'
-          : 'bg-red-50 dark:bg-red-950'
+        "flex items-start gap-2 rounded p-2",
+        success ? "bg-white dark:bg-purple-900" : "bg-red-50 dark:bg-red-950",
       )}
     >
       {/* Status icon */}
@@ -100,18 +107,18 @@ function IntentItem({
       </div>
 
       {/* Intent content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
             {index + 1}. {intent.intent_text}
           </span>
           {intent.skill_hint && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-200 dark:bg-purple-700 text-purple-700 dark:text-purple-200">
+            <span className="rounded bg-purple-200 px-1.5 py-0.5 text-xs text-purple-700 dark:bg-purple-700 dark:text-purple-200">
               {intent.skill_hint}
             </span>
           )}
           {intent.is_write_capable && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-700 text-amber-700 dark:text-amber-200">
+            <span className="rounded bg-amber-200 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-700 dark:text-amber-200">
               write
             </span>
           )}
@@ -119,14 +126,14 @@ function IntentItem({
 
         {/* Dependencies */}
         {intent.depends_on.length > 0 && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Depends on: {intent.depends_on.map((d) => d + 1).join(', ')}
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            Depends on: {intent.depends_on.map((d) => d + 1).join(", ")}
           </p>
         )}
 
         {/* Error message */}
         {result && !result.success && result.error && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
             {result.error}
           </p>
         )}

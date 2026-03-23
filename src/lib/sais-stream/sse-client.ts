@@ -285,7 +285,10 @@ export async function* joinStream(
 
   console.log("[joinStream] URL:", url);
   console.log("[joinStream] response:", response.status, response.statusText);
-  console.log("[joinStream] content-type:", response.headers.get("content-type"));
+  console.log(
+    "[joinStream] content-type:",
+    response.headers.get("content-type"),
+  );
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
@@ -318,7 +321,12 @@ async function* parseSSEResponse(
       if (signal?.aborted) break;
 
       const { done, value } = await reader.read();
-      console.log("[parseSSEResponse] chunk received, done:", done, "bytes:", value?.length ?? 0);
+      console.log(
+        "[parseSSEResponse] chunk received, done:",
+        done,
+        "bytes:",
+        value?.length ?? 0,
+      );
       if (done) break;
 
       const text = decoder.decode(value, { stream: true });

@@ -6,8 +6,15 @@ interface GitFormProps {
   mode: "create" | "edit" | "view";
   initialConfig?: Record<string, unknown>;
   initialCredentials?: Record<string, string> | null;
-  onTest: (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => void;
-  onSave: (formData: { name: string; config: Record<string, unknown>; credentials: Record<string, string> }) => void;
+  onTest: (formData: {
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
+  onSave: (formData: {
+    name: string;
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
   testLoading?: boolean;
   saveLoading?: boolean;
   connectorName?: string;
@@ -24,7 +31,9 @@ export function GitForm({
   connectorName = "",
 }: GitFormProps) {
   const [name, setName] = useState(connectorName);
-  const [repoPath, setRepoPath] = useState(String(initialConfig.repo_path ?? ""));
+  const [repoPath, setRepoPath] = useState(
+    String(initialConfig.repo_path ?? ""),
+  );
   const [branch, setBranch] = useState(String(initialConfig.branch ?? "main"));
   const [sshKey, setSshKey] = useState("");
 
@@ -59,10 +68,13 @@ export function GitForm({
     (isEdit || name.trim().length > 0) && repoPath.trim().length > 0;
 
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <form
+      onSubmit={handleSave}
+      className="space-y-4"
+    >
       {mode === "create" && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label className="text-foreground mb-1 block text-sm font-medium">
             Name <span className="text-destructive">*</span>
           </label>
           <input
@@ -70,14 +82,14 @@ export function GitForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. analytics-repo"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             required
           />
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           Repository Path <span className="text-destructive">*</span>
         </label>
         <input
@@ -86,41 +98,50 @@ export function GitForm({
           onChange={(e) => setRepoPath(e.target.value)}
           disabled={isView}
           placeholder="/path/to/repo or https://github.com/org/repo"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">Branch</label>
+        <label className="text-foreground mb-1 block text-sm font-medium">
+          Branch
+        </label>
         <input
           type="text"
           value={isView ? String(initialConfig.branch ?? "") : branch}
           onChange={(e) => setBranch(e.target.value)}
           disabled={isView}
           placeholder="main"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          SSH Key <span className="text-xs text-muted-foreground">(optional, for private repos)</span>
+        <label className="text-foreground mb-1 block text-sm font-medium">
+          SSH Key{" "}
+          <span className="text-muted-foreground text-xs">
+            (optional, for private repos)
+          </span>
         </label>
         {isView ? (
           <textarea
             value={initialCredentials?.ssh_key ?? ""}
             disabled
             rows={3}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed resize-none"
+            className="border-border bg-background text-muted-foreground w-full resize-none rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : (
           <textarea
             value={sshKey}
             onChange={(e) => setSshKey(e.target.value)}
-            placeholder={isEdit ? "Enter new key or leave blank to keep existing" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
+            placeholder={
+              isEdit
+                ? "Enter new key or leave blank to keep existing"
+                : "-----BEGIN OPENSSH PRIVATE KEY-----"
+            }
             rows={3}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full resize-none rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
           />
         )}
       </div>
@@ -130,7 +151,7 @@ export function GitForm({
           type="button"
           onClick={handleTest}
           disabled={testLoading}
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {testLoading ? "Testing..." : "Test Connection"}
         </button>
@@ -138,7 +159,7 @@ export function GitForm({
           <button
             type="submit"
             disabled={!isValid || saveLoading}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saveLoading ? "Saving..." : "Save"}
           </button>

@@ -60,6 +60,7 @@ const mockSaisUiResult = {
 
 jest.mock("@/hooks/useSaisUi", () => ({
   useSaisUi: jest.fn(() => mockSaisUiResult),
+  extractSaisUi: jest.fn(() => null),
   extractMethodologyType: jest.fn(() => null),
   extractHandoffProposal: jest.fn(() => null),
   extractRemediationProposals: jest.fn(() => []),

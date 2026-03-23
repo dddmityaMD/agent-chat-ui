@@ -84,7 +84,10 @@ export class SaisStreamManager {
 
     // Merge sais_ui cache fallback when current values lack sais_ui
     const currentSaisUi = v.sais_ui as Record<string, unknown> | undefined;
-    if ((!currentSaisUi || Object.keys(currentSaisUi).length === 0) && this.saisUiCache) {
+    if (
+      (!currentSaisUi || Object.keys(currentSaisUi).length === 0) &&
+      this.saisUiCache
+    ) {
       return { ...v, sais_ui: this.saisUiCache };
     }
 
@@ -172,7 +175,10 @@ export class SaisStreamManager {
         receivedEvents++;
         this.processEvent(event.event, event.data);
       }
-      console.log("[SaisStreamManager] rejoin: SSE generator ended, receivedEvents:", receivedEvents);
+      console.log(
+        "[SaisStreamManager] rejoin: SSE generator ended, receivedEvents:",
+        receivedEvents,
+      );
     } catch (err) {
       // Use local `controller.signal` — NOT `this.abortController` which may be null
       // after clear() runs during a thread switch
@@ -182,7 +188,9 @@ export class SaisStreamManager {
         const msg = error.message;
         if (msg.includes("404") || msg.includes("410")) {
           // Run already completed — keep REST-fetched state, just stop loading
-          console.log("[SaisStreamManager] rejoin: run already finished, keeping REST state");
+          console.log(
+            "[SaisStreamManager] rejoin: run already finished, keeping REST state",
+          );
         } else {
           this.updateState({ error });
         }
@@ -241,7 +249,11 @@ export class SaisStreamManager {
     // Update sais_ui cache
     // eslint-disable-next-line no-restricted-syntax -- stream manager IS the sais_ui source
     const saisUi = values.sais_ui as Record<string, unknown> | undefined;
-    if (saisUi && typeof saisUi === "object" && Object.keys(saisUi).length > 0) {
+    if (
+      saisUi &&
+      typeof saisUi === "object" &&
+      Object.keys(saisUi).length > 0
+    ) {
       this.saisUiCache = saisUi;
     }
     // Track message count for new-message detection
@@ -269,27 +281,39 @@ export class SaisStreamManager {
 
   private processEvent(event: string, data: unknown): void {
     // Extract namespace from event name (e.g., "values|subgraph_name")
-    const namespace = event.includes("|") ? event.split("|").slice(1) : undefined;
+    const namespace = event.includes("|")
+      ? event.split("|").slice(1)
+      : undefined;
 
     // --- DIAGNOSTIC: log every event type and whether it carries sais_ui ---
-    const hasSaisUi = data && typeof data === "object" && "sais_ui" in (data as Record<string, unknown>);
-    console.debug("[SaisStreamManager] processEvent:", event, "| has sais_ui:", hasSaisUi);
+    const hasSaisUi =
+      data &&
+      typeof data === "object" &&
+      "sais_ui" in (data as Record<string, unknown>);
+    console.debug(
+      "[SaisStreamManager] processEvent:",
+      event,
+      "| has sais_ui:",
+      hasSaisUi,
+    );
     // --- END DIAGNOSTIC ---
 
     // Error events
     if (event === "error") {
-      const msg = data && typeof data === "object" && "message" in data
-        ? (data as { message: string }).message
-        : "Stream error";
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? (data as { message: string }).message
+          : "Stream error";
       this.updateState({ error: new Error(msg) });
       return;
     }
 
     // Metadata (run_id)
     if (event === "metadata") {
-      const runId = data && typeof data === "object" && "run_id" in data
-        ? (data as { run_id: string }).run_id
-        : null;
+      const runId =
+        data && typeof data === "object" && "run_id" in data
+          ? (data as { run_id: string }).run_id
+          : null;
       this.updateState({ runId });
       return;
     }
@@ -318,10 +342,19 @@ export class SaisStreamManager {
       // eslint-disable-next-line no-restricted-syntax -- stream manager IS the sais_ui source
       if (subState?.sais_ui && typeof subState.sais_ui === "object") {
         // eslint-disable-next-line no-restricted-syntax -- stream manager IS the sais_ui source
-        const currentSaisUi = (this._state.values?.sais_ui ?? {}) as Record<string, unknown>;
-        const merged = { ...currentSaisUi, ...(subState.sais_ui as Record<string, unknown>) };
+        const currentSaisUi = (this._state.values?.sais_ui ?? {}) as Record<
+          string,
+          unknown
+        >;
+        const merged = {
+          ...currentSaisUi,
+          ...(subState.sais_ui as Record<string, unknown>),
+        };
         // --- DIAGNOSTIC: log sais_ui merge from subgraph ---
-        console.debug("[SaisStreamManager] values| sais_ui merged:", Object.keys(merged));
+        console.debug(
+          "[SaisStreamManager] values| sais_ui merged:",
+          Object.keys(merged),
+        );
         // --- END DIAGNOSTIC ---
         this._state.values = {
           ...(this._state.values ?? {}),
@@ -368,8 +401,14 @@ export class SaisStreamManager {
 
     // Update sais_ui cache
     // eslint-disable-next-line no-restricted-syntax -- stream manager IS the sais_ui source
-    const saisUi = this._state.values.sais_ui as Record<string, unknown> | undefined;
-    if (saisUi && typeof saisUi === "object" && Object.keys(saisUi).length > 0) {
+    const saisUi = this._state.values.sais_ui as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      saisUi &&
+      typeof saisUi === "object" &&
+      Object.keys(saisUi).length > 0
+    ) {
       this.saisUiCache = saisUi;
     }
   }

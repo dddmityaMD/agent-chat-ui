@@ -29,26 +29,33 @@ const statusConfig: Record<
   VERIFIED_FIXED: {
     Icon: CheckCircle2,
     label: "Verified Fixed",
-    className: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
+    className:
+      "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
   },
   PARTIALLY_FIXED: {
     Icon: AlertTriangle,
     label: "Partially Fixed",
-    className: "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800",
+    className:
+      "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800",
   },
   NOT_FIXED: {
     Icon: XCircle,
     label: "Not Fixed",
-    className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+    className:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
   },
   REGRESSION_DETECTED: {
     Icon: AlertOctagon,
     label: "Regression Detected",
-    className: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+    className:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
   },
 };
 
-export function VerificationBadge({ result, className }: VerificationBadgeProps) {
+export function VerificationBadge({
+  result,
+  className,
+}: VerificationBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const config = statusConfig[result.status];
   const Icon = config.Icon;
@@ -61,11 +68,11 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
       data-testid="verification-badge"
     >
       {/* Status badge */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="mb-2 flex items-center gap-2">
         <span
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-medium",
-            config.className
+            config.className,
           )}
           data-testid={`verification-status-${result.status}`}
         >
@@ -75,14 +82,14 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
       </div>
 
       {/* Comparison summary */}
-      <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded mb-2 whitespace-pre-wrap border border-gray-200 dark:border-gray-700">
+      <pre className="mb-2 rounded border border-gray-200 bg-gray-50 p-2 text-xs whitespace-pre-wrap dark:border-gray-700 dark:bg-gray-900">
         <code className="text-gray-700 dark:text-gray-300">
           {result.comparison_summary}
         </code>
       </pre>
 
       {/* Verification method */}
-      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+      <p className="mb-2 text-xs text-gray-600 dark:text-gray-400">
         <strong>Verified by:</strong> {result.verification_method}
       </p>
 
@@ -92,7 +99,7 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors mb-2"
+            className="mb-2 flex items-center gap-1 text-xs text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
           >
             {isExpanded ? (
               <ChevronDown className="h-3 w-3" />
@@ -103,14 +110,17 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
           </button>
 
           {isExpanded && (
-            <div className="space-y-3" data-testid="verification-details">
+            <div
+              className="space-y-3"
+              data-testid="verification-details"
+            >
               {/* Before snapshot */}
               {result.before_snapshot && (
                 <div>
-                  <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <h5 className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
                     Before:
                   </h5>
-                  <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto border border-gray-200 dark:border-gray-700">
+                  <pre className="overflow-x-auto rounded border border-gray-200 bg-gray-50 p-2 text-xs dark:border-gray-700 dark:bg-gray-900">
                     <code className="text-gray-700 dark:text-gray-300">
                       {JSON.stringify(result.before_snapshot, null, 2)}
                     </code>
@@ -121,10 +131,10 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
               {/* After snapshot */}
               {result.after_snapshot && (
                 <div>
-                  <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <h5 className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
                     After:
                   </h5>
-                  <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto border border-gray-200 dark:border-gray-700">
+                  <pre className="overflow-x-auto rounded border border-gray-200 bg-gray-50 p-2 text-xs dark:border-gray-700 dark:bg-gray-900">
                     <code className="text-gray-700 dark:text-gray-300">
                       {JSON.stringify(result.after_snapshot, null, 2)}
                     </code>
@@ -135,10 +145,10 @@ export function VerificationBadge({ result, className }: VerificationBadgeProps)
               {/* Downstream check */}
               {result.downstream_check && (
                 <div>
-                  <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <h5 className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
                     Downstream Impact:
                   </h5>
-                  <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto border border-gray-200 dark:border-gray-700">
+                  <pre className="overflow-x-auto rounded border border-gray-200 bg-gray-50 p-2 text-xs dark:border-gray-700 dark:bg-gray-900">
                     <code className="text-gray-700 dark:text-gray-300">
                       {JSON.stringify(result.downstream_check, null, 2)}
                     </code>

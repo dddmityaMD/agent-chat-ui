@@ -31,7 +31,10 @@ export interface DeepLinkCellProps {
 /**
  * Map deep link types to their corresponding Lucide icons
  */
-const iconMap: Record<DeepLinkType | "default", React.ComponentType<{ className?: string }>> = {
+const iconMap: Record<
+  DeepLinkType | "default",
+  React.ComponentType<{ className?: string }>
+> = {
   metabase_card: BarChart3,
   metabase_dashboard: LayoutDashboard,
   dbt_model: FileCode,
@@ -99,9 +102,15 @@ export function DeepLinkCell(
     }
 
     // Get type from colDef context or data
-    const colDef = params.colDef as { cellRendererParams?: Partial<DeepLinkCellProps> };
-    type = colDef?.cellRendererParams?.type || (data.deep_link_type as DeepLinkType) || "metabase_card";
-    label = colDef?.cellRendererParams?.label || (data.deep_link_label as string);
+    const colDef = params.colDef as {
+      cellRendererParams?: Partial<DeepLinkCellProps>;
+    };
+    type =
+      colDef?.cellRendererParams?.type ||
+      (data.deep_link_type as DeepLinkType) ||
+      "metabase_card";
+    label =
+      colDef?.cellRendererParams?.label || (data.deep_link_label as string);
     config = colDef?.cellRendererParams?.config;
   } else if ("type" in params && "targetId" in params) {
     // Direct props mode
@@ -137,7 +146,7 @@ export function DeepLinkCell(
         </a>
       </TooltipTrigger>
       <TooltipContent data-testid="deep-link-tooltip">
-        <span className="font-mono text-xs break-all max-w-xs">{url}</span>
+        <span className="max-w-xs font-mono text-xs break-all">{url}</span>
       </TooltipContent>
     </Tooltip>
   );

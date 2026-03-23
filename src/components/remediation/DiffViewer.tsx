@@ -55,7 +55,8 @@ const LINE_STYLES: Record<DiffLine["type"], string> = {
   add: "bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300",
   remove: "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300",
   context: "text-gray-700 dark:text-gray-300",
-  header: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-medium",
+  header:
+    "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-medium",
   meta: "text-gray-500 dark:text-gray-400 italic",
 };
 
@@ -95,23 +96,26 @@ export function DiffViewer({ diff, maxHeight = 400 }: DiffViewerProps) {
       <table className="w-full border-collapse">
         <tbody>
           {lines.map((line, idx) => (
-            <tr key={idx} className={LINE_STYLES[line.type]}>
+            <tr
+              key={idx}
+              className={LINE_STYLES[line.type]}
+            >
               {/* Gutter: line number or prefix */}
               <td
-                className={`select-none border-r border-gray-200 px-2 py-0 text-right align-top dark:border-gray-700 ${GUTTER_STYLES[line.type]}`}
+                className={`border-r border-gray-200 px-2 py-0 text-right align-top select-none dark:border-gray-700 ${GUTTER_STYLES[line.type]}`}
                 style={{ minWidth: "3rem" }}
               >
                 {line.lineNumber ?? ""}
               </td>
               {/* Prefix (+/-/space) */}
               <td
-                className={`select-none px-1 py-0 text-center align-top ${GUTTER_STYLES[line.type]}`}
+                className={`px-1 py-0 text-center align-top select-none ${GUTTER_STYLES[line.type]}`}
                 style={{ minWidth: "1rem" }}
               >
                 {PREFIX_CHARS[line.type]}
               </td>
               {/* Content */}
-              <td className="whitespace-pre-wrap px-2 py-0 align-top">
+              <td className="px-2 py-0 align-top whitespace-pre-wrap">
                 {line.type === "meta" || line.type === "header"
                   ? line.content
                   : line.content.slice(1)}

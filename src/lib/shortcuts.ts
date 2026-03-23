@@ -53,9 +53,7 @@ export type ShortcutName = keyof typeof SHORTCUTS;
  * Returns the platform-specific display string for a shortcut.
  * Uses navigator.platform to detect Mac (SSR-safe: defaults to non-Mac).
  */
-export function getShortcutDisplay(
-  shortcut: ShortcutDefinition,
-): string {
+export function getShortcutDisplay(shortcut: ShortcutDefinition): string {
   const isMac =
     typeof navigator !== "undefined" &&
     navigator.platform.toUpperCase().indexOf("MAC") >= 0;

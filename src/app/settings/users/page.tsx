@@ -77,7 +77,7 @@ function providerIcon(provider: string): React.ReactNode {
     );
   }
   return (
-    <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+    <span className="bg-muted text-muted-foreground inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium">
       {provider}
     </span>
   );
@@ -86,14 +86,14 @@ function providerIcon(provider: string): React.ReactNode {
 function roleBadge(role: string): React.ReactNode {
   if (role === "admin") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+      <span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium">
         <Shield className="h-3 w-3" />
         Admin
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+    <span className="bg-muted text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
       Member
     </span>
   );
@@ -235,9 +235,7 @@ export default function UserManagementPage() {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.detail ?? "Failed to update status");
         }
-        toast.success(
-          currentlyActive ? "User deactivated" : "User activated",
-        );
+        toast.success(currentlyActive ? "User deactivated" : "User activated");
         await fetchUsers();
       } catch (err: unknown) {
         const message =
@@ -256,46 +254,46 @@ export default function UserManagementPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">
+        <h1 className="text-foreground text-lg font-semibold">
           User Management
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           Manage team members, roles, and account status.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center justify-center py-12 text-sm">
           Loading users...
         </div>
       ) : users.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border/40 bg-muted/20 py-12">
-          <Users className="h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">
+        <div className="border-border/40 bg-muted/20 flex flex-col items-center justify-center gap-2 rounded-lg border py-12">
+          <Users className="text-muted-foreground/50 h-8 w-8" />
+          <p className="text-muted-foreground text-sm">
             No other users yet. Share the login URL to invite team members.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border/40">
+        <div className="border-border/40 overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border/40 bg-muted/30">
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">
+              <tr className="border-border/40 bg-muted/30 border-b">
+                <th className="text-muted-foreground px-4 py-2.5 text-left font-medium">
                   User
                 </th>
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-left font-medium">
                   Provider
                 </th>
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-left font-medium">
                   Role
                 </th>
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-left font-medium">
                   Status
                 </th>
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-left font-medium">
                   Last Seen
                 </th>
-                <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">
+                <th className="text-muted-foreground px-4 py-2.5 text-right font-medium">
                   Actions
                 </th>
               </tr>
@@ -309,7 +307,7 @@ export default function UserManagementPage() {
                 return (
                   <React.Fragment key={u.user_id}>
                     <tr
-                      className={`border-b border-border/20 transition-colors hover:bg-muted/20 ${!u.is_active ? "opacity-60" : ""}`}
+                      className={`border-border/20 hover:bg-muted/20 border-b transition-colors ${!u.is_active ? "opacity-60" : ""}`}
                     >
                       {/* User info */}
                       <td className="px-4 py-3">
@@ -318,16 +316,16 @@ export default function UserManagementPage() {
                           onClick={() => toggleExpand(u.user_id)}
                         >
                           {isExpanded ? (
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
                           ) : (
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            <ChevronRight className="text-muted-foreground h-3.5 w-3.5" />
                           )}
                           <div>
-                            <div className="font-medium text-foreground">
+                            <div className="text-foreground font-medium">
                               {u.name ?? u.email}
                             </div>
                             {u.name && (
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-muted-foreground text-xs">
                                 {u.email}
                               </div>
                             )}
@@ -342,12 +340,10 @@ export default function UserManagementPage() {
                       <td className="px-4 py-3">{roleBadge(u.role)}</td>
 
                       {/* Status */}
-                      <td className="px-4 py-3">
-                        {statusBadge(u.is_active)}
-                      </td>
+                      <td className="px-4 py-3">{statusBadge(u.is_active)}</td>
 
                       {/* Last Seen */}
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="text-muted-foreground px-4 py-3">
                         {relativeTime(u.last_seen)}
                       </td>
 
@@ -356,7 +352,7 @@ export default function UserManagementPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           {isSelf ? (
                             <span
-                              className="text-xs text-muted-foreground/60"
+                              className="text-muted-foreground/60 text-xs"
                               title="Cannot modify your own account"
                             >
                               (you)
@@ -364,7 +360,7 @@ export default function UserManagementPage() {
                           ) : (
                             <>
                               <button
-                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                                className="hover:bg-accent inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors disabled:opacity-50"
                                 onClick={() => toggleRole(u.user_id, u.role)}
                                 disabled={isActioning}
                                 title={
@@ -396,7 +392,9 @@ export default function UserManagementPage() {
                                 }
                                 disabled={isActioning}
                                 title={
-                                  u.is_active ? "Deactivate user" : "Activate user"
+                                  u.is_active
+                                    ? "Deactivate user"
+                                    : "Activate user"
                                 }
                               >
                                 {u.is_active ? (
@@ -422,17 +420,17 @@ export default function UserManagementPage() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="border-b border-border/20 bg-muted/10 px-8 py-3"
+                          className="border-border/20 bg-muted/10 border-b px-8 py-3"
                         >
-                          <div className="text-xs font-medium text-muted-foreground mb-2">
+                          <div className="text-muted-foreground mb-2 text-xs font-medium">
                             Active Sessions
                           </div>
                           {sessionsLoading ? (
-                            <div className="text-xs text-muted-foreground py-2">
+                            <div className="text-muted-foreground py-2 text-xs">
                               Loading sessions...
                             </div>
                           ) : sessions.length === 0 ? (
-                            <div className="text-xs text-muted-foreground py-2">
+                            <div className="text-muted-foreground py-2 text-xs">
                               No active sessions.
                             </div>
                           ) : (

@@ -6,8 +6,15 @@ interface PostgresFormProps {
   mode: "create" | "edit" | "view";
   initialConfig?: Record<string, unknown>;
   initialCredentials?: Record<string, string> | null;
-  onTest: (formData: { config: Record<string, unknown>; credentials: Record<string, string> }) => void;
-  onSave: (formData: { name: string; config: Record<string, unknown>; credentials: Record<string, string> }) => void;
+  onTest: (formData: {
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
+  onSave: (formData: {
+    name: string;
+    config: Record<string, unknown>;
+    credentials: Record<string, string>;
+  }) => void;
   testLoading?: boolean;
   saveLoading?: boolean;
   connectorName?: string;
@@ -26,10 +33,14 @@ export function PostgresForm({
   const [name, setName] = useState(connectorName);
   const [host, setHost] = useState(String(initialConfig.host ?? "localhost"));
   const [port, setPort] = useState(String(initialConfig.port ?? "5432"));
-  const [database, setDatabase] = useState(String(initialConfig.database ?? ""));
+  const [database, setDatabase] = useState(
+    String(initialConfig.database ?? ""),
+  );
   const [user, setUser] = useState(String(initialConfig.user ?? ""));
   const [password, setPassword] = useState("");
-  const [sslMode, setSslMode] = useState(String(initialConfig.ssl_mode ?? "prefer"));
+  const [sslMode, setSslMode] = useState(
+    String(initialConfig.ssl_mode ?? "prefer"),
+  );
 
   const isView = mode === "view";
   const isEdit = mode === "edit";
@@ -69,11 +80,14 @@ export function PostgresForm({
     (mode !== "create" || password.length > 0);
 
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <form
+      onSubmit={handleSave}
+      className="space-y-4"
+    >
       {/* Name */}
       {mode === "create" && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
+          <label className="text-foreground mb-1 block text-sm font-medium">
             Name <span className="text-destructive">*</span>
           </label>
           <input
@@ -81,7 +95,7 @@ export function PostgresForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. production-db"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             required
           />
         </div>
@@ -89,7 +103,7 @@ export function PostgresForm({
 
       {/* Host */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           Host <span className="text-destructive">*</span>
         </label>
         <input
@@ -98,14 +112,16 @@ export function PostgresForm({
           onChange={(e) => setHost(e.target.value)}
           disabled={isView}
           placeholder="localhost"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           required
         />
       </div>
 
       {/* Port */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">Port</label>
+        <label className="text-foreground mb-1 block text-sm font-medium">
+          Port
+        </label>
         <input
           type="number"
           value={isView ? String(initialConfig.port ?? "") : port}
@@ -114,13 +130,13 @@ export function PostgresForm({
           placeholder="5432"
           min={1}
           max={65535}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 
       {/* Database */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           Database <span className="text-destructive">*</span>
         </label>
         <input
@@ -129,14 +145,14 @@ export function PostgresForm({
           onChange={(e) => setDatabase(e.target.value)}
           disabled={isView}
           placeholder="mydb"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           required
         />
       </div>
 
       {/* User */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="text-foreground mb-1 block text-sm font-medium">
           User <span className="text-destructive">*</span>
         </label>
         <input
@@ -145,30 +161,33 @@ export function PostgresForm({
           onChange={(e) => setUser(e.target.value)}
           disabled={isView}
           placeholder="postgres"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           required
         />
       </div>
 
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">
-          Password {mode === "create" && <span className="text-destructive">*</span>}
+        <label className="text-foreground mb-1 block text-sm font-medium">
+          Password{" "}
+          {mode === "create" && <span className="text-destructive">*</span>}
         </label>
         {isView ? (
           <input
             type="text"
             value={initialCredentials?.password ?? ""}
             disabled
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+            className="border-border bg-background text-muted-foreground w-full rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : (
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={isEdit ? "Enter new value or leave blank to keep existing" : ""}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            placeholder={
+              isEdit ? "Enter new value or leave blank to keep existing" : ""
+            }
+            className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             required={mode === "create"}
           />
         )}
@@ -176,12 +195,14 @@ export function PostgresForm({
 
       {/* SSL Mode */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">SSL Mode</label>
+        <label className="text-foreground mb-1 block text-sm font-medium">
+          SSL Mode
+        </label>
         <select
           value={isView ? String(initialConfig.ssl_mode ?? "prefer") : sslMode}
           onChange={(e) => setSslMode(e.target.value)}
           disabled={isView}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="border-border bg-background text-foreground focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="disable">disable</option>
           <option value="allow">allow</option>
@@ -196,7 +217,7 @@ export function PostgresForm({
           type="button"
           onClick={handleTest}
           disabled={testLoading}
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {testLoading ? "Testing..." : "Test Connection"}
         </button>
@@ -204,7 +225,7 @@ export function PostgresForm({
           <button
             type="submit"
             disabled={!isValid || saveLoading}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saveLoading ? "Saving..." : "Save"}
           </button>

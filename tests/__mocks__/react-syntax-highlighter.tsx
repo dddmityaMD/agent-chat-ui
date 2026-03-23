@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface SyntaxHighlighterProps {
   children?: string;
@@ -14,9 +14,16 @@ interface PrismComponent extends React.FC<SyntaxHighlighterProps> {
 
 export const PrismAsyncLight: PrismComponent = Object.assign(
   ({ children, className }: SyntaxHighlighterProps) => {
-    return <pre className={className} data-testid="syntax-highlighter">{children}</pre>;
+    return (
+      <pre
+        className={className}
+        data-testid="syntax-highlighter"
+      >
+        {children}
+      </pre>
+    );
   },
-  { registerLanguage: () => {} }
+  { registerLanguage: () => {} },
 );
 
 export const Prism = PrismAsyncLight;

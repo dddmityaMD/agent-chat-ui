@@ -75,7 +75,10 @@ export function DiscussionCardBlock({
       </div>
 
       {/* Tabs */}
-      <Tabs.Root defaultValue={defaultTab} className="w-full">
+      <Tabs.Root
+        defaultValue={defaultTab}
+        className="w-full"
+      >
         <Tabs.List className="mb-3 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
           {data.questions.map((q, idx) => {
             const answered = isAnswered(q.question_id);
@@ -83,7 +86,7 @@ export function DiscussionCardBlock({
               <Tabs.Trigger
                 key={q.question_id}
                 value={q.question_id}
-                className="group relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 outline-none transition-colors hover:text-gray-900 data-[state=active]:text-purple-700 dark:text-gray-400 dark:hover:text-gray-200 dark:data-[state=active]:text-purple-400"
+                className="group relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 transition-colors outline-none hover:text-gray-900 data-[state=active]:text-purple-700 dark:text-gray-400 dark:hover:text-gray-200 dark:data-[state=active]:text-purple-400"
               >
                 {/* Indicator: dot for unanswered, checkmark for answered */}
                 {answered ? (
@@ -98,7 +101,7 @@ export function DiscussionCardBlock({
                   )}
                 </span>
                 {/* Active indicator bar */}
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent group-data-[state=active]:bg-purple-600 dark:group-data-[state=active]:bg-purple-400" />
+                <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-transparent group-data-[state=active]:bg-purple-600 dark:group-data-[state=active]:bg-purple-400" />
               </Tabs.Trigger>
             );
           })}
@@ -106,8 +109,8 @@ export function DiscussionCardBlock({
 
         {data.questions.map((q) => {
           const currentAnswer = isResolved
-            ? resolvedAnswers?.[q.question_id]?.value ?? ""
-            : answers[q.question_id] ?? "";
+            ? (resolvedAnswers?.[q.question_id]?.value ?? "")
+            : (answers[q.question_id] ?? "");
 
           return (
             <Tabs.Content
@@ -119,7 +122,7 @@ export function DiscussionCardBlock({
               <p className="mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">
                 {q.question}
                 {q.required && (
-                  <span className="ml-1 text-red-500 text-xs">required</span>
+                  <span className="ml-1 text-xs text-red-500">required</span>
                 )}
               </p>
 

@@ -2,10 +2,27 @@
 
 import React, { useState } from "react";
 import { MarkdownText } from "@/components/thread/markdown-text";
-import { ChevronDownIcon, ChevronRightIcon, DatabaseIcon, GitBranchIcon, FileCodeIcon, GlobeIcon, BarChart2, Layers, ExternalLink } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  DatabaseIcon,
+  GitBranchIcon,
+  FileCodeIcon,
+  GlobeIcon,
+  BarChart2,
+  Layers,
+  ExternalLink,
+} from "lucide-react";
 import { generateDeepLinkUrl, DeepLinkType } from "@/lib/deep-links";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { DeduplicationIndicator, isDebugMode } from "@/components/evidence/DeduplicationIndicator";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import {
+  DeduplicationIndicator,
+  isDebugMode,
+} from "@/components/evidence/DeduplicationIndicator";
 
 export interface EvidenceItem {
   evidence_id?: string;
@@ -54,7 +71,9 @@ function getEvidenceIcon(type: string) {
  * Extract deep link information from evidence item.
  * Parses evidence.type and evidence.payload to determine the appropriate link type.
  */
-function getDeepLinkInfo(evidence: EvidenceItem): { type: DeepLinkType; id: string | number; url: string } | null {
+function getDeepLinkInfo(
+  evidence: EvidenceItem,
+): { type: DeepLinkType; id: string | number; url: string } | null {
   const payload = evidence.payload;
 
   // API_RESPONSE with card_id -> Metabase card
@@ -65,8 +84,11 @@ function getDeepLinkInfo(evidence: EvidenceItem): { type: DeepLinkType; id: stri
 
   // GIT_DIFF -> Git commit (parse SHA from oneline log)
   if (evidence.type === "GIT_DIFF") {
-    const commit = payload?.commit
-      || (typeof payload?.log === "string" ? payload.log.match(/^([a-f0-9]{7,40})\s/m)?.[1] : null);
+    const commit =
+      payload?.commit ||
+      (typeof payload?.log === "string"
+        ? payload.log.match(/^([a-f0-9]{7,40})\s/m)?.[1]
+        : null);
     if (commit) {
       const url = generateDeepLinkUrl("git_commit", commit);
       return url ? { type: "git_commit", id: commit, url } : null;
@@ -75,9 +97,13 @@ function getDeepLinkInfo(evidence: EvidenceItem): { type: DeepLinkType; id: stri
 
   // DBT_ARTIFACT -> dbt model docs (extract from manifest_summary or run_summary)
   if (evidence.type === "DBT_ARTIFACT") {
-    const modelName = payload?.model_name
-      || payload?.manifest_summary?.models?.[0]?.name
-      || payload?.run_summary?.results?.[0]?.unique_id?.replace(/^model\..*?\./, "");
+    const modelName =
+      payload?.model_name ||
+      payload?.manifest_summary?.models?.[0]?.name ||
+      payload?.run_summary?.results?.[0]?.unique_id?.replace(
+        /^model\..*?\./,
+        "",
+      );
     if (modelName) {
       const url = generateDeepLinkUrl("dbt_model", modelName);
       return url ? { type: "dbt_model", id: modelName, url } : null;
@@ -158,11 +184,20 @@ function formatGitDiff(payload: EvidenceItem["payload"]): string {
   if (!payload?.diff) return "*No diff available*";
 
   const diff = payload.diff.slice(0, 5000);
-  return "```diff\n" + diff + (payload.diff.length > 5000 ? "\n... truncated" : "") + "\n```";
+  return (
+    "```diff\n" +
+    diff +
+    (payload.diff.length > 5000 ? "\n... truncated" : "") +
+    "\n```"
+  );
 }
 
 function formatDbtArtifact(payload: EvidenceItem["payload"]): string {
-  if (!payload?.manifest_summary && !payload?.run_summary && !payload?.file_path) {
+  if (
+    !payload?.manifest_summary &&
+    !payload?.run_summary &&
+    !payload?.file_path
+  ) {
     return "*No dbt data or run results*";
   }
 
@@ -172,16 +207,18 @@ function formatDbtArtifact(payload: EvidenceItem["payload"]): string {
   }
   if (payload.manifest_summary) {
     md += "**Manifest Summary:**\n";
-    const summary = typeof payload.manifest_summary === "string"
-      ? payload.manifest_summary
-      : JSON.stringify(payload.manifest_summary, null, 2);
+    const summary =
+      typeof payload.manifest_summary === "string"
+        ? payload.manifest_summary
+        : JSON.stringify(payload.manifest_summary, null, 2);
     md += "```json\n" + summary.slice(0, 3000) + "\n```\n";
   }
   if (payload.run_summary) {
     md += "**Run Results:**\n";
-    const summary = typeof payload.run_summary === "string"
-      ? payload.run_summary
-      : JSON.stringify(payload.run_summary, null, 2);
+    const summary =
+      typeof payload.run_summary === "string"
+        ? payload.run_summary
+        : JSON.stringify(payload.run_summary, null, 2);
     md += "```json\n" + summary.slice(0, 3000) + "\n```";
   }
   return md;
@@ -190,24 +227,32 @@ function formatDbtArtifact(payload: EvidenceItem["payload"]): string {
 function formatApiResponse(payload: EvidenceItem["payload"]): string {
   if (!payload?.response) return "*No API response*";
 
-  const response = typeof payload.response === "string"
-    ? payload.response
-    : JSON.stringify(payload.response, null, 2);
+  const response =
+    typeof payload.response === "string"
+      ? payload.response
+      : JSON.stringify(payload.response, null, 2);
   return "```json\n" + response.slice(0, 3000) + "\n```";
 }
 
 function formatGenericPayload(payload: EvidenceItem["payload"]): string {
   if (!payload) return "*No payload data*";
-  return "```json\n" + JSON.stringify(payload, null, 2).slice(0, 3000) + "\n```";
+  return (
+    "```json\n" + JSON.stringify(payload, null, 2).slice(0, 3000) + "\n```"
+  );
 }
 
-export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceViewerProps) {
+export function EvidenceViewer({
+  evidence,
+  defaultExpanded = false,
+}: EvidenceViewerProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const deepLink = getDeepLinkInfo(evidence);
 
   const renderPayload = () => {
     if (!evidence.payload) {
-      return <div className="text-sm text-muted-foreground">No payload data</div>;
+      return (
+        <div className="text-muted-foreground text-sm">No payload data</div>
+      );
     }
 
     switch (evidence.type) {
@@ -216,12 +261,18 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
           <div className="space-y-3">
             {evidence.payload.query && (
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">Query:</div>
-                <MarkdownText>{"```sql\n" + evidence.payload.query + "\n```"}</MarkdownText>
+                <div className="text-muted-foreground mb-1 text-xs font-medium">
+                  Query:
+                </div>
+                <MarkdownText>
+                  {"```sql\n" + evidence.payload.query + "\n```"}
+                </MarkdownText>
               </div>
             )}
             <div>
-              <div className="text-xs font-medium text-muted-foreground mb-1">Results:</div>
+              <div className="text-muted-foreground mb-1 text-xs font-medium">
+                Results:
+              </div>
               <MarkdownText>{formatSqlResult(evidence.payload)}</MarkdownText>
             </div>
           </div>
@@ -231,13 +282,15 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
         return (
           <div className="space-y-2">
             {evidence.payload.commit && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium">Commit:</span> {evidence.payload.commit}
+              <div className="text-muted-foreground text-xs">
+                <span className="font-medium">Commit:</span>{" "}
+                {evidence.payload.commit}
               </div>
             )}
             {evidence.payload.file_path && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium">File:</span> {evidence.payload.file_path}
+              <div className="text-muted-foreground text-xs">
+                <span className="font-medium">File:</span>{" "}
+                {evidence.payload.file_path}
               </div>
             )}
             <MarkdownText>{formatGitDiff(evidence.payload)}</MarkdownText>
@@ -245,33 +298,39 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
         );
 
       case "DBT_ARTIFACT":
-        return <MarkdownText>{formatDbtArtifact(evidence.payload)}</MarkdownText>;
+        return (
+          <MarkdownText>{formatDbtArtifact(evidence.payload)}</MarkdownText>
+        );
 
       case "API_RESPONSE":
-        return <MarkdownText>{formatApiResponse(evidence.payload)}</MarkdownText>;
+        return (
+          <MarkdownText>{formatApiResponse(evidence.payload)}</MarkdownText>
+        );
 
       default:
-        return <MarkdownText>{formatGenericPayload(evidence.payload)}</MarkdownText>;
+        return (
+          <MarkdownText>{formatGenericPayload(evidence.payload)}</MarkdownText>
+        );
     }
   };
 
   return (
-    <div className="border rounded-md bg-card overflow-hidden">
-      <div className="w-full flex items-center gap-2 p-3 hover:bg-muted transition-colors">
+    <div className="bg-card overflow-hidden rounded-md border">
+      <div className="hover:bg-muted flex w-full items-center gap-2 p-3 transition-colors">
         {/* Expand/collapse button */}
         <button
-          className="flex items-center gap-2 flex-1 text-left"
+          className="flex flex-1 items-center gap-2 text-left"
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label={`${expanded ? "Collapse" : "Expand"} ${evidence.title || evidence.type}`}
         >
           {expanded ? (
-            <ChevronDownIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <ChevronDownIcon className="text-muted-foreground h-4 w-4 flex-shrink-0" />
           ) : (
-            <ChevronRightIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <ChevronRightIcon className="text-muted-foreground h-4 w-4 flex-shrink-0" />
           )}
           {getEvidenceIcon(evidence.type)}
-          <span className="font-medium text-sm flex-1 truncate">
+          <span className="flex-1 truncate text-sm font-medium">
             {evidence.title || evidence.type}
           </span>
           {evidence.is_duplicate && (
@@ -292,7 +351,7 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
                 href={deepLink.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 flex-shrink-0"
+                className="flex-shrink-0 rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-800"
                 onClick={(e) => e.stopPropagation()}
                 data-testid="deep-link-icon"
               >
@@ -300,17 +359,23 @@ export function EvidenceViewer({ evidence, defaultExpanded = false }: EvidenceVi
               </a>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs font-medium">Open in {getDeepLinkLabel(deepLink.type)}</p>
-              <p className="text-xs opacity-80 truncate max-w-xs">{deepLink.url}</p>
+              <p className="text-xs font-medium">
+                Open in {getDeepLinkLabel(deepLink.type)}
+              </p>
+              <p className="max-w-xs truncate text-xs opacity-80">
+                {deepLink.url}
+              </p>
             </TooltipContent>
           </Tooltip>
         )}
 
-        <span className="text-xs text-muted-foreground flex-shrink-0">{evidence.type}</span>
+        <span className="text-muted-foreground flex-shrink-0 text-xs">
+          {evidence.type}
+        </span>
       </div>
 
       {expanded && (
-        <div className="border-t p-3 bg-muted overflow-x-auto max-h-[400px] overflow-y-auto">
+        <div className="bg-muted max-h-[400px] overflow-x-auto overflow-y-auto border-t p-3">
           {renderPayload()}
         </div>
       )}
@@ -325,17 +390,21 @@ interface LinkedEvidenceProps {
   defaultExpanded?: boolean;
 }
 
-export function LinkedEvidence({ evidenceIds, allEvidence, defaultExpanded = false }: LinkedEvidenceProps) {
+export function LinkedEvidence({
+  evidenceIds,
+  allEvidence,
+  defaultExpanded = false,
+}: LinkedEvidenceProps) {
   if (!evidenceIds?.length) return null;
 
-  const linkedItems = allEvidence.filter((e) =>
-    e.evidence_id && evidenceIds.includes(e.evidence_id)
+  const linkedItems = allEvidence.filter(
+    (e) => e.evidence_id && evidenceIds.includes(e.evidence_id),
   );
 
   if (!linkedItems.length) {
     // Show IDs even if we can't find the evidence
     return (
-      <div className="text-xs text-muted-foreground mt-1">
+      <div className="text-muted-foreground mt-1 text-xs">
         Evidence refs: {evidenceIds.map((id) => id.slice(0, 8)).join(", ")}
       </div>
     );
@@ -343,7 +412,9 @@ export function LinkedEvidence({ evidenceIds, allEvidence, defaultExpanded = fal
 
   return (
     <div className="mt-2 space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Supporting Evidence:</div>
+      <div className="text-muted-foreground text-xs font-medium">
+        Supporting Evidence:
+      </div>
       {linkedItems.map((e, idx) => (
         <EvidenceViewer
           key={e.evidence_id || `linked-${idx}`}

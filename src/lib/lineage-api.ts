@@ -145,7 +145,9 @@ export async function fetchImpactAnalysis(
   const url = `${baseUrl}/api/lineage/impact/${nodeId}${qs ? `?${qs}` : ""}`;
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
-    throw new Error(`Impact analysis API error: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Impact analysis API error: ${res.status} ${res.statusText}`,
+    );
   }
   return res.json() as Promise<ImpactResult>;
 }

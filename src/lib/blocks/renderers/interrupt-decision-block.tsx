@@ -23,7 +23,7 @@ export function InterruptDecisionBlock({ block }: BlockRendererProps) {
   const isApproved = data.decision === "approved";
 
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+    <div className="text-muted-foreground flex items-center gap-2 py-1 text-sm">
       {isApproved ? (
         <div className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
           <CheckCircle2 className="h-3.5 w-3.5" />
@@ -40,9 +40,7 @@ export function InterruptDecisionBlock({ block }: BlockRendererProps) {
           {new Date(data.decided_at).toLocaleTimeString()}
         </span>
       )}
-      {data.feedback && (
-        <p className="text-xs italic">{data.feedback}</p>
-      )}
+      {data.feedback && <p className="text-xs italic">{data.feedback}</p>}
     </div>
   );
 }

@@ -27,4 +27,7 @@ export {
 export type { DashboardCardBadgeProps } from "./DashboardCardBadge";
 
 export { MatchReasonCell } from "./MatchReasonCell";
-export type { MatchReasonCellProps, MatchReasonRowData } from "./MatchReasonCell";
+export type {
+  MatchReasonCellProps,
+  MatchReasonRowData,
+} from "./MatchReasonCell";

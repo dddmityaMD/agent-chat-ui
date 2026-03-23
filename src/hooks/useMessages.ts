@@ -65,18 +65,13 @@ export function useMessages(
             }
             return; // Success
           } catch (err) {
-            if (
-              err instanceof DOMException &&
-              err.name === "AbortError"
-            ) {
+            if (err instanceof DOMException && err.name === "AbortError") {
               return; // Intentional cancellation
             }
             lastError = err;
             if (attempt < RETRY_DELAYS.length) {
               // Wait before retry with exponential backoff
-              await new Promise((r) =>
-                setTimeout(r, RETRY_DELAYS[attempt]),
-              );
+              await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
               if (controller.signal.aborted) return;
             }
           }

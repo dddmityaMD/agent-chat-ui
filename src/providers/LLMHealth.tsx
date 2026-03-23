@@ -45,9 +45,7 @@ function deriveOverallStatus(
 }
 
 export function LLMHealthProvider({ children }: { children: ReactNode }) {
-  const [statuses, setStatuses] = useState<Record<string, LLMHealthStatus>>(
-    {},
-  );
+  const [statuses, setStatuses] = useState<Record<string, LLMHealthStatus>>({});
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchHealth = useCallback(async () => {

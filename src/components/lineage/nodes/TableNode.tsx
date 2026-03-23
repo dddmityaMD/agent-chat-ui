@@ -14,15 +14,21 @@ function TableNodeComponent({ data }: NodeProps) {
 
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 shadow-sm">
-      <Handle type="target" position={Position.Left} className="!bg-blue-400" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-blue-400"
+      />
       <Database className="h-5 w-5 text-blue-600" />
       <span className="max-w-[140px] truncate text-xs font-medium text-blue-900">
         {payload.label}
       </span>
-      {schema && (
-        <span className="text-[10px] text-blue-500">{schema}</span>
-      )}
-      <Handle type="source" position={Position.Right} className="!bg-blue-400" />
+      {schema && <span className="text-[10px] text-blue-500">{schema}</span>}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-blue-400"
+      />
     </div>
   );
 }

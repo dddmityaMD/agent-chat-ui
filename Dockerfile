@@ -35,3 +35,29 @@ COPY --from=builder /app/public ./public
 EXPOSE 3000
 
 CMD ["node", "server.js"]
+
+# --- Dev stage (hot-reload, volume-mounted src) ---
+FROM node:20-slim AS dev
+
+WORKDIR /app
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Copy config files needed by next dev (source comes from volume mounts)
+COPY . .
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:2024
+ARG NEXT_PUBLIC_ASSISTANT_ID=sais_agent
+ARG NEXT_PUBLIC_CASES_API_URL=http://localhost:8000
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_ASSISTANT_ID=$NEXT_PUBLIC_ASSISTANT_ID
+ENV NEXT_PUBLIC_CASES_API_URL=$NEXT_PUBLIC_CASES_API_URL
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev"]

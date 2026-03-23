@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { CheckCircle2, HelpCircle } from 'lucide-react';
+import { CheckCircle2, HelpCircle } from "lucide-react";
 
 // --- Types ---
 
@@ -35,14 +35,18 @@ interface ClarificationCardProps {
  * Returns null if absent or malformed.
  */
 export function getClarification(saisUi?: unknown): ClarificationData | null {
-  if (!saisUi || typeof saisUi !== 'object') return null;
+  if (!saisUi || typeof saisUi !== "object") return null;
   const obj = saisUi as Record<string, unknown>;
   const clar = obj.clarification;
-  if (!clar || typeof clar !== 'object') return null;
+  if (!clar || typeof clar !== "object") return null;
   const c = clar as Record<string, unknown>;
 
   // Validate required arrays
-  if (!Array.isArray(c.understood) || !Array.isArray(c.ambiguous) || !Array.isArray(c.options)) {
+  if (
+    !Array.isArray(c.understood) ||
+    !Array.isArray(c.ambiguous) ||
+    !Array.isArray(c.options)
+  ) {
     return null;
   }
 
@@ -50,9 +54,9 @@ export function getClarification(saisUi?: unknown): ClarificationData | null {
   const validOptions = c.options.every(
     (opt: unknown) =>
       opt &&
-      typeof opt === 'object' &&
-      typeof (opt as Record<string, unknown>).label === 'string' &&
-      typeof (opt as Record<string, unknown>).value === 'string',
+      typeof opt === "object" &&
+      typeof (opt as Record<string, unknown>).label === "string" &&
+      typeof (opt as Record<string, unknown>).value === "string",
   );
   if (!validOptions) return null;
 

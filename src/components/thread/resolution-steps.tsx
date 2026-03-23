@@ -2,10 +2,10 @@
 // This component is restored for future backend integration when the resolver
 // emits step-by-step resolution progress to sais_ui.resolution_steps.
 
-'use client';
+"use client";
 
-import { CheckCircle2 } from 'lucide-react';
-import type { ResolutionStepsPayload } from '@/lib/types';
+import { CheckCircle2 } from "lucide-react";
+import type { ResolutionStepsPayload } from "@/lib/types";
 
 interface ResolutionStepsProps {
   payload: ResolutionStepsPayload;
@@ -27,15 +27,20 @@ export function ResolutionSteps({ payload }: ResolutionStepsProps) {
   return (
     <div
       data-testid="resolver-step"
-      className="text-xs text-gray-500 font-mono space-y-1 my-2 pl-4 border-l-2 border-gray-200 dark:text-gray-400 dark:border-gray-700"
+      className="my-2 space-y-1 border-l-2 border-gray-200 pl-4 font-mono text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
     >
       {payload.steps.map((step, i) => (
-        <div key={i} className="flex items-center gap-2 flex-wrap">
-          <span className="text-gray-400 dark:text-gray-500">[{step.scope}]</span>
+        <div
+          key={i}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="text-gray-400 dark:text-gray-500">
+            [{step.scope}]
+          </span>
           <span>{step.action}</span>
           {step.result && (
             <span className="text-gray-600 dark:text-gray-400">
-              {'->'} {step.result}
+              {"->"} {step.result}
             </span>
           )}
           {step.confidence !== undefined && (
@@ -46,7 +51,7 @@ export function ResolutionSteps({ payload }: ResolutionStepsProps) {
         </div>
       ))}
       {payload.final_result && (
-        <div className="font-medium text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1.5">
+        <div className="mt-1 flex items-center gap-1.5 font-medium text-gray-600 dark:text-gray-400">
           <CheckCircle2 className="h-3 w-3 text-green-500" />
           {payload.final_result}
         </div>

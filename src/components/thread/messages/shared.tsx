@@ -24,7 +24,9 @@ function ContentCopyable({
 
   const handleCopy = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(content).catch(() => {/* clipboard unavailable */});
+    navigator.clipboard.writeText(content).catch(() => {
+      /* clipboard unavailable */
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

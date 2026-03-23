@@ -11,7 +11,10 @@ export {
   formatFieldName,
   getConfidenceColor,
 } from "./MatchReasonDisplay";
-export type { MatchReason, MatchReasonDisplayProps } from "./MatchReasonDisplay";
+export type {
+  MatchReason,
+  MatchReasonDisplayProps,
+} from "./MatchReasonDisplay";
 
 export { SearchTransparencyPanel } from "./SearchTransparencyPanel";
 export type { SearchTransparencyPanelProps } from "./SearchTransparencyPanel";

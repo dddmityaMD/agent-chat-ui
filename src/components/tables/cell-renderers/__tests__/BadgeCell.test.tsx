@@ -16,12 +16,16 @@ describe("BadgeCell", () => {
     });
 
     it("returns null for null value", () => {
-      const { container } = render(<BadgeCell value={null as unknown as string} />);
+      const { container } = render(
+        <BadgeCell value={null as unknown as string} />,
+      );
       expect(container.firstChild).toBeNull();
     });
 
     it("returns null for undefined value", () => {
-      const { container } = render(<BadgeCell value={undefined as unknown as string} />);
+      const { container } = render(
+        <BadgeCell value={undefined as unknown as string} />,
+      );
       expect(container.firstChild).toBeNull();
     });
 
@@ -31,13 +35,26 @@ describe("BadgeCell", () => {
     });
 
     it("applies custom className", () => {
-      render(<BadgeCell value="test" className="custom-class" />);
+      render(
+        <BadgeCell
+          value="test"
+          className="custom-class"
+        />,
+      );
       expect(screen.getByText("test")).toHaveClass("custom-class");
     });
   });
 
   describe("Status colors - success states (green)", () => {
-    const greenStatuses = ["success", "active", "published", "completed", "enabled", "healthy", "connected"];
+    const greenStatuses = [
+      "success",
+      "active",
+      "published",
+      "completed",
+      "enabled",
+      "healthy",
+      "connected",
+    ];
 
     greenStatuses.forEach((status) => {
       it(`renders green badge for "${status}"`, () => {
@@ -50,7 +67,13 @@ describe("BadgeCell", () => {
   });
 
   describe("Status colors - error states (red)", () => {
-    const redStatuses = ["error", "failed", "critical", "disconnected", "unhealthy"];
+    const redStatuses = [
+      "error",
+      "failed",
+      "critical",
+      "disconnected",
+      "unhealthy",
+    ];
 
     redStatuses.forEach((status) => {
       it(`renders red badge for "${status}"`, () => {
@@ -76,7 +99,14 @@ describe("BadgeCell", () => {
   });
 
   describe("Status colors - pending states (gray)", () => {
-    const grayStatuses = ["pending", "draft", "queued", "idle", "disabled", "archived"];
+    const grayStatuses = [
+      "pending",
+      "draft",
+      "queued",
+      "idle",
+      "disabled",
+      "archived",
+    ];
 
     grayStatuses.forEach((status) => {
       it(`renders gray badge for "${status}"`, () => {

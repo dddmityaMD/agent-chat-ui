@@ -15,7 +15,7 @@ import {
 } from "../MatchReasonDisplay";
 
 const createMockMatchReason = (
-  overrides: Partial<MatchReason> = {}
+  overrides: Partial<MatchReason> = {},
 ): MatchReason => ({
   matchedFields: ["name", "description"],
   matchedTerms: ["revenue", "report"],
@@ -32,11 +32,11 @@ const createMockMatchReason = (
 describe("MatchReasonDisplay", () => {
   describe("Simple variant (default)", () => {
     it("renders simple match reason text", () => {
-      render(
-        <MatchReasonDisplay matchReason={createMockMatchReason()} />
-      );
+      render(<MatchReasonDisplay matchReason={createMockMatchReason()} />);
       expect(
-        screen.getByText(/Matched 'revenue' and 'report' in name and description/)
+        screen.getByText(
+          /Matched 'revenue' and 'report' in name and description/,
+        ),
       ).toBeInTheDocument();
     });
 
@@ -44,15 +44,13 @@ describe("MatchReasonDisplay", () => {
       render(
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ isDuplicate: true })}
-        />
+        />,
       );
       expect(screen.getByText("(reused)")).toBeInTheDocument();
     });
 
     it("hides confidence by default", () => {
-      render(
-        <MatchReasonDisplay matchReason={createMockMatchReason()} />
-      );
+      render(<MatchReasonDisplay matchReason={createMockMatchReason()} />);
       expect(screen.queryByText(/85%/)).not.toBeInTheDocument();
     });
 
@@ -61,7 +59,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           showConfidence
-        />
+        />,
       );
       expect(screen.getByText("(85%)")).toBeInTheDocument();
     });
@@ -71,7 +69,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           className="custom-class"
-        />
+        />,
       );
       expect(container.firstChild).toHaveClass("custom-class");
     });
@@ -80,7 +78,7 @@ describe("MatchReasonDisplay", () => {
       render(
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ explanation: undefined })}
-        />
+        />,
       );
       expect(screen.getByText(/Matched:/)).toBeInTheDocument();
       expect(screen.getByText(/'revenue'/)).toBeInTheDocument();
@@ -94,7 +92,7 @@ describe("MatchReasonDisplay", () => {
             matchedTerms: [],
             explanation: undefined,
           })}
-        />
+        />,
       );
       expect(screen.getByText("No match details")).toBeInTheDocument();
     });
@@ -106,7 +104,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           variant="detailed"
-        />
+        />,
       );
       // Should have a button to expand
       expect(screen.getByRole("button")).toBeInTheDocument();
@@ -117,7 +115,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           variant="detailed"
-        />
+        />,
       );
       expect(screen.getByText("85%")).toBeInTheDocument();
     });
@@ -127,7 +125,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           variant="detailed"
-        />
+        />,
       );
 
       // Click to expand
@@ -144,7 +142,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           variant="detailed"
-        />
+        />,
       );
 
       // Click to expand
@@ -163,14 +161,14 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ isDuplicate: true })}
           variant="detailed"
-        />
+        />,
       );
 
       // Click to expand
       fireEvent.click(screen.getByRole("button"));
 
       expect(
-        screen.getByText(/This evidence was reused from a previous query/)
+        screen.getByText(/This evidence was reused from a previous query/),
       ).toBeInTheDocument();
     });
 
@@ -179,7 +177,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason()}
           variant="detailed"
-        />
+        />,
       );
 
       // Click to expand
@@ -196,7 +194,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ isDuplicate: true })}
           variant="detailed"
-        />
+        />,
       );
 
       expect(screen.getByText("reused")).toBeInTheDocument();
@@ -209,7 +207,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ confidence: 0.9 })}
           variant="detailed"
-        />
+        />,
       );
 
       const percentage = screen.getByText("90%");
@@ -221,7 +219,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ confidence: 0.6 })}
           variant="detailed"
-        />
+        />,
       );
 
       const percentage = screen.getByText("60%");
@@ -233,7 +231,7 @@ describe("MatchReasonDisplay", () => {
         <MatchReasonDisplay
           matchReason={createMockMatchReason({ confidence: 0.3 })}
           variant="detailed"
-        />
+        />,
       );
 
       const percentage = screen.getByText("30%");
@@ -249,7 +247,10 @@ describe("highlightTerms utility", () => {
   });
 
   it("highlights matching terms", () => {
-    const result = highlightTerms("Revenue report for Q4", ["revenue", "report"]);
+    const result = highlightTerms("Revenue report for Q4", [
+      "revenue",
+      "report",
+    ]);
     // Result should be React nodes with highlighted terms
     expect(Array.isArray(result)).toBe(true);
   });

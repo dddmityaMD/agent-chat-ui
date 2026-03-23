@@ -44,7 +44,9 @@ function slugify(name: string): string {
 }
 
 /** Extract the numeric Metabase ID from a canonical key like "metabase:card:5". */
-function extractMetabaseId(canonicalKey: string | null | undefined): string | null {
+function extractMetabaseId(
+  canonicalKey: string | null | undefined,
+): string | null {
   if (!canonicalKey) return null;
   const parts = canonicalKey.split(":");
   if (parts.length >= 3 && parts[0] === "metabase") return parts[2];
@@ -56,8 +58,7 @@ function getMetabaseUrl(
   canonicalKey: string | null | undefined,
   nodeName?: string,
 ): string {
-  const base =
-    process.env.NEXT_PUBLIC_METABASE_URL || "http://localhost:3001";
+  const base = process.env.NEXT_PUBLIC_METABASE_URL || "http://localhost:3001";
   const numId = extractMetabaseId(canonicalKey) ?? "0";
   const slug = nodeName ? `${numId}-${slugify(nodeName)}` : numId;
   if (nodeType === "metabase.dashboard") {
@@ -107,14 +108,36 @@ function CardDetails({ node }: { node: LineageNodeData }) {
   const description = node.props?.description as string | undefined;
   const queryType = node.props?.query_type as string | undefined;
   const display = node.props?.display as string | undefined;
-  const url = getMetabaseUrl(node.type, node.canonical_key, node.props?.name as string | undefined);
+  const url = getMetabaseUrl(
+    node.type,
+    node.canonical_key,
+    node.props?.name as string | undefined,
+  );
 
   return (
     <div className="space-y-3">
-      <DetailRow label="Name" value={node.label} />
-      {queryType && <DetailRow label="Query Type" value={queryType} />}
-      {display && <DetailRow label="Display" value={display} />}
-      {description && <DetailRow label="Description" value={description} />}
+      <DetailRow
+        label="Name"
+        value={node.label}
+      />
+      {queryType && (
+        <DetailRow
+          label="Query Type"
+          value={queryType}
+        />
+      )}
+      {display && (
+        <DetailRow
+          label="Display"
+          value={display}
+        />
+      )}
+      {description && (
+        <DetailRow
+          label="Description"
+          value={description}
+        />
+      )}
       <div className="pt-1">
         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
           Metabase URL
@@ -136,15 +159,30 @@ function CardDetails({ node }: { node: LineageNodeData }) {
 function DashboardDetails({ node }: { node: LineageNodeData }) {
   const description = node.props?.description as string | undefined;
   const cardsCount = node.props?.cards_count as number | undefined;
-  const url = getMetabaseUrl(node.type, node.canonical_key, node.props?.name as string | undefined);
+  const url = getMetabaseUrl(
+    node.type,
+    node.canonical_key,
+    node.props?.name as string | undefined,
+  );
 
   return (
     <div className="space-y-3">
-      <DetailRow label="Name" value={node.label} />
+      <DetailRow
+        label="Name"
+        value={node.label}
+      />
       {cardsCount != null && (
-        <DetailRow label="Cards" value={String(cardsCount)} />
+        <DetailRow
+          label="Cards"
+          value={String(cardsCount)}
+        />
       )}
-      {description && <DetailRow label="Description" value={description} />}
+      {description && (
+        <DetailRow
+          label="Description"
+          value={description}
+        />
+      )}
       <div className="pt-1">
         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
           Metabase URL
@@ -175,8 +213,16 @@ function TableDetails({ node }: { node: LineageNodeData }) {
 
   return (
     <div className="space-y-3">
-      <DetailRow label="Table" value={node.label} />
-      {schema && <DetailRow label="Schema" value={schema} />}
+      <DetailRow
+        label="Table"
+        value={node.label}
+      />
+      {schema && (
+        <DetailRow
+          label="Schema"
+          value={schema}
+        />
+      )}
       {columns.length > 0 && (
         <div>
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -210,11 +256,27 @@ function ColumnDetails({ node }: { node: LineageNodeData }) {
 
   return (
     <div className="space-y-3">
-      <DetailRow label="Column" value={node.label} />
-      {dataType && <DetailRow label="Data Type" value={dataType} />}
-      {tableName && <DetailRow label="Table" value={tableName} />}
+      <DetailRow
+        label="Column"
+        value={node.label}
+      />
+      {dataType && (
+        <DetailRow
+          label="Data Type"
+          value={dataType}
+        />
+      )}
+      {tableName && (
+        <DetailRow
+          label="Table"
+          value={tableName}
+        />
+      )}
       {nullable != null && (
-        <DetailRow label="Nullable" value={nullable ? "Yes" : "No"} />
+        <DetailRow
+          label="Nullable"
+          value={nullable ? "Yes" : "No"}
+        />
       )}
     </div>
   );
@@ -229,13 +291,34 @@ function DbtModelDetails({ node }: { node: LineageNodeData }) {
 
   return (
     <div className="space-y-3">
-      <DetailRow label="Model" value={node.label} />
-      {schema && <DetailRow label="Schema" value={schema} />}
-      {uniqueId && <DetailRow label="Unique ID" value={uniqueId} />}
-      {materialization && (
-        <DetailRow label="Materialization" value={materialization} />
+      <DetailRow
+        label="Model"
+        value={node.label}
+      />
+      {schema && (
+        <DetailRow
+          label="Schema"
+          value={schema}
+        />
       )}
-      {description && <DetailRow label="Description" value={description} />}
+      {uniqueId && (
+        <DetailRow
+          label="Unique ID"
+          value={uniqueId}
+        />
+      )}
+      {materialization && (
+        <DetailRow
+          label="Materialization"
+          value={materialization}
+        />
+      )}
+      {description && (
+        <DetailRow
+          label="Description"
+          value={description}
+        />
+      )}
       {sourceTables && sourceTables.length > 0 && (
         <div>
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -243,7 +326,10 @@ function DbtModelDetails({ node }: { node: LineageNodeData }) {
           </span>
           <ul className="mt-0.5 space-y-0.5">
             {sourceTables.map((t) => (
-              <li key={t} className="text-sm text-zinc-700 dark:text-zinc-300">
+              <li
+                key={t}
+                className="text-sm text-zinc-700 dark:text-zinc-300"
+              >
                 {t}
               </li>
             ))}
@@ -260,8 +346,16 @@ function KpiDetails({ node }: { node: LineageNodeData }) {
 
   return (
     <div className="space-y-3">
-      <DetailRow label="KPI" value={node.label} />
-      {definition && <DetailRow label="Definition" value={definition} />}
+      <DetailRow
+        label="KPI"
+        value={node.label}
+      />
+      {definition && (
+        <DetailRow
+          label="Definition"
+          value={definition}
+        />
+      )}
       {formula && (
         <div>
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -309,14 +403,23 @@ function renderDetails(node: LineageNodeData) {
     default:
       return (
         <div className="space-y-3">
-          <DetailRow label="Name" value={node.label} />
-          <DetailRow label="Type" value={node.type} />
+          <DetailRow
+            label="Name"
+            value={node.label}
+          />
+          <DetailRow
+            label="Type"
+            value={node.type}
+          />
         </div>
       );
   }
 }
 
-export function NodeDetailPanel({ selectedNode, onClose }: NodeDetailPanelProps) {
+export function NodeDetailPanel({
+  selectedNode,
+  onClose,
+}: NodeDetailPanelProps) {
   return (
     <AnimatePresence>
       {selectedNode && (
@@ -326,7 +429,7 @@ export function NodeDetailPanel({ selectedNode, onClose }: NodeDetailPanelProps)
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 320, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="absolute right-0 top-0 z-50 h-full w-80 overflow-y-auto border-l border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute top-0 right-0 z-50 h-full w-80 overflow-y-auto border-l border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
@@ -346,17 +449,15 @@ export function NodeDetailPanel({ selectedNode, onClose }: NodeDetailPanelProps)
           </div>
 
           {/* Content */}
-          <div className="px-4 py-4">
-            {renderDetails(selectedNode)}
-          </div>
+          <div className="px-4 py-4">{renderDetails(selectedNode)}</div>
 
           {/* Canonical key footer */}
           {selectedNode.canonical_key && (
             <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
-              <span className="text-[10px] font-medium uppercase text-zinc-400">
+              <span className="text-[10px] font-medium text-zinc-400 uppercase">
                 Canonical Key
               </span>
-              <p className="mt-0.5 break-all text-xs text-zinc-500">
+              <p className="mt-0.5 text-xs break-all text-zinc-500">
                 {selectedNode.canonical_key}
               </p>
             </div>

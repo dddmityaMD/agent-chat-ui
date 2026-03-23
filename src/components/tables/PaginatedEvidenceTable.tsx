@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useMemo, useCallback, useState, useRef, useEffect } from "react";
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,10 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  EvidenceTable,
-  type EvidenceTableProps,
-} from "./EvidenceTable";
+import { EvidenceTable, type EvidenceTableProps } from "./EvidenceTable";
 import { useTablePagination, PAGE_SIZE } from "@/hooks/useTablePagination";
 import type { SortChangedEvent, ColDef, ColumnState } from "ag-grid-community";
 
@@ -63,20 +66,27 @@ export function PaginatedEvidenceTable({
 
   // Sort state - synced with AG Grid
   const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
+    null,
+  );
 
   // Column visibility toggle
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement>(null);
 
   // Track which columns the user has explicitly toggled (field -> visible)
-  const [columnOverrides, setColumnOverrides] = useState<Record<string, boolean>>({});
+  const [columnOverrides, setColumnOverrides] = useState<
+    Record<string, boolean>
+  >({});
 
   // Close menu on outside click
   useEffect(() => {
     if (!columnMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target as Node)) {
+      if (
+        columnMenuRef.current &&
+        !columnMenuRef.current.contains(e.target as Node)
+      ) {
         setColumnMenuOpen(false);
       }
     };
@@ -95,9 +105,12 @@ export function PaginatedEvidenceTable({
       }));
   }, [columnDefs]);
 
-  const toggleColumn = useCallback((field: string, currentlyVisible: boolean) => {
-    setColumnOverrides((prev) => ({ ...prev, [field]: !currentlyVisible }));
-  }, []);
+  const toggleColumn = useCallback(
+    (field: string, currentlyVisible: boolean) => {
+      setColumnOverrides((prev) => ({ ...prev, [field]: !currentlyVisible }));
+    },
+    [],
+  );
 
   // Apply sorting and pagination to data (client-side)
   const displayData = useMemo(() => {
@@ -151,21 +164,19 @@ export function PaginatedEvidenceTable({
       // Call parent handler if provided
       onSortChanged?.(event);
     },
-    [onSortChanged]
+    [onSortChanged],
   );
 
   // Transform columnDefs to include sort state and visibility overrides
   const sortedColumnDefs = useMemo(() => {
     return columnDefs.map((col: ColDef) => {
       const field = col.field as string;
-      const isHidden = field in columnOverrides
-        ? !columnOverrides[field]
-        : col.hide === true;
+      const isHidden =
+        field in columnOverrides ? !columnOverrides[field] : col.hide === true;
       return {
         ...col,
         hide: isHidden,
-        sort:
-          sortColumn === field ? sortDirection || undefined : undefined,
+        sort: sortColumn === field ? sortDirection || undefined : undefined,
       };
     });
   }, [columnDefs, sortColumn, sortDirection, columnOverrides]);
@@ -176,7 +187,7 @@ export function PaginatedEvidenceTable({
       setPage(newPage);
       onPageChange?.(newPage);
     },
-    [setPage, onPageChange]
+    [setPage, onPageChange],
   );
 
   // Generate page numbers to display
@@ -224,24 +235,28 @@ export function PaginatedEvidenceTable({
   const showPagination = totalItems > 0 && totalPages > 1;
 
   return (
-    <div className={cn("flex flex-col gap-4", className)} data-testid="paginated-table">
+    <div
+      className={cn("flex flex-col gap-4", className)}
+      data-testid="paginated-table"
+    >
       {/* Results count + column toggle */}
       <div className="flex items-center justify-between px-4">
-        <div className="text-sm text-muted-foreground" data-testid="results-count">
+        <div
+          className="text-muted-foreground text-sm"
+          data-testid="results-count"
+        >
           {totalItems > 0 ? (
             <>
               Showing{" "}
-              <span className="font-medium text-foreground">
+              <span className="text-foreground font-medium">
                 {sliceRange.start}
               </span>{" "}
               to{" "}
-              <span className="font-medium text-foreground">
+              <span className="text-foreground font-medium">
                 {sliceRange.end}
               </span>{" "}
               of{" "}
-              <span className="font-medium text-foreground">
-                {totalItems}
-              </span>{" "}
+              <span className="text-foreground font-medium">{totalItems}</span>{" "}
               results
             </>
           ) : (
@@ -251,7 +266,10 @@ export function PaginatedEvidenceTable({
 
         {/* Column visibility toggle */}
         {toggleableColumns.length > 0 && (
-          <div className="relative" ref={columnMenuRef}>
+          <div
+            className="relative"
+            ref={columnMenuRef}
+          >
             <Button
               variant="ghost"
               size="icon"
@@ -264,29 +282,32 @@ export function PaginatedEvidenceTable({
             </Button>
 
             {columnMenuOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border bg-popover p-2 shadow-md">
-                <div className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+              <div className="bg-popover absolute top-full right-0 z-50 mt-1 min-w-[180px] rounded-md border p-2 shadow-md">
+                <div className="text-muted-foreground mb-1 px-1 text-xs font-medium">
                   Columns
                 </div>
-                {toggleableColumns.map(({ field, headerName, defaultHidden }) => {
-                  const isVisible = field in columnOverrides
-                    ? columnOverrides[field]
-                    : !defaultHidden;
-                  return (
-                    <label
-                      key={field}
-                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isVisible}
-                        onChange={() => toggleColumn(field, isVisible)}
-                        className="rounded"
-                      />
-                      {headerName}
-                    </label>
-                  );
-                })}
+                {toggleableColumns.map(
+                  ({ field, headerName, defaultHidden }) => {
+                    const isVisible =
+                      field in columnOverrides
+                        ? columnOverrides[field]
+                        : !defaultHidden;
+                    return (
+                      <label
+                        key={field}
+                        className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isVisible}
+                          onChange={() => toggleColumn(field, isVisible)}
+                          className="rounded"
+                        />
+                        {headerName}
+                      </label>
+                    );
+                  },
+                )}
               </div>
             )}
           </div>
@@ -307,9 +328,9 @@ export function PaginatedEvidenceTable({
 
       {/* Pagination Controls */}
       {showPagination && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
+        <div className="flex flex-col items-center justify-between gap-4 border-t pt-2 sm:flex-row">
           {/* Page info - mobile only */}
-          <div className="text-sm text-muted-foreground sm:hidden">
+          <div className="text-muted-foreground text-sm sm:hidden">
             Page {page} of {totalPages}
           </div>
 
@@ -319,7 +340,7 @@ export function PaginatedEvidenceTable({
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 hidden sm:flex"
+              className="hidden h-8 w-8 sm:flex"
               onClick={goToFirst}
               disabled={!hasPrev}
               aria-label="Go to first page"
@@ -342,12 +363,12 @@ export function PaginatedEvidenceTable({
             </Button>
 
             {/* Page numbers - hidden on small screens */}
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden items-center gap-1 sm:flex">
               {pageNumbers.map((pageNum, index) =>
                 pageNum === "..." ? (
                   <span
                     key={`ellipsis-${index}`}
-                    className="px-2 text-muted-foreground"
+                    className="text-muted-foreground px-2"
                   >
                     ...
                   </span>
@@ -363,7 +384,7 @@ export function PaginatedEvidenceTable({
                   >
                     {pageNum}
                   </Button>
-                )
+                ),
               )}
             </div>
 
@@ -384,7 +405,7 @@ export function PaginatedEvidenceTable({
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 hidden sm:flex"
+              className="hidden h-8 w-8 sm:flex"
               onClick={goToLast}
               disabled={!hasNext}
               aria-label="Go to last page"
@@ -395,7 +416,7 @@ export function PaginatedEvidenceTable({
           </div>
 
           {/* Page info - desktop only */}
-          <div className="hidden sm:block text-sm text-muted-foreground">
+          <div className="text-muted-foreground hidden text-sm sm:block">
             Page {page} of {totalPages}
           </div>
         </div>

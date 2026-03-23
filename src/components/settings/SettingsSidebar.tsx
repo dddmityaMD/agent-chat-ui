@@ -28,7 +28,12 @@ const navItems: NavItem[] = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <ellipse
+          cx="12"
+          cy="5"
+          rx="9"
+          ry="3"
+        />
         <path d="M3 5V19A9 3 0 0 0 21 19V5" />
         <path d="M3 12A9 3 0 0 0 21 12" />
       </svg>
@@ -49,9 +54,27 @@ const navItems: NavItem[] = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <rect x="2" y="2" width="8" height="8" rx="1" />
-        <rect x="14" y="2" width="8" height="8" rx="1" />
-        <rect x="2" y="14" width="8" height="8" rx="1" />
+        <rect
+          x="2"
+          y="2"
+          width="8"
+          height="8"
+          rx="1"
+        />
+        <rect
+          x="14"
+          y="2"
+          width="8"
+          height="8"
+          rx="1"
+        />
+        <rect
+          x="2"
+          y="14"
+          width="8"
+          height="8"
+          rx="1"
+        />
         <path d="M14 14h8v8h-8z" />
       </svg>
     ),
@@ -71,8 +94,19 @@ const navItems: NavItem[] = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <rect x="4" y="4" width="16" height="16" rx="2" />
-        <rect x="9" y="9" width="6" height="6" />
+        <rect
+          x="4"
+          y="4"
+          width="16"
+          height="16"
+          rx="2"
+        />
+        <rect
+          x="9"
+          y="9"
+          width="6"
+          height="6"
+        />
         <path d="M15 2v2" />
         <path d="M15 20v2" />
         <path d="M2 15h2" />
@@ -99,7 +133,12 @@ const navItems: NavItem[] = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <line x1="12" y1="1" x2="12" y2="23" />
+        <line
+          x1="12"
+          y1="1"
+          x2="12"
+          y2="23"
+        />
         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
     ),
@@ -116,16 +155,14 @@ export function SettingsSidebar() {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
 
-  const visibleItems = navItems.filter(
-    (item) => !item.adminOnly || isAdmin,
-  );
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r border-border/40 bg-background">
+    <aside className="border-border/40 bg-background flex h-full w-60 flex-col border-r">
       <div className="flex items-center gap-2 px-4 py-4">
         <Link
           href="/"
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -145,7 +182,7 @@ export function SettingsSidebar() {
       </div>
 
       <div className="px-4 pb-3">
-        <h2 className="text-sm font-semibold text-foreground">Settings</h2>
+        <h2 className="text-foreground text-sm font-semibold">Settings</h2>
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2">
@@ -157,7 +194,7 @@ export function SettingsSidebar() {
               href={item.href}
               className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? "border-l-2 border-primary bg-primary/5 font-medium text-foreground"
+                  ? "border-primary bg-primary/5 text-foreground border-l-2 font-medium"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >

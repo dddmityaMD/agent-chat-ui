@@ -7,33 +7,65 @@
 
 import React from "react";
 
-function CommandRoot({ children, className, onKeyDown }: {
+function CommandRoot({
+  children,
+  className,
+  onKeyDown,
+}: {
   children: React.ReactNode;
   className?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void;
 }) {
   return (
-    <div data-testid="cmdk-root" className={className} onKeyDown={onKeyDown}>
+    <div
+      data-testid="cmdk-root"
+      className={className}
+      onKeyDown={onKeyDown}
+    >
       {children}
     </div>
   );
 }
 
-function CommandInput({ placeholder, className }: {
+function CommandInput({
+  placeholder,
+  className,
+}: {
   placeholder?: string;
   className?: string;
 }) {
-  return <input placeholder={placeholder} className={className} data-testid="cmdk-input" />;
+  return (
+    <input
+      placeholder={placeholder}
+      className={className}
+      data-testid="cmdk-input"
+    />
+  );
 }
 
-function CommandList({ children, className }: {
+function CommandList({
+  children,
+  className,
+}: {
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={className} data-testid="cmdk-list">{children}</div>;
+  return (
+    <div
+      className={className}
+      data-testid="cmdk-list"
+    >
+      {children}
+    </div>
+  );
 }
 
-function CommandItem({ children, onSelect, value, className }: {
+function CommandItem({
+  children,
+  onSelect,
+  value,
+  className,
+}: {
   children: React.ReactNode;
   onSelect?: () => void;
   value?: string;
@@ -52,24 +84,41 @@ function CommandItem({ children, onSelect, value, className }: {
   );
 }
 
-function CommandGroup({ children, heading, className }: {
+function CommandGroup({
+  children,
+  heading,
+  className,
+}: {
   children: React.ReactNode;
   heading?: string;
   className?: string;
 }) {
   return (
-    <div data-testid={`cmdk-group-${heading}`} className={className}>
+    <div
+      data-testid={`cmdk-group-${heading}`}
+      className={className}
+    >
       {heading && <div>{heading}</div>}
       {children}
     </div>
   );
 }
 
-function CommandEmpty({ children, className }: {
+function CommandEmpty({
+  children,
+  className,
+}: {
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={className} data-testid="cmdk-empty">{children}</div>;
+  return (
+    <div
+      className={className}
+      data-testid="cmdk-empty"
+    >
+      {children}
+    </div>
+  );
 }
 
 function CommandDialog({ children }: { children: React.ReactNode }) {

@@ -55,7 +55,9 @@ export interface MatchReasonCellProps {
 /**
  * Normalize backend snake_case to frontend camelCase
  */
-function normalizeMatchReason(data: MatchReasonRowData["match_reason"]): MatchReason | null {
+function normalizeMatchReason(
+  data: MatchReasonRowData["match_reason"],
+): MatchReason | null {
   if (!data) return null;
 
   return {
@@ -84,7 +86,10 @@ function SimpleMatchReasonCell({
   const showDebug = isDebugMode();
 
   return (
-    <span className="flex items-center gap-1.5" data-testid="match-reason-cell">
+    <span
+      className="flex items-center gap-1.5"
+      data-testid="match-reason-cell"
+    >
       {/* Main display value (usually relevance score) */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -100,7 +105,9 @@ function SimpleMatchReasonCell({
         <TooltipContent>
           {matchReason ? (
             <div className="max-w-xs">
-              <p className="font-medium">{matchReason.explanation || "Match details"}</p>
+              <p className="font-medium">
+                {matchReason.explanation || "Match details"}
+              </p>
               {matchReason.matchedTerms.length > 0 && (
                 <p className="text-xs">
                   Terms: {matchReason.matchedTerms.join(", ")}
@@ -151,7 +158,10 @@ function ExpandableMatchReasonCell({
   const showDebug = isDebugMode();
 
   return (
-    <div className="py-1" data-testid="match-reason-cell">
+    <div
+      className="py-1"
+      data-testid="match-reason-cell"
+    >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex w-full items-center justify-between text-left"
@@ -235,7 +245,9 @@ export function MatchReasonCell(
     displayValue = params.value != null ? String(params.value) : "N/A";
 
     // Check for expandable flag in colDef
-    const colDef = params.colDef as { cellRendererParams?: { expandable?: boolean } };
+    const colDef = params.colDef as {
+      cellRendererParams?: { expandable?: boolean };
+    };
     expandable = colDef?.cellRendererParams?.expandable ?? false;
   } else if ("matchReason" in params && params.matchReason) {
     // Direct props mode

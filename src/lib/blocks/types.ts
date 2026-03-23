@@ -31,7 +31,12 @@ export interface FlowSummaryBlockData extends BlockData {
   flow_type: string;
   stages_completed: number;
   stages_total: number;
-  stage_details?: Array<{ id: string; label: string; status: string; subtitle?: string }>;
+  stage_details?: Array<{
+    id: string;
+    label: string;
+    status: string;
+    subtitle?: string;
+  }>;
   duration_ms?: number;
 }
 
@@ -50,7 +55,10 @@ export interface AssumptionCardBlockData extends BlockData {
   }>;
   connector_type: string;
   rpabv_progress?: Record<string, unknown>;
-  decision?: Record<string, { action: "confirmed" | "overridden"; value?: string }>;
+  decision?: Record<
+    string,
+    { action: "confirmed" | "overridden"; value?: string }
+  >;
   decided_at?: string;
 }
 
@@ -104,13 +112,29 @@ export interface EntityCardBlockData extends BlockData {
 
 export interface FindingsCardBlockData extends BlockData {
   type: "findings_card";
-  root_cause?: { statement: string; confidence: number; evidence_ids: string[] };
-  key_observations: Array<{ statement: string; confidence: number; evidence_ids?: string[] }>;
-  recommended_fix?: { steps: string[]; risks: string[]; validation_steps: string[] };
+  root_cause?: {
+    statement: string;
+    confidence: number;
+    evidence_ids: string[];
+  };
+  key_observations: Array<{
+    statement: string;
+    confidence: number;
+    evidence_ids?: string[];
+  }>;
+  recommended_fix?: {
+    steps: string[];
+    risks: string[];
+    validation_steps: string[];
+  };
   rejected_hypotheses: Array<{ statement: string; reason: string }>;
   open_questions: Array<{ question: string; why_missing: string }>;
   next_tests: Array<{ test: string; why: string }>;
-  entity_context: Array<{ display_name: string; entity_type: string; uri: string }>;
+  entity_context: Array<{
+    display_name: string;
+    entity_type: string;
+    uri: string;
+  }>;
   source_flow?: string;
 }
 

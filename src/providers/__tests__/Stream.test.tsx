@@ -100,7 +100,9 @@ function StreamConsumer() {
   const stream = useStreamContext();
   return (
     <div>
-      <div data-testid="has-submit">{typeof stream.submit === "function" ? "yes" : "no"}</div>
+      <div data-testid="has-submit">
+        {typeof stream.submit === "function" ? "yes" : "no"}
+      </div>
       <div data-testid="is-loading">{stream.isLoading ? "true" : "false"}</div>
       <div data-testid="messages-count">{stream.messages.length}</div>
       <div data-testid="has-values">{stream.values ? "yes" : "no"}</div>

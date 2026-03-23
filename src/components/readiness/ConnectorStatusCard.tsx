@@ -349,7 +349,7 @@ export function ConnectorStatusCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white transition-all duration-200 cursor-pointer hover:bg-gray-50",
+        "cursor-pointer rounded-lg border bg-white transition-all duration-200 hover:bg-gray-50",
         hasError && "border-red-200 bg-red-50/30",
         className,
       )}
@@ -376,7 +376,9 @@ export function ConnectorStatusCard({
               href={`/settings/connectors?selected=${encodeURIComponent(connector.name)}`}
               onClick={(e) => {
                 e.stopPropagation();
-                router.push(`/settings/connectors?selected=${encodeURIComponent(connector.name)}`);
+                router.push(
+                  `/settings/connectors?selected=${encodeURIComponent(connector.name)}`,
+                );
                 e.preventDefault();
               }}
               className="truncate text-sm font-medium text-blue-600 underline hover:text-blue-800"
@@ -390,9 +392,7 @@ export function ConnectorStatusCard({
           {/* Compact metadata row: last tested, last synced, entity count */}
           <div className="flex items-center gap-3 text-xs text-gray-500">
             <span>Tested {formatLastFetch(connector.last_check_at)}</span>
-            <span>
-              Synced {formatLastFetch(connector.last_sync_at)}
-            </span>
+            <span>Synced {formatLastFetch(connector.last_sync_at)}</span>
             <span>
               {connector.entity_count != null
                 ? `${connector.entity_count} entities`
@@ -404,7 +404,7 @@ export function ConnectorStatusCard({
         {/* Expand/collapse indicator */}
         <div
           className={cn(
-            "text-gray-400 transition-transform duration-200 p-1",
+            "p-1 text-gray-400 transition-transform duration-200",
             isExpanded && "rotate-180",
           )}
           aria-expanded={isExpanded}
@@ -417,7 +417,7 @@ export function ConnectorStatusCard({
       {/* Expanded details */}
       {isExpanded && showDetails && (
         <div
-          className="border-t px-3 pb-3 pt-2"
+          className="border-t px-3 pt-2 pb-3"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Server URL */}
@@ -464,7 +464,10 @@ export function ConnectorStatusCard({
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="text-sm" data-testid="last-check">
+                  <div
+                    className="text-sm"
+                    data-testid="last-check"
+                  >
                     {formatLastFetch(connector.last_check_at)}
                   </div>
                 </TooltipTrigger>

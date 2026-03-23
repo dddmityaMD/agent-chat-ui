@@ -94,7 +94,7 @@ const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 
 export function useRefreshStream(
-  options: UseRefreshStreamOptions = {}
+  options: UseRefreshStreamOptions = {},
 ): UseRefreshStreamReturn {
   const {
     connectorId,
@@ -113,7 +113,8 @@ export function useRefreshStream(
   // State
   const [jobs, setJobs] = useState<RefreshJob[]>([]);
   const [summary, setSummary] = useState<RefreshStatusSummary | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("disconnected");
   const [error, setError] = useState<Error | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
@@ -136,7 +137,7 @@ export function useRefreshStream(
   const getReconnectDelay = useCallback(() => {
     const delay = Math.min(
       INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
-      MAX_RECONNECT_DELAY
+      MAX_RECONNECT_DELAY,
     );
     return delay;
   }, [reconnectAttempts]);
@@ -147,7 +148,7 @@ export function useRefreshStream(
       setConnectionState(state);
       onConnectionChange?.(state);
     },
-    [onConnectionChange]
+    [onConnectionChange],
   );
 
   // Handle a parsed SSE event
@@ -161,7 +162,7 @@ export function useRefreshStream(
             const jobUpdate = data as JobUpdateEvent;
             setJobs((prev) => {
               const existingIndex = prev.findIndex(
-                (j) => j.job_id === jobUpdate.data.job_id
+                (j) => j.job_id === jobUpdate.data.job_id,
               );
               if (existingIndex >= 0) {
                 const updated = [...prev];
@@ -185,9 +186,7 @@ export function useRefreshStream(
 
           case "error": {
             const errorEvent = data as ErrorEvent;
-            const err = new Error(
-              errorEvent.data.error || "Unknown SSE error"
-            );
+            const err = new Error(errorEvent.data.error || "Unknown SSE error");
             setError(err);
             onError?.(err);
             break;
@@ -197,7 +196,7 @@ export function useRefreshStream(
         console.error("Failed to parse SSE message:", e);
       }
     },
-    [onMessage, onJobUpdate, onStatusSummary, onError]
+    [onMessage, onJobUpdate, onStatusSummary, onError],
   );
 
   // Disconnect and cleanup
@@ -295,7 +294,7 @@ export function useRefreshStream(
           } else {
             updateConnectionState("error");
             const err = new Error(
-              `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
+              `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`,
             );
             setError(err);
             onError?.(err);

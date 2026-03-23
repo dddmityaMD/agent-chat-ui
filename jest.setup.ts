@@ -1,7 +1,7 @@
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Mock matchMedia
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: jest.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -22,7 +22,7 @@ class MockIntersectionObserver {
   unobserve = jest.fn();
 }
 
-Object.defineProperty(window, 'IntersectionObserver', {
+Object.defineProperty(window, "IntersectionObserver", {
   writable: true,
   value: MockIntersectionObserver,
 });
@@ -34,7 +34,7 @@ class MockResizeObserver {
   unobserve = jest.fn();
 }
 
-Object.defineProperty(window, 'ResizeObserver', {
+Object.defineProperty(window, "ResizeObserver", {
   writable: true,
   value: MockResizeObserver,
 });
@@ -54,10 +54,10 @@ class MockWebSocket {
   onerror: ((event: Event) => void) | null = null;
 
   constructor(url: string | URL) {
-    this.url = typeof url === 'string' ? url : url.toString();
+    this.url = typeof url === "string" ? url : url.toString();
     setTimeout(() => {
       this.readyState = 1;
-      this.onopen?.(new Event('open'));
+      this.onopen?.(new Event("open"));
     }, 0);
   }
 
@@ -67,7 +67,7 @@ class MockWebSocket {
 
   close(_code?: number, _reason?: string): void {
     this.readyState = 3;
-    this.onclose?.(new CloseEvent('close'));
+    this.onclose?.(new CloseEvent("close"));
   }
 }
 

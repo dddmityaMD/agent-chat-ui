@@ -8,9 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { type Message } from "@langchain/langgraph-sdk";
-import {
-  type UIMessage,
-} from "@langchain/langgraph-sdk/react-ui";
+import { type UIMessage } from "@langchain/langgraph-sdk/react-ui";
 import { useQueryState } from "nuqs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,16 +24,16 @@ import { useSaisStream, type UseSaisStreamResult } from "@/hooks/useSaisStream";
 import { ActiveRunsProvider } from "./ActiveRuns";
 import { SaisThreadClient } from "@/lib/sais-stream/thread-client";
 
-
 export type StateType = {
   messages: Message[];
   ui?: UIMessage[];
   // --- Streaming progress fields (populated by intermediate graph nodes) ---
   // These mirror backend AgentState fields and are available via stream.values
   // during streaming. Used by the thought process pane to show stage details.
-  resolved_entities?: Record<string, { name?: string; entity_type?: string; canonical_key?: string }>;
-  intent?: string;
-  intent_confidence?: number;
+  resolved_entities?: Record<
+    string,
+    { name?: string; entity_type?: string; canonical_key?: string }
+  >;
   active_methodology?: string;
   evidence_result?: {
     evidence?: Array<{ type?: string; title?: string }>;
@@ -133,7 +131,10 @@ const StreamSession = ({
           }
         })
         .catch((err) => {
-          console.error("Thread registration failed, setting threadId anyway:", err);
+          console.error(
+            "Thread registration failed, setting threadId anyway:",
+            err,
+          );
           if (threadIdRef.current === null || threadIdRef.current === id) {
             setThreadId(id);
           }
@@ -149,9 +150,14 @@ const StreamSession = ({
         return;
       }
       // Thread state lost after server restart (in-memory storage)
-      if (msg.includes("500") || msg.includes("404") || msg.includes("config")) {
+      if (
+        msg.includes("500") ||
+        msg.includes("404") ||
+        msg.includes("config")
+      ) {
         toast.error("Thread history unavailable", {
-          description: "This thread's state was lost after a server restart. Please start a new conversation.",
+          description:
+            "This thread's state was lost after a server restart. Please start a new conversation.",
           duration: 8000,
           richColors: true,
           closeButton: true,
@@ -169,7 +175,8 @@ const StreamSession = ({
           description: () => (
             <p>
               Please ensure the server is running at <code>{apiUrl}</code> and
-              your API key is correctly set (if connecting to a deployed instance).
+              your API key is correctly set (if connecting to a deployed
+              instance).
             </p>
           ),
           duration: 10000,

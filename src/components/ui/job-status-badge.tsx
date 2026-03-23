@@ -7,7 +7,7 @@ import type { RefreshJob, RefreshJobStatus } from "@/hooks/use-refresh-stream";
 // Format relative time (e.g., "2m ago", "3h ago", "1d ago")
 function formatRelativeTime(dateString: string | undefined): string {
   if (!dateString) return "never";
-  
+
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -15,7 +15,7 @@ function formatRelativeTime(dateString: string | undefined): string {
   const diffMins = Math.floor(diffSecs / 60);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
-  
+
   if (diffSecs < 60) return "just now";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
@@ -91,44 +91,45 @@ export function JobStatusBadge({
   onRetry,
 }: JobStatusBadgeProps) {
   const timeString = formatRelativeTime(
-    job.completed_at || job.started_at || job.created_at
+    job.completed_at || job.started_at || job.created_at,
   );
   const fullTime = new Date(
-    job.completed_at || job.started_at || job.created_at || Date.now()
+    job.completed_at || job.started_at || job.created_at || Date.now(),
   ).toLocaleString();
-  
+
   const canRetry = job.status === "failed" && onRetry;
-  const showAttempts = showRetryCount && (job.attempts > 1 || job.status === "failed");
-  
+  const showAttempts =
+    showRetryCount && (job.attempts > 1 || job.status === "failed");
+
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm",
+        "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
         getStatusColor(job.status),
-        className
+        className,
       )}
       title={`${getStatusLabel(job.status)} at ${fullTime}`}
       data-testid={`job-status-badge-${job.job_id}`}
     >
       {/* Status dot */}
       <span
-        className={cn("w-2 h-2 rounded-full", getStatusDotColor(job.status))}
+        className={cn("h-2 w-2 rounded-full", getStatusDotColor(job.status))}
         data-testid="status-dot"
       />
-      
+
       {/* Status label */}
       <span className="font-medium">{getStatusLabel(job.status)}</span>
-      
+
       {/* Relative time */}
       <span className="text-xs opacity-70">{timeString}</span>
-      
+
       {/* Retry count for failed jobs */}
       {showAttempts && (
         <span className="text-xs opacity-70">
           ({job.attempts}/{job.max_attempts})
         </span>
       )}
-      
+
       {/* Retry button for failed jobs */}
       {canRetry && (
         <button
@@ -136,7 +137,7 @@ export function JobStatusBadge({
             e.stopPropagation();
             onRetry(job.job_id);
           }}
-          className="ml-1 px-2 py-0.5 text-xs bg-white/50 hover:bg-white/80 rounded transition-colors"
+          className="ml-1 rounded bg-white/50 px-2 py-0.5 text-xs transition-colors hover:bg-white/80"
           data-testid="retry-button"
         >
           Retry
@@ -156,9 +157,9 @@ export function JobStatusDot({ status, className }: JobStatusDotProps) {
   return (
     <span
       className={cn(
-        "w-2.5 h-2.5 rounded-full",
+        "h-2.5 w-2.5 rounded-full",
         getStatusDotColor(status),
-        className
+        className,
       )}
       title={getStatusLabel(status)}
       data-testid="job-status-dot"

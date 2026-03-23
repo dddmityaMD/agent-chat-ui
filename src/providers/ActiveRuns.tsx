@@ -39,7 +39,9 @@ interface ActiveRunsContextValue {
   activeThreadIds: Set<string>;
 }
 
-const ActiveRunsContext = createContext<ActiveRunsContextValue | undefined>(undefined);
+const ActiveRunsContext = createContext<ActiveRunsContextValue | undefined>(
+  undefined,
+);
 
 // Terminal run statuses — if the server reports one of these, the run is done.
 const TERMINAL_STATUSES = new Set(["success", "error", "timeout"]);
@@ -63,7 +65,9 @@ export function ActiveRunsProvider({
 }) {
   // Map<threadId, ActiveRun> — mutable ref for polling, state copy for renders
   const runsRef = useRef<Map<string, ActiveRun>>(new Map());
-  const [activeThreadIds, setActiveThreadIds] = useState<Set<string>>(new Set());
+  const [activeThreadIds, setActiveThreadIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Keep currentThreadId in a ref so polling callback sees latest value
   const currentThreadIdRef = useRef(currentThreadId);
@@ -93,9 +97,12 @@ export function ActiveRunsProvider({
     [syncState],
   );
 
-  const getActiveRun = useCallback((threadId: string): ActiveRun | undefined => {
-    return runsRef.current.get(threadId);
-  }, []);
+  const getActiveRun = useCallback(
+    (threadId: string): ActiveRun | undefined => {
+      return runsRef.current.get(threadId);
+    },
+    [],
+  );
 
   // --- Polling loop for background (non-current) runs ---
   useEffect(() => {

@@ -28,11 +28,7 @@ const RPABV_STAGES = [
   { key: "verify", letter: "V", label: "Verify" },
 ] as const;
 
-function RPABVStepper({
-  progress,
-}: {
-  progress: Record<string, unknown>;
-}) {
+function RPABVStepper({ progress }: { progress: Record<string, unknown> }) {
   const stage = progress.stage as string | undefined;
   const currentIdx = RPABV_STAGES.findIndex((s) => s.key === stage);
   const stepIndex = progress.step_index as number | null | undefined;
@@ -46,7 +42,10 @@ function RPABVStepper({
           const isCompleted = idx < currentIdx;
 
           return (
-            <div key={s.key} className="flex items-center gap-1.5">
+            <div
+              key={s.key}
+              className="flex items-center gap-1.5"
+            >
               {idx > 0 && (
                 <div
                   className={`h-0.5 w-3 ${
@@ -122,18 +121,18 @@ function ArtifactIcon({ type }: { type: string }) {
     case "schema_discovered":
     case "schema":
     case "sources":
-      return <Database className="h-3.5 w-3.5 text-blue-500 shrink-0" />;
+      return <Database className="h-3.5 w-3.5 shrink-0 text-blue-500" />;
     case "existing_models":
     case "conventions":
     case "source_code":
-      return <FileCode className="h-3.5 w-3.5 text-purple-500 shrink-0" />;
+      return <FileCode className="h-3.5 w-3.5 shrink-0 text-purple-500" />;
     case "verification_result":
     case "verification_method":
     case "dbt_run_output":
     case "test_results":
-      return <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />;
+      return <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-500" />;
     default:
-      return <Info className="h-3.5 w-3.5 text-gray-500 shrink-0" />;
+      return <Info className="h-3.5 w-3.5 shrink-0 text-gray-500" />;
   }
 }
 
@@ -143,7 +142,7 @@ function ArtifactSection({ artifacts }: { artifacts: ArtifactData[] }) {
   return (
     <div className="mb-3">
       <details open>
-        <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 select-none">
+        <summary className="mb-2 cursor-pointer text-xs font-medium text-gray-600 select-none dark:text-gray-400">
           Artifacts ({artifacts.length})
         </summary>
         <div className="space-y-2">
@@ -158,19 +157,22 @@ function ArtifactSection({ artifacts }: { artifacts: ArtifactData[] }) {
                   {artifact.label}
                 </p>
                 {artifact.summary && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {artifact.summary}
                   </p>
                 )}
                 {artifact.items && artifact.items.length > 0 && (
                   <details className="mt-1">
-                    <summary className="cursor-pointer text-xs text-blue-600 dark:text-blue-400 select-none">
+                    <summary className="cursor-pointer text-xs text-blue-600 select-none dark:text-blue-400">
                       {artifact.items.length} item
                       {artifact.items.length !== 1 ? "s" : ""}
                     </summary>
                     <ul className="mt-1 space-y-0.5 pl-2 text-xs text-gray-600 dark:text-gray-400">
                       {artifact.items.map((item, itemIdx) => (
-                        <li key={itemIdx} className="truncate">
+                        <li
+                          key={itemIdx}
+                          className="truncate"
+                        >
                           {formatArtifactItem(item)}
                         </li>
                       ))}
@@ -306,7 +308,7 @@ function SandboxPreview({ artifacts }: { artifacts: SandboxArtifacts }) {
           <div className="space-y-2">
             {artifacts.generated_code.map((item, idx) => (
               <div key={idx}>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="mb-1 flex items-center gap-2">
                   <FileCode className="h-3.5 w-3.5 text-purple-500" />
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                     {item.filename}
@@ -331,7 +333,10 @@ function SandboxPreview({ artifacts }: { artifacts: SandboxArtifacts }) {
             </p>
             <div className="space-y-0.5">
               {artifacts.lint_results.map((result, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-xs">
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 text-xs"
+                >
                   {result.passed ? (
                     <CheckCircle className="h-3 w-3 shrink-0 text-green-500" />
                   ) : (
@@ -411,19 +416,20 @@ export function InterruptCardBlock({
       {artifacts.length > 0 && <ArtifactSection artifacts={artifacts} />}
 
       {/* Sandbox preview (render_mode-driven, no connector_type branching) */}
-      {cardType === "sandbox_approval" && (() => {
-        // Sandbox data can be in block-level fields (via BlockData index signature)
-        // or inside the first artifacts array item
-        const blockAny = data as Record<string, unknown>;
-        const sandboxData: SandboxArtifacts = blockAny.sandbox_render_mode
-          ? (blockAny as unknown as SandboxArtifacts)
-          : artifacts.length > 0
-            ? (artifacts[0] as unknown as SandboxArtifacts)
-            : {};
-        return sandboxData.sandbox_render_mode ? (
-          <SandboxPreview artifacts={sandboxData} />
-        ) : null;
-      })()}
+      {cardType === "sandbox_approval" &&
+        (() => {
+          // Sandbox data can be in block-level fields (via BlockData index signature)
+          // or inside the first artifacts array item
+          const blockAny = data as Record<string, unknown>;
+          const sandboxData: SandboxArtifacts = blockAny.sandbox_render_mode
+            ? (blockAny as unknown as SandboxArtifacts)
+            : artifacts.length > 0
+              ? (artifacts[0] as unknown as SandboxArtifacts)
+              : {};
+          return sandboxData.sandbox_render_mode ? (
+            <SandboxPreview artifacts={sandboxData} />
+          ) : null;
+        })()}
 
       {/* Card message as markdown */}
       {data.message && (
@@ -499,7 +505,7 @@ export function InterruptCardBlock({
 
       {/* Resolved state: decision badge */}
       {!isActive && data.decision && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground mt-3 flex items-center gap-2 text-sm">
           {data.decision === "approved" ? (
             <div className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -516,9 +522,7 @@ export function InterruptCardBlock({
               {new Date(data.decided_at).toLocaleTimeString()}
             </span>
           )}
-          {data.feedback && (
-            <p className="text-xs italic">{data.feedback}</p>
-          )}
+          {data.feedback && <p className="text-xs italic">{data.feedback}</p>}
         </div>
       )}
     </div>

@@ -1,9 +1,12 @@
-'use client';
+"use client";
 
-import { Search, Database, BarChart3, GitBranch, Check } from 'lucide-react';
-import type { PendingDisambiguation, DisambiguationCandidate } from '@/lib/types';
-import type { Message } from '@langchain/langgraph-sdk';
-import { cn } from '@/lib/utils';
+import { Search, Database, BarChart3, GitBranch, Check } from "lucide-react";
+import type {
+  PendingDisambiguation,
+  DisambiguationCandidate,
+} from "@/lib/types";
+import type { Message } from "@langchain/langgraph-sdk";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Selection detection
@@ -30,16 +33,16 @@ export function detectSelection(
   // Check for entity_selection content block (most reliable)
   if (Array.isArray(content)) {
     const entityBlock = content.find(
-      (c: Record<string, unknown>) => c.type === 'entity_selection',
+      (c: Record<string, unknown>) => c.type === "entity_selection",
     ) as { node_id?: string } | undefined;
     if (entityBlock?.node_id) return entityBlock.node_id;
 
     // Check text for skip
     const textBlocks = content
-      .filter((c: Record<string, unknown>) => c.type === 'text')
-      .map((c: Record<string, unknown>) => (c as { text: string }).text || '');
-    const text = textBlocks.join(' ').toLowerCase();
-    if (text.includes('none of these') || text.includes('skip')) return 'skip';
+      .filter((c: Record<string, unknown>) => c.type === "text")
+      .map((c: Record<string, unknown>) => (c as { text: string }).text || "");
+    const text = textBlocks.join(" ").toLowerCase();
+    if (text.includes("none of these") || text.includes("skip")) return "skip";
 
     // Try to match text against candidate names
     for (const candidate of candidates) {
@@ -47,9 +50,9 @@ export function detectSelection(
         return candidate.node_id;
       }
     }
-  } else if (typeof content === 'string') {
+  } else if (typeof content === "string") {
     const text = content.toLowerCase();
-    if (text.includes('none of these') || text.includes('skip')) return 'skip';
+    if (text.includes("none of these") || text.includes("skip")) return "skip";
     for (const candidate of candidates) {
       if (text.includes(candidate.name.toLowerCase())) {
         return candidate.node_id;
@@ -66,23 +69,28 @@ export function detectSelection(
 
 function getTypeBadgeClass(entityType: string): string {
   const et = entityType.toLowerCase();
-  if (et.includes('table') || et.includes('column')) {
-    return 'bg-emerald-100/60 text-emerald-700/70 dark:bg-emerald-900/40 dark:text-emerald-300/70';
+  if (et.includes("table") || et.includes("column")) {
+    return "bg-emerald-100/60 text-emerald-700/70 dark:bg-emerald-900/40 dark:text-emerald-300/70";
   }
-  if (et.includes('report') || et.includes('card') || et.includes('dashboard')) {
-    return 'bg-blue-100/60 text-blue-700/70 dark:bg-blue-900/40 dark:text-blue-300/70';
+  if (
+    et.includes("report") ||
+    et.includes("card") ||
+    et.includes("dashboard")
+  ) {
+    return "bg-blue-100/60 text-blue-700/70 dark:bg-blue-900/40 dark:text-blue-300/70";
   }
-  if (et.includes('dbt')) {
-    return 'bg-orange-100/60 text-orange-700/70 dark:bg-orange-900/40 dark:text-orange-300/70';
+  if (et.includes("dbt")) {
+    return "bg-orange-100/60 text-orange-700/70 dark:bg-orange-900/40 dark:text-orange-300/70";
   }
-  return 'bg-gray-100/60 text-gray-700/70 dark:bg-gray-800/40 dark:text-gray-300/70';
+  return "bg-gray-100/60 text-gray-700/70 dark:bg-gray-800/40 dark:text-gray-300/70";
 }
 
 function getIconForType(entityType: string): typeof Search {
   const et = entityType.toLowerCase();
-  if (et.includes('table') || et.includes('column')) return Database;
-  if (et.includes('report') || et.includes('card') || et.includes('dashboard')) return BarChart3;
-  if (et.includes('dbt')) return GitBranch;
+  if (et.includes("table") || et.includes("column")) return Database;
+  if (et.includes("report") || et.includes("card") || et.includes("dashboard"))
+    return BarChart3;
+  if (et.includes("dbt")) return GitBranch;
   return Search;
 }
 
@@ -111,7 +119,7 @@ export function HistoricalDisambiguationCard({
 }: HistoricalDisambiguationCardProps) {
   const candidates = payload.candidates.slice(0, 4);
   const selectedNodeId = detectSelection(candidates, nextHumanMessage);
-  const wasSkipped = selectedNodeId === 'skip';
+  const wasSkipped = selectedNodeId === "skip";
 
   return (
     <div
@@ -121,7 +129,7 @@ export function HistoricalDisambiguationCard({
       <p className="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
         {payload.mention
           ? `Multiple matches found for "${payload.mention}"`
-          : 'Multiple matches found'}
+          : "Multiple matches found"}
       </p>
 
       <div className="space-y-2">
@@ -134,23 +142,23 @@ export function HistoricalDisambiguationCard({
             <div
               key={candidate.node_id || `candidate-${idx}`}
               className={cn(
-                'rounded-md border p-3 transition-colors',
+                "rounded-md border p-3 transition-colors",
                 isSelected
-                  ? 'border-emerald-300 bg-emerald-50/80 dark:border-emerald-700 dark:bg-emerald-950/40'
-                  : 'border-gray-200 bg-white/50 dark:border-gray-700 dark:bg-gray-800/30',
+                  ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-700 dark:bg-emerald-950/40"
+                  : "border-gray-200 bg-white/50 dark:border-gray-700 dark:bg-gray-800/30",
               )}
               data-testid="historical-disambiguation-candidate"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <Icon className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                     <span
                       className={cn(
-                        'font-medium',
+                        "font-medium",
                         isSelected
-                          ? 'text-emerald-800 dark:text-emerald-200'
-                          : 'text-gray-500 dark:text-gray-400',
+                          ? "text-emerald-800 dark:text-emerald-200"
+                          : "text-gray-500 dark:text-gray-400",
                       )}
                     >
                       {candidate.name}
@@ -169,7 +177,7 @@ export function HistoricalDisambiguationCard({
                 </div>
                 <div className="flex items-center gap-2">
                   {candidate.similarity > 0 && (
-                    <span className="whitespace-nowrap text-xs text-gray-400/70 dark:text-gray-500/70">
+                    <span className="text-xs whitespace-nowrap text-gray-400/70 dark:text-gray-500/70">
                       {(candidate.similarity * 100).toFixed(0)}%
                     </span>
                   )}

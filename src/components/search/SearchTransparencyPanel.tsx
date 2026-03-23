@@ -80,7 +80,10 @@ function ResultRow({
       </div>
       {isExpanded && (
         <div className="bg-muted/30 px-2 pb-2">
-          <MatchReasonDisplay matchReason={result.matchReason} variant="detailed" />
+          <MatchReasonDisplay
+            matchReason={result.matchReason}
+            variant="detailed"
+          />
         </div>
       )}
     </div>
@@ -169,9 +172,8 @@ export function SearchTransparencyPanel({
         <div className="flex items-center gap-2">
           <Search className="text-muted-foreground h-4 w-4" />
           <span className="text-sm">
-            Found{" "}
-            <span className="font-medium">{results.length}</span>{" "}
-            result{results.length !== 1 ? "s" : ""} for{" "}
+            Found <span className="font-medium">{results.length}</span> result
+            {results.length !== 1 ? "s" : ""} for{" "}
             <span className="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">
               {query}
             </span>
