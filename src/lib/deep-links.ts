@@ -1,8 +1,18 @@
 /**
- * Deep link URL generation utilities for source systems.
+ * Deep link URL generation and metadata for source systems.
  *
- * Generates URLs for Metabase, dbt docs, and Git repositories.
+ * This is the single source of truth for deep-link type metadata:
+ * detection, icon, label, and URL generation. Frontend components
+ * should import from here rather than maintaining their own mappings.
  */
+
+import {
+  BarChart2,
+  Layers,
+  GitBranchIcon,
+  ExternalLink,
+  type LucideIcon,
+} from "lucide-react";
 
 /**
  * Types of deep links supported by the system
@@ -152,30 +162,88 @@ export function generateGitUrl(
   return `${normalizedBase}/blob/${branch}/${filePath || ""}`;
 }
 
+// ---------------------------------------------------------------------------
+// Deep-link registry — single source of truth for type metadata
+// ---------------------------------------------------------------------------
+
+interface DeepLinkEntry {
+  /** Lucide icon component for this deep-link type. */
+  icon: LucideIcon;
+  /** Human-readable label (e.g. "Metabase Card", "dbt Model"). */
+  label: string;
+}
+
+const DEEP_LINK_REGISTRY: Record<DeepLinkType, DeepLinkEntry> = {
+  metabase_card: { icon: BarChart2, label: "Metabase Card" },
+  metabase_dashboard: { icon: BarChart2, label: "Metabase Dashboard" },
+  dbt_model: { icon: Layers, label: "dbt Model" },
+  dbt_source: { icon: Layers, label: "dbt Source" },
+  dbt_test: { icon: Layers, label: "dbt Test" },
+  dbt_docs: { icon: Layers, label: "dbt Docs" },
+  git_commit: { icon: GitBranchIcon, label: "Git Commit" },
+  git_file: { icon: GitBranchIcon, label: "Git File" },
+};
+
 /**
- * Get the icon name for a deep link type.
- * Used by UI components to render appropriate icons.
- *
- * @param type - The deep link type
- * @returns Icon identifier string
+ * Get the Lucide icon component for a deep link type.
  */
-export function getDeepLinkIcon(type: DeepLinkType): string {
-  switch (type) {
-    case "metabase_card":
-      return "BarChart3";
-    case "metabase_dashboard":
-      return "LayoutDashboard";
-    case "dbt_model":
-    case "dbt_source":
-    case "dbt_test":
-    case "dbt_docs":
-      return "FileCode";
-    case "git_commit":
-    case "git_file":
-      return "GitBranch";
-    default:
-      return "ExternalLink";
+export function getDeepLinkIcon(type: DeepLinkType): LucideIcon {
+  return DEEP_LINK_REGISTRY[type]?.icon ?? ExternalLink;
+}
+
+/**
+ * Get human-readable label for a deep link type.
+ */
+export function getDeepLinkLabel(type: DeepLinkType): string {
+  return DEEP_LINK_REGISTRY[type]?.label ?? type;
+}
+
+/**
+ * Detect deep-link from an evidence item.
+ * Consolidates detection logic so evidence-viewer doesn't need inline switches.
+ *
+ * @returns Deep-link info or null if no link applicable.
+ */
+export function detectDeepLink(
+  evidence: { type: string; payload?: Record<string, any> },
+): { type: DeepLinkType; id: string | number; url: string } | null {
+  const payload = evidence.payload;
+
+  // API_RESPONSE with card_id -> Metabase card
+  if (evidence.type === "API_RESPONSE" && payload?.card_id) {
+    const url = generateDeepLinkUrl("metabase_card", String(payload.card_id));
+    return url ? { type: "metabase_card", id: payload.card_id, url } : null;
   }
+
+  // GIT_DIFF -> Git commit (parse SHA from oneline log)
+  if (evidence.type === "GIT_DIFF") {
+    const commit =
+      payload?.commit ||
+      (typeof payload?.log === "string"
+        ? payload.log.match(/^([a-f0-9]{7,40})\s/m)?.[1]
+        : null);
+    if (commit) {
+      const url = generateDeepLinkUrl("git_commit", commit);
+      return url ? { type: "git_commit", id: commit, url } : null;
+    }
+  }
+
+  // DBT_ARTIFACT -> dbt model docs
+  if (evidence.type === "DBT_ARTIFACT") {
+    const modelName =
+      payload?.model_name ||
+      payload?.manifest_summary?.models?.[0]?.name ||
+      payload?.run_summary?.results?.[0]?.unique_id?.replace(
+        /^model\..*?\./,
+        "",
+      );
+    if (modelName) {
+      const url = generateDeepLinkUrl("dbt_model", modelName);
+      return url ? { type: "dbt_model", id: modelName, url } : null;
+    }
+  }
+
+  return null;
 }
 
 /**
