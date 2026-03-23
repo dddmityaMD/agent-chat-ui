@@ -5,7 +5,7 @@
  *
  * Shows selected entity highlighted (green border/background),
  * alternative candidates with similarity scores, entity type badges
- * (metabase.card, dbt.model, warehouse.table, etc.), and canonical keys
+ * with deterministic namespace-derived colors, and canonical keys
  * in monospace.
  */
 
@@ -26,17 +26,28 @@ interface EntityCandidatesProps {
   resolvedEntities: Record<string, unknown>;
 }
 
-/** Map entity types to badge colors. */
-const TYPE_COLORS: Record<string, string> = {
-  "dbt.model": "bg-orange-100 text-orange-800",
-  "metabase.card": "bg-blue-100 text-blue-800",
-  "warehouse.table": "bg-emerald-100 text-emerald-800",
-  "warehouse.column": "bg-teal-100 text-teal-800",
-  "metabase.dashboard": "bg-indigo-100 text-indigo-800",
-};
+/** Deterministic badge color from entity type namespace. */
+function getTypeBadgeColor(type: string): string {
+  const namespace = type.split(".")[0] || type;
+  const palette = [
+    "bg-blue-100 text-blue-800",
+    "bg-orange-100 text-orange-800",
+    "bg-emerald-100 text-emerald-800",
+    "bg-indigo-100 text-indigo-800",
+    "bg-teal-100 text-teal-800",
+    "bg-purple-100 text-purple-800",
+    "bg-rose-100 text-rose-800",
+    "bg-amber-100 text-amber-800",
+  ];
+  let hash = 0;
+  for (let i = 0; i < namespace.length; i++) {
+    hash = ((hash << 5) - hash + namespace.charCodeAt(i)) | 0;
+  }
+  return palette[Math.abs(hash) % palette.length];
+}
 
 function TypeBadge({ type }: { type: string }) {
-  const color = TYPE_COLORS[type] || "bg-gray-100 text-gray-700";
+  const color = getTypeBadgeColor(type);
   return (
     <span
       className={cn(
