@@ -26,7 +26,6 @@ import {
 } from "../disambiguation-card";
 import { BuildPlanDisplay } from "./build-plan";
 import { VerificationBadge } from "./verification-badge";
-import { ViewInLineageButton } from "@/components/lineage-link";
 import { ThoughtProcessPane } from "@/components/thread/thought-process-pane";
 import { getBlockRenderer } from "@/lib/blocks/registry";
 import { getApiBaseUrl } from "@/lib/api-url";
@@ -318,8 +317,7 @@ export function LastMessageDecorations({
             content={contentString}
           />
 
-          {/* Lineage deep-link button */}
-          <ViewInLineageButton entities={saisUiData.groundedEntities} />
+          {/* Lineage link removed — lineage is accessible via "View lineage" in panel entities */}
 
           {/* Build plan display */}
           {buildPlan && buildPlanStatus === "proposed" && (

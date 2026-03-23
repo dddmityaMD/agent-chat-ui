@@ -119,6 +119,10 @@ export default function LineageGraph(props: LineageGraphProps) {
   useEffect(() => {
     let cancelled = false;
     async function loadStats() {
+      if (!props.rootNodeId) {
+        setStats({ nodes: 0, edges: 0, loading: false, error: null });
+        return;
+      }
       try {
         const data = await fetchLineageGraph(props.rootNodeId);
         if (cancelled) return;

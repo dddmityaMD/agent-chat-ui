@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Expand, X, Network } from "lucide-react";
+import { Expand, Maximize2, Minimize2, X, Network } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { useBlockStore } from "@/stores/block-store";
@@ -70,6 +70,7 @@ export function BlockPanel({
 }: BlockPanelProps) {
   const blocks = useBlockStore(selectBlocks);
   const [lineageEntityKey, setLineageEntityKey] = useState<string | null>(null);
+  const [lineageFullscreen, setLineageFullscreen] = useState(false);
 
   const handleLineageOpen = useCallback((entityKey: string) => {
     setLineageEntityKey(entityKey);
@@ -77,6 +78,11 @@ export function BlockPanel({
 
   const handleLineageClose = useCallback(() => {
     setLineageEntityKey(null);
+    setLineageFullscreen(false);
+  }, []);
+
+  const toggleLineageFullscreen = useCallback(() => {
+    setLineageFullscreen((v) => !v);
   }, []);
 
   // Derive sorted list + split into current/earlier turns (stable while blocks ref unchanged)
@@ -175,7 +181,7 @@ export function BlockPanel({
       </div>
 
       {/* Inline lineage section — bottom half of panel */}
-      {lineageEntityKey && (
+      {lineageEntityKey && !lineageFullscreen && (
         <div className="flex flex-col border-t border-border" style={{ height: "50%" }}>
           <div className="flex items-center justify-between px-3 py-1.5 bg-muted/30">
             <div className="flex items-center gap-1.5">
@@ -184,19 +190,64 @@ export function BlockPanel({
                 Lineage
               </span>
             </div>
-            <button
-              onClick={handleLineageClose}
-              className="p-0.5 rounded hover:bg-muted transition-colors"
-              title="Close lineage"
-            >
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleLineageFullscreen}
+                className="p-0.5 rounded hover:bg-muted transition-colors"
+                title="Expand lineage"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <button
+                onClick={handleLineageClose}
+                className="p-0.5 rounded hover:bg-muted transition-colors"
+                title="Close lineage"
+              >
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
           </div>
           <div className="flex-1 min-h-0">
             <ReactFlowProvider>
               <LineageGraphInner
                 rootNodeId={lineageEntityKey}
                 className="h-full w-full"
+              />
+            </ReactFlowProvider>
+          </div>
+        </div>
+      )}
+      {lineageEntityKey && lineageFullscreen && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Network className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Lineage</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleLineageFullscreen}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Exit fullscreen"
+              >
+                <Minimize2 className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                onClick={handleLineageClose}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Close lineage"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <ReactFlowProvider>
+              <LineageGraphInner
+                rootNodeId={lineageEntityKey}
+                className="h-full w-full"
+                isFullscreen
+                onToggleFullscreen={toggleLineageFullscreen}
               />
             </ReactFlowProvider>
           </div>

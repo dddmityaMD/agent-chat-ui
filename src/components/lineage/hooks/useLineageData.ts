@@ -48,8 +48,15 @@ export function useLineageData(
       setLoading(true);
       setError(null);
 
+      if (!nodeId) {
+        // Never fetch the full unfiltered graph — always require a root node
+        setNodes([]);
+        setEdges([]);
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Always fetch full graph -- direction filtering is done client-side
         const data = await fetchLineageGraph(nodeId);
         if (cancelled) return;
 
