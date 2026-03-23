@@ -231,15 +231,16 @@ export function hydrateThreadSummary(
   if (!hasTool) return;
 
   // Extract entities from resolved_entities in stream values
-  const entities: Array<{ name: string; type: string }> = [];
+  const entities: Array<{ name: string; type: string; canonical_key?: string }> = [];
   if (streamValues) {
-    const resolved = streamValues.resolved_entities as Record<string, { name?: string; type?: string }> | undefined;
+    const resolved = streamValues.resolved_entities as Record<string, Record<string, unknown>> | undefined;
     if (resolved && typeof resolved === "object") {
       for (const [key, val] of Object.entries(resolved)) {
         if (val && typeof val === "object") {
           entities.push({
-            name: val.name ?? key,
-            type: val.type ?? "unknown",
+            name: (val.name as string) ?? key,
+            type: (val.entity_type as string) ?? (val.type as string) ?? "unknown",
+            canonical_key: (val.canonical_key as string) ?? undefined,
           });
         }
       }

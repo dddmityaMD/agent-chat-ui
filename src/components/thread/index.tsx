@@ -656,7 +656,7 @@ export function Thread() {
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
-                  tooltip={casePanelOpen ? "Hide workspace" : "Show workspace"}
+                  tooltip={casePanelOpen ? "Hide context panel" : "Show context panel"}
                   variant="ghost"
                   onClick={() => setCasePanelOpen((p) => !p)}
                 >

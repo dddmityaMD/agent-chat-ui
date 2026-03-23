@@ -78,9 +78,15 @@ export function ThreadSummaryBlock({ block, state }: ThreadSummaryBlockProps) {
                   <span
                     key={`${e.type}-${e.name}`}
                     className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px]"
+                    title={(e as Record<string, unknown>).canonical_key as string | undefined}
                   >
                     <span className="text-muted-foreground">{e.type}</span>
                     <span className="font-medium">{e.name}</span>
+                    {typeof (e as Record<string, unknown>).canonical_key === "string" && (
+                      <span className="text-muted-foreground/50 text-[9px]">
+                        {(e as Record<string, unknown>).canonical_key as string}
+                      </span>
+                    )}
                   </span>
                 ))}
               </div>

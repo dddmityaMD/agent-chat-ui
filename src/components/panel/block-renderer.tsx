@@ -34,6 +34,7 @@ interface BlockRendererProps {
   block: PanelBlock;
   onAction?: (actionType: string, payload: Record<string, unknown>) => void;
   onCanvasOpen?: (contentType: string, contentData: unknown) => void;
+  onLineageOpen?: (entityKey: string) => void;
 }
 
 /**
@@ -46,6 +47,7 @@ export function BlockRenderer({
   block,
   onAction,
   onCanvasOpen,
+  onLineageOpen,
 }: BlockRendererProps) {
   const state = block.state as BlockState;
 
@@ -75,6 +77,7 @@ export function BlockRenderer({
           block={block}
           state={state}
           onCanvasOpen={onCanvasOpen}
+          onLineageOpen={onLineageOpen}
         />
       );
     case "evidence-collection":

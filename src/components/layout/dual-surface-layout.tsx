@@ -63,7 +63,7 @@ export function DualSurfaceLayout({
   // Chat-only mode: no panel
   if (!panelOpen) {
     return (
-      <div className="h-full" data-testid="chat-only">
+      <div className="h-full flex-1 min-w-0" data-testid="chat-only">
         {chat}
       </div>
     );

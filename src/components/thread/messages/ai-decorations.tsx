@@ -15,7 +15,6 @@ import { useSaisUi } from "@/hooks/useSaisUi";
 import { useInterruptApproval } from "@/hooks/useInterruptApproval";
 import { usePermissionState } from "@/providers/Thread";
 import { MarkdownText } from "../markdown-text";
-import { QueryResults } from "@/components/query";
 import { FlowBadge } from "@/components/flow-indicator/FlowBadge";
 import { BatchReview } from "@/components/remediation/BatchReview";
 import { BlockerMessage } from "../blocker-message";
@@ -43,11 +42,7 @@ import {
 import type { PendingDisambiguation, PermissionGrant } from "@/lib/types";
 import { HandoffConfirmationCard } from "./ai-cards";
 import {
-  type MetadataResults,
   FLOW_DISPLAY_NAMES,
-  ENTITY_TYPE_LABELS,
-  hasMetadataResults,
-  toSections,
   getInterruptDecision,
   getHandoffProposal,
   getRemediationProposals,
@@ -91,39 +86,7 @@ export function LastMessageDecorations({
   // Cache streaming stage details so they persist when isLoading->false (interrupt fires)
   const cachedStageDetailsRef = useRef<Record<string, string>>({});
 
-  // Metadata results fallback: use sais_ui when per-message response_metadata is empty
-  const msgMetadataResults =
-    msgResponseMeta &&
-    typeof msgResponseMeta === "object" &&
-    "metadata_results" in msgResponseMeta
-      ? (msgResponseMeta as Record<string, unknown>).metadata_results
-      : null;
-  const perMsgResults =
-    msgMetadataResults &&
-    hasMetadataResults({ metadata_results: msgMetadataResults })
-      ? (msgMetadataResults as MetadataResults)
-      : null;
-  const saisUiMr =
-    saisUiData.metadataResults.length > 0 ? saisUiData.metadataResults : null;
-  const metadataResults =
-    perMsgResults ??
-    (saisUiMr && hasMetadataResults({ metadata_results: saisUiMr })
-      ? (saisUiMr as unknown as MetadataResults)
-      : null);
-  const metadataSections = metadataResults ? toSections(metadataResults) : [];
 
-  if (!perMsgResults && saisUiMr) {
-    console.debug(
-      "[ai.tsx] Grid fallback: response_metadata empty, using sais_ui.metadata_results",
-      {
-        hasResponseMeta: !!msgResponseMeta,
-        responseMetaKeys: msgResponseMeta
-          ? Object.keys(msgResponseMeta as Record<string, unknown>)
-          : [],
-        saisUiMrCount: saisUiMr.length,
-      },
-    );
-  }
 
   // Extract all sais_ui-dependent data for the last message
   const activeMethodology = saisUiData.methodologyType;
@@ -226,8 +189,11 @@ export function LastMessageDecorations({
     [threadSubmit, threadMessages],
   );
 
-  // --- Blocks-first rendering path ---
-  const blocks = msgResponseMeta?.blocks as BlockData[] | undefined;
+  // --- Blocks rendering path (interactive blocks only, entity cards go to panel) ---
+  const rawBlocks = msgResponseMeta?.blocks as BlockData[] | undefined;
+  const blocks = Array.isArray(rawBlocks)
+    ? rawBlocks.filter((b) => b.type !== "entity_card" && b.type !== "findings_card")
+    : undefined;
   const hasBlocks = Array.isArray(blocks) && blocks.length > 0;
 
   return (
@@ -241,69 +207,49 @@ export function LastMessageDecorations({
 
       {/* Thought process pane removed — Phase 49 block panel replaces it */}
 
-      {/* --- BLOCKS-FIRST RENDERING PATH --- */}
-      {hasBlocks ? (
+      {/* Interactive blocks (interrupt/assumption/discussion cards) */}
+      {hasBlocks && (
         <div className="flex flex-col gap-2">
           {blocks!.map((block, i) => {
             const Renderer = getBlockRenderer(block.type);
-            if (Renderer) {
-              if (block.type === "interrupt_card") {
-                const cardType =
-                  (block as { card_type?: string }).card_type ?? "";
-                return (
-                  <Renderer
-                    key={`block-${i}`}
-                    block={block}
-                    isActive={isActiveInterrupt(cardType)}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                  />
-                );
-              }
-              if (block.type === "assumption_card") {
-                return (
-                  <Renderer
-                    key={`block-${i}`}
-                    block={block}
-                    isActive={isActiveInterrupt("assumptions_approval")}
-                    onSubmit={handleSubmit}
-                  />
-                );
-              }
-              if (block.type === "discussion_card") {
-                return (
-                  <Renderer
-                    key={`block-${i}`}
-                    block={block}
-                    isActive={isActiveInterrupt("discussion_approval")}
-                    onSubmit={handleSubmit}
-                  />
-                );
-              }
+            if (!Renderer) return null;
+            if (block.type === "interrupt_card") {
+              const cardType =
+                (block as { card_type?: string }).card_type ?? "";
               return (
                 <Renderer
                   key={`block-${i}`}
                   block={block}
+                  isActive={isActiveInterrupt(cardType)}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
                 />
               );
             }
-            return (
-              <div
-                key={`block-${i}`}
-                className="py-1"
-                data-testid="ai-message-content"
-              >
-                <MarkdownText>
-                  {(block as { content?: string }).content ??
-                    JSON.stringify(block)}
-                </MarkdownText>
-              </div>
-            );
+            if (block.type === "assumption_card") {
+              return (
+                <Renderer
+                  key={`block-${i}`}
+                  block={block}
+                  isActive={isActiveInterrupt("assumptions_approval")}
+                  onSubmit={handleSubmit}
+                />
+              );
+            }
+            if (block.type === "discussion_card") {
+              return (
+                <Renderer
+                  key={`block-${i}`}
+                  block={block}
+                  isActive={isActiveInterrupt("discussion_approval")}
+                  onSubmit={handleSubmit}
+                />
+              );
+            }
+            return <Renderer key={`block-${i}`} block={block} />;
           })}
         </div>
-      ) : (
-        <>
-          {/* --- LEGACY RENDERING PATH --- */}
+      )}
 
           {/* Disambiguation card */}
           {pendingDisambiguation &&
@@ -365,39 +311,6 @@ export function LastMessageDecorations({
                 <MarkdownText>{contentString}</MarkdownText>
               </div>
             )}
-
-          {/* Metadata grids */}
-          {metadataSections.map(
-            (section) =>
-              section.items.length > 0 && (
-                <details
-                  className="mt-4"
-                  key={section.entity_type}
-                  open={true}
-                  data-testid={`entity-grid-section-${section.entity_type}`}
-                >
-                  {metadataSections.length > 1 && (
-                    <summary className="text-muted-foreground hover:text-foreground mb-2 cursor-pointer text-xs font-medium tracking-wide uppercase transition-colors">
-                      {ENTITY_TYPE_LABELS[section.entity_type] ||
-                        section.entity_type}{" "}
-                      ({section.total})
-                    </summary>
-                  )}
-                  <QueryResults
-                    evidence={section.items.map((item, idx) => ({
-                      id: String(
-                        item.id || item.canonical_key || `item-${idx}`,
-                      ),
-                      entity_type: section.entity_type,
-                      ...item,
-                    }))}
-                    entityType={section.entity_type}
-                    totalCount={section.total}
-                    isLoading={isLoading}
-                  />
-                </details>
-              ),
-          )}
 
           {/* Confidence badge */}
           <ConfidenceBadge
@@ -542,8 +455,6 @@ export function LastMessageDecorations({
               onSelect={handleClarificationSelect}
             />
           )}
-        </>
-      )}
     </>
   );
 }

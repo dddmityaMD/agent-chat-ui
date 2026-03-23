@@ -57,6 +57,7 @@ interface EntityMapBlockProps {
   block: PanelBlock;
   state: BlockState;
   onCanvasOpen?: (contentType: string, contentData: unknown) => void;
+  onLineageOpen?: (entityKey: string) => void;
 }
 
 /**
@@ -69,6 +70,7 @@ export function EntityMapBlock({
   block,
   state,
   onCanvasOpen,
+  onLineageOpen,
 }: EntityMapBlockProps) {
   const data = block.data as EntityMapData | undefined;
   const [expanded, setExpanded] = useState(false);
@@ -151,10 +153,14 @@ export function EntityMapBlock({
             );
           })}
 
-          {/* Canvas expand affordance for lineage (D-14) */}
-          {onCanvasOpen && (
+          {/* Inline lineage affordance */}
+          {onLineageOpen && (
             <button
-              onClick={() => onCanvasOpen("lineage", { entities })}
+              onClick={() => {
+                const first = entities[0] as Record<string, unknown> | undefined;
+                const nodeId = first?.node_id as string | undefined;
+                if (nodeId) onLineageOpen(nodeId);
+              }}
               className="flex items-center gap-1 mt-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />

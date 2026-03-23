@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Expand } from "lucide-react";
+import { Expand, X, Network } from "lucide-react";
+import { ReactFlowProvider } from "@xyflow/react";
 
 import { useBlockStore } from "@/stores/block-store";
 import type { PanelBlock, SALevel } from "@/lib/panel-blocks/types";
@@ -13,6 +14,7 @@ const selectBlocks = (s: { blocks: Record<string, PanelBlock> }) => s.blocks;
 
 import { BlockRenderer } from "./block-renderer";
 import { PanelEmptyState } from "./panel-empty-state";
+import { LineageGraphInner } from "@/components/lineage/LineageGraphInner";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -25,7 +27,6 @@ const SA_GROUP_LABELS: Partial<Record<SALevel, string>> = {
 
 /** Block types that support canvas-expanded views (D-14) */
 const CANVAS_ELIGIBLE_TYPES = new Set([
-  "entity-map",
   "evidence-collection",
   "data-profile",
   "relationships",
@@ -57,6 +58,9 @@ interface BlockPanelProps {
  * Action (top) -> L1 (compact, fixed container) -> L2 ("Context") -> L3 ("Results")
  *
  * Earlier turns (blocks with older turnId) are dimmed behind a divider (D-09).
+ *
+ * Inline lineage: "View lineage" in entity-map opens a lineage graph in the
+ * bottom half of the panel (vertical split). Blocks stay visible on top.
  */
 export function BlockPanel({
   projectName,
@@ -65,6 +69,15 @@ export function BlockPanel({
   onAction,
 }: BlockPanelProps) {
   const blocks = useBlockStore(selectBlocks);
+  const [lineageEntityKey, setLineageEntityKey] = useState<string | null>(null);
+
+  const handleLineageOpen = useCallback((entityKey: string) => {
+    setLineageEntityKey(entityKey);
+  }, []);
+
+  const handleLineageClose = useCallback(() => {
+    setLineageEntityKey(null);
+  }, []);
 
   // Derive sorted list + split into current/earlier turns (stable while blocks ref unchanged)
   const { allBlocks, currentBlocks, earlierBlocks } = useMemo(() => {
@@ -97,61 +110,98 @@ export function BlockPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto" data-testid="block-panel-content">
-      <div className="flex flex-col gap-2 p-3">
-        <AnimatePresence mode="popLayout">
-          {SA_LEVEL_ORDER.map((level) => {
-            const blocksInLevel = currentBlocks.filter(
-              (b) => b.level === level
-            );
-            if (blocksInLevel.length === 0) return null;
+    <div
+      className="flex h-full flex-col"
+      data-testid="block-panel-content"
+    >
+      {/* Blocks section — scrollable, shrinks when lineage is open */}
+      <div className={`overflow-y-auto ${lineageEntityKey ? "flex-1 min-h-0" : "h-full"}`}>
+        <div className="flex flex-col gap-2 p-3">
+          <AnimatePresence mode="popLayout">
+            {SA_LEVEL_ORDER.map((level) => {
+              const blocksInLevel = currentBlocks.filter(
+                (b) => b.level === level
+              );
+              if (blocksInLevel.length === 0) return null;
 
-            return (
-              <BlockGroup
-                key={level}
-                level={level}
-                blocks={blocksInLevel}
-                onCanvasOpen={onCanvasOpen}
-                onAction={onAction}
-              />
-            );
-          })}
-        </AnimatePresence>
+              return (
+                <BlockGroup
+                  key={level}
+                  level={level}
+                  blocks={blocksInLevel}
+                  onCanvasOpen={onCanvasOpen}
+                  onAction={onAction}
+                  onLineageOpen={handleLineageOpen}
+                />
+              );
+            })}
+          </AnimatePresence>
 
-        {/* Earlier turns divider (D-09) */}
-        {earlierBlocks.length > 0 && (
-          <>
-            <div className="flex items-center gap-2 py-2">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-                Earlier in this thread
-              </span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
+          {/* Earlier turns divider (D-09) */}
+          {earlierBlocks.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 py-2">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+                  Earlier in this thread
+                </span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
 
-            <div className="opacity-60">
-              <AnimatePresence mode="popLayout">
-                {SA_LEVEL_ORDER.map((level) => {
-                  const blocksInLevel = earlierBlocks.filter(
-                    (b) => b.level === level
-                  );
-                  if (blocksInLevel.length === 0) return null;
+              <div className="opacity-60">
+                <AnimatePresence mode="popLayout">
+                  {SA_LEVEL_ORDER.map((level) => {
+                    const blocksInLevel = earlierBlocks.filter(
+                      (b) => b.level === level
+                    );
+                    if (blocksInLevel.length === 0) return null;
 
-                  return (
-                    <BlockGroup
-                      key={`earlier-${level}`}
-                      level={level}
-                      blocks={blocksInLevel}
-                      onCanvasOpen={onCanvasOpen}
-                      onAction={onAction}
-                    />
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          </>
-        )}
+                    return (
+                      <BlockGroup
+                        key={`earlier-${level}`}
+                        level={level}
+                        blocks={blocksInLevel}
+                        onCanvasOpen={onCanvasOpen}
+                        onAction={onAction}
+                        onLineageOpen={handleLineageOpen}
+                      />
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Inline lineage section — bottom half of panel */}
+      {lineageEntityKey && (
+        <div className="flex flex-col border-t border-border" style={{ height: "50%" }}>
+          <div className="flex items-center justify-between px-3 py-1.5 bg-muted/30">
+            <div className="flex items-center gap-1.5">
+              <Network className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Lineage
+              </span>
+            </div>
+            <button
+              onClick={handleLineageClose}
+              className="p-0.5 rounded hover:bg-muted transition-colors"
+              title="Close lineage"
+            >
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <ReactFlowProvider>
+              <LineageGraphInner
+                rootNodeId={lineageEntityKey}
+                className="h-full w-full"
+              />
+            </ReactFlowProvider>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -165,9 +215,10 @@ interface BlockGroupProps {
   blocks: PanelBlock[];
   onCanvasOpen?: (contentType: string, contentData: unknown) => void;
   onAction?: (actionType: string, payload: Record<string, unknown>) => void;
+  onLineageOpen?: (entityKey: string) => void;
 }
 
-function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) {
+function BlockGroup({ level, blocks, onCanvasOpen, onAction, onLineageOpen }: BlockGroupProps) {
   const label = SA_GROUP_LABELS[level];
 
   // L1 blocks render in a fixed-height container so updates don't shift L2/L3
@@ -187,6 +238,7 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
               block={block}
               onAction={onAction}
               onCanvasOpen={onCanvasOpen}
+              onLineageOpen={onLineageOpen}
             />
           </motion.div>
         ))}
@@ -225,6 +277,7 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
               block={block}
               onAction={onAction}
               onCanvasOpen={onCanvasOpen}
+              onLineageOpen={onLineageOpen}
             />
           </motion.div>
         ))}
@@ -256,6 +309,7 @@ function BlockGroup({ level, blocks, onCanvasOpen, onAction }: BlockGroupProps) 
             block={block}
             onAction={onAction}
             onCanvasOpen={onCanvasOpen}
+            onLineageOpen={onLineageOpen}
           />
 
           {/* Canvas expand affordance (D-14) */}
