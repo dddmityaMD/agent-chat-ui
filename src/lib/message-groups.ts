@@ -710,6 +710,11 @@ export function groupMessages(
       const textA = getContentString(groups[i].message.content ?? []).trim();
       const textB = getContentString(groups[i + 1].message.content ?? []).trim();
       if (textA.length > 0 && textA === textB) {
+        // Transfer toolInteractions to the kept (later) message before removing
+        if (groups[i].toolInteractions && !groups[i + 1].toolInteractions) {
+          groups[i + 1].toolInteractions = groups[i].toolInteractions;
+          groups[i + 1].methodologyDisplayName = groups[i].methodologyDisplayName;
+        }
         dedup.add(i); // remove the earlier duplicate
       }
     }
