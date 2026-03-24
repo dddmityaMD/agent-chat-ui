@@ -1,8 +1,9 @@
 /**
  * useWorkspaceFiles hook (Phase 64-03)
  *
- * Fetches workspace files for a project and subscribes to SSE
- * workspace:file-change events for live updates.
+ * Fetches workspace files for a project. Subscribes to workspace:file-change
+ * window events for mid-stream live updates and refetches on stream_complete
+ * as a full-refresh fallback.
  *
  * Returns { files, isLoading, error } from the Zustand file store.
  */
@@ -10,7 +11,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { getApiBaseUrl } from "@/lib/api-url";
-import type { FileNode } from "@/types/workspace";
+import type { FileNode, WorkspaceFileChangeEvent } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
 // Transform flat file list from API into tree structure
@@ -122,6 +123,21 @@ export function useWorkspaceFiles(projectId: string | null) {
   useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  // Mid-stream incremental updates via SSE workspace:file-change events
+  useEffect(() => {
+    if (!projectId) return;
+
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as WorkspaceFileChangeEvent;
+      useFileStore.getState().applyFileChange(detail);
+    };
+
+    window.addEventListener("workspace:file-change", handler);
+    return () => {
+      window.removeEventListener("workspace:file-change", handler);
+    };
+  }, [projectId]);
 
   // Refetch after each stream completes (agent may have written files)
   useEffect(() => {
