@@ -8,8 +8,6 @@
 import {
   routeBlockUpdateEvent,
   routeToolResultEvent,
-  routeSubagentStarted,
-  routeSubagentFinished,
   routeActionResolution,
   hydrateBlocksFromSaisUi,
   hydrateThreadSummary,
@@ -135,33 +133,73 @@ describe("routeToolResultEvent", () => {
 // Subagent lifecycle
 // ---------------------------------------------------------------------------
 
-describe("routeSubagentStarted", () => {
-  it("upserts L1 agent-status block", () => {
+describe("agent-status via hydrateBlocksFromSaisUi", () => {
+  it("creates agent-status block when active_subagent is set", () => {
     const actions = createMockActions();
-    routeSubagentStarted("investigation", 15, actions);
+    hydrateBlocksFromSaisUi({ active_subagent: "analyze" }, actions);
 
-    expect(actions.calls).toHaveLength(1);
-    const block = actions.calls[0].args[0] as Record<string, unknown>;
-    expect(block).toMatchObject({
-      id: "agent-status",
-      type: "agent-status",
-      level: "l1",
-      state: "loading",
-    });
-    expect((block.data as Record<string, unknown>).subagent_id).toBe(
-      "investigation",
+    const upsert = actions.calls.find(
+      (c) => c.method === "upsertBlock" && (c.args[0] as Record<string, unknown>).id === "agent-status",
     );
+    expect(upsert).toBeDefined();
+    const block = upsert!.args[0] as Record<string, unknown>;
+    expect(block).toMatchObject({ id: "agent-status", level: "l1", state: "loading" });
+    const data = block.data as { entries: Array<{ subagent_id: string; status: string }> };
+    expect(data.entries).toHaveLength(1);
+    expect(data.entries[0]).toEqual({ subagent_id: "analyze", status: "active" });
   });
-});
 
-describe("routeSubagentFinished", () => {
-  it("removes L1 agent-status block", () => {
+  it("appends new subagent and marks previous as complete", () => {
     const actions = createMockActions();
-    routeSubagentFinished(actions);
+    const existing = {
+      "agent-status": {
+        data: { entries: [{ subagent_id: "phase_research", status: "active" }] },
+      },
+    };
+    hydrateBlocksFromSaisUi({ active_subagent: "phase_plan" }, actions, existing);
 
-    expect(actions.calls.some((c) => c.method === "removeBlock")).toBe(true);
-    const removeCall = actions.calls.find((c) => c.method === "removeBlock");
-    expect(removeCall?.args[0]).toBe("agent-status");
+    const upsert = actions.calls.find(
+      (c) => c.method === "upsertBlock" && (c.args[0] as Record<string, unknown>).id === "agent-status",
+    );
+    const data = (upsert!.args[0] as Record<string, unknown>).data as {
+      entries: Array<{ subagent_id: string; status: string }>;
+    };
+    expect(data.entries).toHaveLength(2);
+    expect(data.entries[0]).toEqual({ subagent_id: "phase_research", status: "complete" });
+    expect(data.entries[1]).toEqual({ subagent_id: "phase_plan", status: "active" });
+  });
+
+  it("marks all entries complete when active_subagent is null", () => {
+    const actions = createMockActions();
+    const existing = {
+      "agent-status": {
+        data: { entries: [{ subagent_id: "analyze", status: "active" }] },
+      },
+    };
+    hydrateBlocksFromSaisUi({ active_subagent: null }, actions, existing);
+
+    const upsert = actions.calls.find(
+      (c) => c.method === "upsertBlock" && (c.args[0] as Record<string, unknown>).id === "agent-status",
+    );
+    const block = upsert!.args[0] as Record<string, unknown>;
+    expect(block.state).toBe("complete");
+    const data = block.data as { entries: Array<{ subagent_id: string; status: string }> };
+    expect(data.entries[0].status).toBe("complete");
+  });
+
+  it("does not duplicate existing subagent entry", () => {
+    const actions = createMockActions();
+    const existing = {
+      "agent-status": {
+        data: { entries: [{ subagent_id: "analyze", status: "active" }] },
+      },
+    };
+    hydrateBlocksFromSaisUi({ active_subagent: "analyze" }, actions, existing);
+
+    const upsert = actions.calls.find(
+      (c) => c.method === "upsertBlock" && (c.args[0] as Record<string, unknown>).id === "agent-status",
+    );
+    expect(upsert).toBeUndefined();
   });
 });
 

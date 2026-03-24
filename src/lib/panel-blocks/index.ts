@@ -3,6 +3,7 @@ export type {
   BlockState,
   PanelBlock,
   BlockUpdateEvent,
+  AgentStatusEntry,
   AgentStatusData,
   EntityMapData,
   EvidenceCollectionData,

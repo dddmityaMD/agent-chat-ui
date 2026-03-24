@@ -46,11 +46,17 @@ export interface BlockUpdateEvent {
 // L1 Perception block data
 // ---------------------------------------------------------------------------
 
-/** L1: Agent status — active subagent, iteration, current tool */
+/** L1: Single subagent execution entry */
+export interface AgentStatusEntry {
+  subagent_id: string;
+  status: "active" | "complete";
+  iteration?: { current: number; max: number };
+  tool?: { name: string };
+}
+
+/** L1: Agent status — chronological list of subagent executions */
 export interface AgentStatusData {
-  subagent_id?: string;
-  iteration: { current: number; max: number };
-  tool?: { name: string; description?: string };
+  entries: AgentStatusEntry[];
 }
 
 // ---------------------------------------------------------------------------

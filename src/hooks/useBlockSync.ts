@@ -12,7 +12,7 @@
 import { useEffect, useRef, useCallback, startTransition } from "react";
 import { useBlockStore } from "@/stores/block-store";
 import { TOOL_BLOCK_MAP } from "@/lib/panel-blocks/constants";
-import type { PanelBlock, BlockUpdateEvent } from "@/lib/panel-blocks/types";
+import type { PanelBlock, BlockUpdateEvent, AgentStatusData, AgentStatusEntry } from "@/lib/panel-blocks/types";
 import type { Message } from "@langchain/langgraph-sdk";
 
 // ---------------------------------------------------------------------------
@@ -79,35 +79,6 @@ export function routeToolResultEvent(
       updatedAt: Date.now(),
     });
   }
-}
-
-/**
- * Upsert L1 agent-status block on subagent start.
- */
-export function routeSubagentStarted(
-  subagentId: string,
-  maxIterations: number,
-  actions: BlockSyncActions,
-): void {
-  actions.upsertBlock({
-    id: "agent-status",
-    type: "agent-status",
-    level: "l1",
-    data: {
-      subagent_id: subagentId,
-      iteration: { current: 0, max: maxIterations },
-    },
-    priority: 1.0,
-    state: "loading",
-    updatedAt: Date.now(),
-  });
-}
-
-/**
- * Remove L1 agent-status block on subagent finish.
- */
-export function routeSubagentFinished(actions: BlockSyncActions): void {
-  actions.removeBlock("agent-status");
 }
 
 /**
@@ -255,6 +226,53 @@ export function hydrateBlocksFromSaisUi(
       state: "populated",
       updatedAt: now,
     });
+  }
+
+  // Agent status — track subagent executions chronologically
+  const activeSubagent = saisUi.active_subagent;
+  if (activeSubagent !== undefined) {
+    const existingBlock = existingBlocks?.["agent-status"];
+    const existingData = existingBlock?.data as AgentStatusData | undefined;
+    const prevEntries: AgentStatusEntry[] = existingData?.entries ?? [];
+
+    if (typeof activeSubagent === "string" && activeSubagent) {
+      // New subagent starting — append if not already tracked
+      const alreadyExists = prevEntries.some(
+        (e) => e.subagent_id === activeSubagent,
+      );
+      if (!alreadyExists) {
+        // Mark any existing "active" entry as "complete", append new one
+        const updated = prevEntries.map((e) =>
+          e.status === "active" ? { ...e, status: "complete" as const } : e,
+        );
+        updated.push({ subagent_id: activeSubagent, status: "active" });
+        actions.upsertBlock({
+          id: "agent-status",
+          type: "agent-status",
+          level: "l1",
+          data: { entries: updated },
+          priority: 1.0,
+          state: "loading",
+          updatedAt: now,
+        });
+      }
+    } else if (activeSubagent === null) {
+      // Subagent finished — mark all active as complete
+      if (prevEntries.length > 0 && prevEntries.some((e) => e.status === "active")) {
+        const completed = prevEntries.map((e) =>
+          e.status === "active" ? { ...e, status: "complete" as const } : e,
+        );
+        actions.upsertBlock({
+          id: "agent-status",
+          type: "agent-status",
+          level: "l1",
+          data: { entries: completed },
+          priority: 1.0,
+          state: "complete",
+          updatedAt: now,
+        });
+      }
+    }
   }
 }
 
