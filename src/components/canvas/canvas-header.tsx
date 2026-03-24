@@ -28,7 +28,7 @@ const CONTENT_LABELS: Record<CanvasContentType, { label: string; Icon: typeof Ne
 // ---------------------------------------------------------------------------
 
 export function CanvasHeader({ contentType, sourceBlockId, onClose }: CanvasHeaderProps) {
-  const { label, Icon } = CONTENT_LABELS[contentType];
+  const { label, Icon } = CONTENT_LABELS[contentType] ?? { label: contentType, Icon: Table2 };
 
   return (
     <div
