@@ -1,7 +1,7 @@
 "use client";
 
 import type { PanelBlock, BlockState, AgentStatusData, AgentStatusEntry } from "@/lib/panel-blocks/types";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Bot, Loader2, CheckCircle2 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Subagent ID to human-readable name mapping
@@ -46,12 +46,10 @@ export function AgentStatusBlock({ block, state }: AgentStatusBlockProps) {
   if (entries.length === 0) {
     if (state === "loading") {
       return (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-          </span>
+        <div className="flex items-center gap-2 rounded-md border border-indigo-200/60 bg-indigo-50/30 dark:border-indigo-800/40 dark:bg-indigo-950/20 px-3 py-1.5">
+          <Bot className="h-3 w-3 flex-shrink-0 text-indigo-500" />
           <span className="text-xs text-muted-foreground">Starting...</span>
+          <Loader2 className="ml-auto w-3 h-3 text-indigo-400 animate-spin" />
         </div>
       );
     }
@@ -59,7 +57,7 @@ export function AgentStatusBlock({ block, state }: AgentStatusBlockProps) {
   }
 
   return (
-    <div className="rounded-md bg-muted/30 px-3 py-2 space-y-1">
+    <div className="rounded-md border border-indigo-200/60 bg-indigo-50/30 dark:border-indigo-800/40 dark:bg-indigo-950/20 px-3 py-2 space-y-1">
       {entries.map((entry) => (
         <EntryRow key={entry.subagent_id} entry={entry} />
       ))}
@@ -73,29 +71,38 @@ function EntryRow({ entry }: { entry: AgentStatusEntry }) {
   if (entry.status === "active") {
     return (
       <div className="flex items-center gap-2">
-        <Loader2 className="w-3.5 h-3.5 text-primary animate-spin flex-shrink-0" />
-        <span className="text-xs font-medium text-foreground">{label}</span>
+        <Bot className="h-3 w-3 flex-shrink-0 text-indigo-500" />
+        <span className="text-xs font-medium text-foreground/80">{label}</span>
+        {entry.task && (
+          <span className="text-xs text-muted-foreground truncate max-w-[160px]">
+            {entry.task}
+          </span>
+        )}
         {entry.iteration && (
           <span className="text-xs text-muted-foreground">
             ({entry.iteration.current}/{entry.iteration.max})
           </span>
         )}
-        {entry.tool && (
-          <>
-            <span className="text-xs text-muted-foreground/50">&rarr;</span>
-            <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-              {entry.tool.name}
-            </span>
-          </>
-        )}
+        <Loader2 className="ml-auto w-3 h-3 text-indigo-400 animate-spin flex-shrink-0" />
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
-      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+      <Bot className="h-3 w-3 flex-shrink-0 text-indigo-500/50" />
       <span className="text-xs text-muted-foreground">{label}</span>
+      {entry.task && (
+        <span className="text-xs text-muted-foreground/60 truncate max-w-[140px]">
+          {entry.task}
+        </span>
+      )}
+      {entry.toolCount && (
+        <span className="text-xs text-muted-foreground/50">
+          {entry.toolCount} tool{entry.toolCount !== 1 ? "s" : ""}
+        </span>
+      )}
+      <CheckCircle2 className="ml-auto w-3 h-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
     </div>
   );
 }

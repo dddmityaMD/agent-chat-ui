@@ -413,9 +413,84 @@ export function useBlockSync(
 
     const saisUi = streamValues.sais_ui as Record<string, unknown> | undefined;
     if (saisUi && typeof saisUi === "object") {
-      hydrateBlocksFromSaisUi(saisUi, actions, store.blocks);
+      // Read blocks from Zustand getState() (not render snapshot) to avoid
+      // stale closure when multiple SSE events arrive in the same render cycle.
+      const latestBlocks = useBlockStore.getState().blocks;
+      hydrateBlocksFromSaisUi(saisUi, actions, latestBlocks);
     }
   }, [streamValues, isStreaming]);
+
+  // Derive subagent completion + metadata from messages (same source of truth as chat).
+  // When messages contain tool results tagged with subagent_id, those subagents
+  // are done. Also extracts task description and tool count per subagent.
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+
+    const blocks = useBlockStore.getState().blocks;
+    const agentBlock = blocks["agent-status"];
+    if (!agentBlock) return;
+    const data = agentBlock.data as AgentStatusData | undefined;
+    const entries = data?.entries ?? [];
+    if (entries.length === 0) return;
+
+    // Collect per-subagent metadata from tool result messages
+    const subagentInfo = new Map<string, { task: string; toolCount: number }>();
+    for (const msg of messages) {
+      if (msg.type !== "tool") continue;
+      const meta = (msg as { response_metadata?: Record<string, unknown> })
+        .response_metadata;
+      const subId = meta && typeof meta["subagent_id"] === "string"
+        ? meta["subagent_id"]
+        : null;
+      if (!subId) continue;
+      const existing = subagentInfo.get(subId);
+      if (existing) {
+        existing.toolCount++;
+      } else {
+        const task = typeof meta!["subagent_task"] === "string"
+          ? (meta!["subagent_task"] as string)
+          : "";
+        subagentInfo.set(subId, { task, toolCount: 1 });
+      }
+    }
+
+    if (subagentInfo.size === 0) return;
+
+    // Update entries with completion status, task, and tool count
+    let changed = false;
+    const updated = entries.map((e) => {
+      const info = subagentInfo.get(e.subagent_id);
+      if (!info) return e;
+
+      const needsComplete = e.status === "active";
+      const needsTask = !e.task && info.task;
+      const needsCount = e.toolCount !== info.toolCount;
+
+      if (needsComplete || needsTask || needsCount) {
+        changed = true;
+        return {
+          ...e,
+          ...(needsComplete ? { status: "complete" as const } : {}),
+          ...(info.task ? { task: info.task } : {}),
+          toolCount: info.toolCount,
+        };
+      }
+      return e;
+    });
+
+    if (changed) {
+      const allComplete = updated.every((e) => e.status === "complete");
+      actions.upsertBlock({
+        id: "agent-status",
+        type: "agent-status",
+        level: "l1",
+        data: { entries: updated },
+        priority: 1.0,
+        state: allComplete ? "complete" : "loading",
+        updatedAt: Date.now(),
+      });
+    }
+  }, [messages, isStreaming]);
 
   // V1 fallback: route tool results from messages via TOOL_BLOCK_MAP.
   // Scans messages for ToolMessages whose preceding AIMessage tool_calls

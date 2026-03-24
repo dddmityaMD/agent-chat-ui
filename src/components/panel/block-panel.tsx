@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Expand, Maximize2, Minimize2, X, Network } from "lucide-react";
+import { ChevronDown, ChevronRight, Expand, Maximize2, Minimize2, X, Network } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { useBlockStore } from "@/stores/block-store";
@@ -21,6 +21,7 @@ import { LineageGraphInner } from "@/components/lineage/LineageGraphInner";
 // ---------------------------------------------------------------------------
 
 const SA_GROUP_LABELS: Partial<Record<SALevel, string>> = {
+  l1: "Subagent",
   l2: "Context",
   l3: "Results",
 };
@@ -258,6 +259,68 @@ export function BlockPanel({
 }
 
 // ---------------------------------------------------------------------------
+// CollapsibleSubagentGroup — L1 subagent blocks with expand/collapse
+// ---------------------------------------------------------------------------
+
+function CollapsibleSubagentGroup({
+  label,
+  blocks,
+  onCanvasOpen,
+  onAction,
+  onLineageOpen,
+}: {
+  label?: string;
+  blocks: PanelBlock[];
+  onCanvasOpen?: (contentType: string, contentData: unknown) => void;
+  onAction?: (actionType: string, payload: Record<string, unknown>) => void;
+  onLineageOpen?: (entityKey: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="space-y-1">
+      {label && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex w-full items-center gap-1 px-1 group"
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-3 h-3 text-muted-foreground/70" />
+          ) : (
+            <ChevronRight className="w-3 h-3 text-muted-foreground/70" />
+          )}
+          <span className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider group-hover:text-muted-foreground transition-colors">
+            {label}
+          </span>
+        </button>
+      )}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden space-y-2"
+          >
+            {blocks.map((block) => (
+              <BlockRenderer
+                key={block.id}
+                block={block}
+                onAction={onAction}
+                onCanvasOpen={onCanvasOpen}
+                onLineageOpen={onLineageOpen}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // BlockGroup — renders blocks for a single SA level
 // ---------------------------------------------------------------------------
 
@@ -272,29 +335,9 @@ interface BlockGroupProps {
 function BlockGroup({ level, blocks, onCanvasOpen, onAction, onLineageOpen }: BlockGroupProps) {
   const label = SA_GROUP_LABELS[level];
 
-  // L1 blocks render in a fixed-height container so updates don't shift L2/L3
+  // L1 blocks: collapsible subagent section
   if (level === "l1") {
-    return (
-      <div className="min-h-[40px]">
-        {blocks.map((block) => (
-          <motion.div
-            key={block.id}
-            layout
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <BlockRenderer
-              block={block}
-              onAction={onAction}
-              onCanvasOpen={onCanvasOpen}
-              onLineageOpen={onLineageOpen}
-            />
-          </motion.div>
-        ))}
-      </div>
-    );
+    return <CollapsibleSubagentGroup label={label} blocks={blocks} onCanvasOpen={onCanvasOpen} onAction={onAction} onLineageOpen={onLineageOpen} />;
   }
 
   // Action blocks: amber header, scale + border glow animation (250ms)

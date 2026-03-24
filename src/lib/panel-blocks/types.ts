@@ -50,6 +50,8 @@ export interface BlockUpdateEvent {
 export interface AgentStatusEntry {
   subagent_id: string;
   status: "active" | "complete";
+  task?: string;
+  toolCount?: number;
   iteration?: { current: number; max: number };
   tool?: { name: string };
 }
