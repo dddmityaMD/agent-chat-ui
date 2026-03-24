@@ -31,6 +31,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useActiveRuns } from "@/providers/ActiveRuns";
 import { toast } from "sonner";
 import { ProjectSelector } from "@/components/sidebar/project-selector";
+import { SidebarTabs } from "@/components/sidebar/sidebar-tabs";
 
 // ---------------------------------------------------------------------------
 // Thread kebab / context menu (lightweight, no Radix DropdownMenu needed)
@@ -381,39 +382,9 @@ export default function ThreadHistory({
     [archiveThreadApi, refreshThreads],
   );
 
-  // Shared sidebar content
-  const sidebarContent = (
-    <>
-      {/* Header with toggle and new-thread button */}
-      <div className="flex w-full items-center justify-between px-3 pt-2">
-        <Button
-          className="hover:bg-gray-100"
-          variant="ghost"
-          size="icon"
-          onClick={() => setChatHistoryOpen((p) => !p)}
-        >
-          {chatHistoryOpen ? (
-            <PanelRightOpen className="size-5" />
-          ) : (
-            <PanelRightClose className="size-5" />
-          )}
-        </Button>
-        <h1 className="text-lg font-semibold tracking-tight">Threads</h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleNewThread}
-          title="New Thread"
-        >
-          <Plus className="size-5" />
-        </Button>
-      </div>
-
-      {/* Project selector (D-07, Phase 49-07) */}
-      <div className="border-b">
-        <ProjectSelector onProjectSelect={onProjectSelect} selectedProjectId={selectedProjectId} />
-      </div>
-
+  // Thread-specific content (search, toggle, list) — goes into Threads tab
+  const threadsContent = (
+    <div className="flex h-full flex-col">
       {/* Search bar */}
       <div className="relative px-3 pt-2">
         <Search className="text-muted-foreground absolute top-4.5 left-5 size-4" />
@@ -459,6 +430,47 @@ export default function ThreadHistory({
           />
         )}
       </div>
+    </div>
+  );
+
+  // Shared sidebar content: header + project selector + tabbed content
+  const sidebarContent = (
+    <>
+      {/* Header with toggle and new-thread button */}
+      <div className="flex w-full items-center justify-between px-3 pt-2">
+        <Button
+          className="hover:bg-gray-100"
+          variant="ghost"
+          size="icon"
+          onClick={() => setChatHistoryOpen((p) => !p)}
+        >
+          {chatHistoryOpen ? (
+            <PanelRightOpen className="size-5" />
+          ) : (
+            <PanelRightClose className="size-5" />
+          )}
+        </Button>
+        <h1 className="text-lg font-semibold tracking-tight">Workspace</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNewThread}
+          title="New Thread"
+        >
+          <Plus className="size-5" />
+        </Button>
+      </div>
+
+      {/* Project selector (D-07, Phase 49-07) */}
+      <div className="border-b">
+        <ProjectSelector onProjectSelect={onProjectSelect} selectedProjectId={selectedProjectId} />
+      </div>
+
+      {/* Tabbed content: Threads / Files (Phase 64-03) */}
+      <SidebarTabs
+        threadsContent={threadsContent}
+        projectId={selectedProjectId ?? null}
+      />
     </>
   );
 
