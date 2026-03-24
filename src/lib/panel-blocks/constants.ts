@@ -35,6 +35,7 @@ export const TOOL_BLOCK_MAP = {
   dbt_query: { blockId: "evidence-collection", level: "l2" },
   trace_lineage: { blockId: "evidence-collection", level: "l2" },
   query_metadata: { blockId: "evidence-collection", level: "l2" },
+  inspect_data_quality: { blockId: "evidence-collection", level: "l2" },
   submit_plan: { blockId: "plan-approval", level: "action" },
   write_file: { blockId: "artifact-list", level: "l3" },
   submit_findings: { blockId: "findings", level: "l3" },
