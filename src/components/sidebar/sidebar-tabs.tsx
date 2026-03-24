@@ -35,12 +35,12 @@ export function SidebarTabs({ threadsContent, projectId }: SidebarTabsProps) {
   return (
     <Tabs.Root defaultValue="threads" className="flex h-full flex-col">
       {/* Tab triggers */}
-      <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-700">
-        <Tabs.List className="grid w-full grid-cols-2">
+      <div className="w-full shrink-0 border-b border-zinc-200 dark:border-zinc-700">
+        <Tabs.List className="grid w-full grid-cols-2 gap-0">
           <Tabs.Trigger
             value="threads"
             className={cn(
-              "flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
+              "flex min-w-0 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
               "text-muted-foreground hover:text-foreground",
               "data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600",
               "dark:data-[state=active]:border-blue-400 dark:data-[state=active]:text-blue-400",
@@ -52,7 +52,7 @@ export function SidebarTabs({ threadsContent, projectId }: SidebarTabsProps) {
           <Tabs.Trigger
             value="files"
             className={cn(
-              "flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
+              "flex min-w-0 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
               "text-muted-foreground hover:text-foreground",
               "data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600",
               "dark:data-[state=active]:border-blue-400 dark:data-[state=active]:text-blue-400",

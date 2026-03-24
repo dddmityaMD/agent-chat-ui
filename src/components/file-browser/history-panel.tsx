@@ -117,7 +117,7 @@ export function HistoryPanel({ projectId }: HistoryPanelProps) {
 
   return (
     <div
-      className="border-t border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
+      className="min-h-[33%] w-full border-t border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
       data-testid="history-panel"
     >
       {/* Header */}
@@ -138,7 +138,7 @@ export function HistoryPanel({ projectId }: HistoryPanelProps) {
       </div>
 
       {/* Content */}
-      <div className="max-h-48 overflow-auto px-1 pb-2">
+      <div className="flex-1 overflow-auto px-1 pb-2">
         {loading && (
           <div className="px-2 py-3 text-center text-xs text-zinc-400">
             Loading history...
