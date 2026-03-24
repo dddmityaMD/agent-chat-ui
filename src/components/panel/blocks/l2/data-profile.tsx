@@ -163,7 +163,17 @@ export function DataProfileBlock({
           {/* Canvas expand affordance (D-14, D-15) */}
           {onCanvasOpen && (
             <button
-              onClick={() => onCanvasOpen("table", { columns })}
+              onClick={() => {
+                // Transform column metadata into rows for TableRenderer
+                // TableRenderer expects { rows: Record<string, unknown>[] }
+                const rows = columns.map((col) => ({
+                  Column: col.name,
+                  Type: col.type,
+                  "Null %": `${Math.round(col.null_rate * 100)}%`,
+                  Cardinality: col.cardinality,
+                }));
+                onCanvasOpen("table", { rows });
+              }}
               className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />

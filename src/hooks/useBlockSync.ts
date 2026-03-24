@@ -139,9 +139,24 @@ export function hydrateBlocksFromSaisUi(
 ): void {
   const now = Date.now();
 
-  // D-18 primary path: block_update from backend tool_node
+  // D-18 primary path: block_updates (list) from backend tool_node
+  const blockUpdates = saisUi.block_updates;
+  if (Array.isArray(blockUpdates)) {
+    for (const bu of blockUpdates) {
+      if (bu && typeof bu === "object") {
+        const entry = bu as Record<string, unknown>;
+        const toolName = entry.tool_name as string | undefined;
+        const data = entry.data as Record<string, unknown> | undefined;
+        if (toolName && data) {
+          routeToolResultEvent(toolName, data, actions);
+        }
+      }
+    }
+  }
+
+  // Legacy: single block_update (backward compat)
   const blockUpdate = saisUi.block_update;
-  if (blockUpdate && typeof blockUpdate === "object") {
+  if (blockUpdate && typeof blockUpdate === "object" && !Array.isArray(blockUpdates)) {
     const bu = blockUpdate as Record<string, unknown>;
     const toolName = bu.tool_name as string | undefined;
     const data = bu.data as Record<string, unknown> | undefined;
@@ -187,6 +202,37 @@ export function hydrateBlocksFromSaisUi(
       level: "l3",
       data: buildPlan as Record<string, unknown>,
       priority: 0.5,
+      state: "populated",
+      updatedAt: now,
+    });
+  }
+
+  // Subagent artifacts (Phase 63 Gap 13)
+  const subagentArtifacts = saisUi.subagent_artifacts;
+  if (Array.isArray(subagentArtifacts) && subagentArtifacts.length > 0) {
+    // Backend emits list[str] (paths). Enrich to ArtifactListData shape.
+    const artifacts = subagentArtifacts.map((item: unknown) => {
+      if (typeof item === "string") {
+        const ext = item.split(".").pop()?.toLowerCase() ?? "";
+        const langMap: Record<string, string> = {
+          md: "markdown", sql: "sql", py: "python", yaml: "yaml",
+          yml: "yaml", json: "json", ts: "typescript", js: "javascript",
+        };
+        return {
+          path: item,
+          operation: "new",
+          language: langMap[ext],
+        };
+      }
+      // Already enriched dict from backend
+      return item;
+    });
+    actions.upsertBlock({
+      id: "artifact-list",
+      type: "artifact-list",
+      level: "l3",
+      data: { artifacts },
+      priority: 0.7,
       state: "populated",
       updatedAt: now,
     });
@@ -370,18 +416,24 @@ export function useBlockSync(
       const mapping = TOOL_BLOCK_MAP[toolName as keyof typeof TOOL_BLOCK_MAP];
       if (!mapping) continue;
 
-      // Parse content — only route structured JSON results to blocks.
-      // Text-only tool results (for LLM consumption) are not block-compatible.
+      // Try structured_data from response_metadata first (set by StructuredToolResult),
+      // then fall back to JSON.parse on content for legacy tools.
       let resultData: Record<string, unknown> | null = null;
-      try {
-        if (typeof msg.content === "string" && msg.content.trim()) {
-          const parsed = JSON.parse(msg.content);
-          if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-            resultData = parsed;
+      const meta = (msg as any).response_metadata as Record<string, unknown> | undefined;
+      const structured = meta?.structured_data;
+      if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+        resultData = structured as Record<string, unknown>;
+      } else {
+        try {
+          if (typeof msg.content === "string" && msg.content.trim()) {
+            const parsed = JSON.parse(msg.content);
+            if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+              resultData = parsed;
+            }
           }
+        } catch {
+          // Not JSON — text result, skip block routing
         }
-      } catch {
-        // Not JSON — text result, skip block routing
       }
 
       processedToolMsgIdsRef.current.add(msg.id);

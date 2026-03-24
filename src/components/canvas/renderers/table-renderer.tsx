@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { AgGridReact } from "ag-grid-react";
-import { AllCommunityModule, type ColDef } from "ag-grid-community";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -41,17 +39,10 @@ function isTableData(v: unknown): v is TableData {
 export function TableRenderer({ data }: TableRendererProps) {
   const valid = isTableData(data) && data.rows.length > 0;
 
-  const columnDefs: ColDef[] = useMemo(() => {
+  const columns = useMemo(() => {
     if (!valid) return [];
     const d = data as TableData;
-    const cols = d.columns ?? Object.keys(d.rows[0] ?? {});
-    return cols.map((col) => ({
-      field: col,
-      headerName: col,
-      sortable: true,
-      filter: true,
-      resizable: true,
-    }));
+    return d.columns ?? Object.keys(d.rows[0] ?? {});
   }, [valid, data]);
 
   if (!valid) {
@@ -62,19 +53,41 @@ export function TableRenderer({ data }: TableRendererProps) {
     );
   }
 
+  const rows = (data as TableData).rows;
+
   return (
-    <div className="h-full w-full" data-testid="table-renderer">
-      <AgGridReact
-        modules={[AllCommunityModule]}
-        rowData={data.rows}
-        columnDefs={columnDefs}
-        domLayout="normal"
-        theme="legacy"
-        defaultColDef={{
-          flex: 1,
-          minWidth: 100,
-        }}
-      />
+    <div className="h-full w-full overflow-auto p-4" data-testid="table-renderer">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="border-b border-zinc-200 dark:border-zinc-700">
+            {columns.map((col) => (
+              <th
+                key={col}
+                className="text-left py-2 px-3 font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-900 sticky top-0"
+              >
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              key={i}
+              className="border-b border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+            >
+              {columns.map((col) => (
+                <td
+                  key={col}
+                  className="py-1.5 px-3 text-zinc-700 dark:text-zinc-300"
+                >
+                  {String(row[col] ?? "")}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
