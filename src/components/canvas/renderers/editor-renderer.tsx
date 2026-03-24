@@ -168,6 +168,7 @@ export function EditorRenderer({ data }: EditorRendererProps) {
       const res = await fetch(`${getApiBaseUrl()}/api/workspace/projects/${projectId}/files/content`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ path: filePath, content: editContent }),
       });
 

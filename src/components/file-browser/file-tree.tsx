@@ -60,8 +60,10 @@ function getLanguageFromPath(path: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Node wrapper with context menu
+// Suppress file-open on right-click (context menu triggers onSelect too)
 // ---------------------------------------------------------------------------
+
+let contextMenuOpen = false;
 
 function NodeWithContextMenu(
   props: NodeRendererProps<FileNode> & { projectId: string | null },
@@ -73,9 +75,9 @@ function NodeWithContextMenu(
     <FileContextMenu
       file={data}
       projectId={projectId}
-      onRename={() => nodeProps.node.edit()}
+      onRename={() => setTimeout(() => nodeProps.node.edit(), 100)}
     >
-      <div>
+      <div onContextMenu={() => { contextMenuOpen = true; }}>
         <FileTreeNode {...nodeProps} />
       </div>
     </FileContextMenu>
@@ -92,9 +94,13 @@ export function FileTree({ projectId }: FileTreeProps) {
   const canvasStore = useCanvasStore();
   const treeRef = useRef<TreeApi<FileNode> | null>(null);
 
-  // Handle file selection: open in canvas
+  // Handle file selection: open in canvas (skip if triggered by right-click)
   const handleSelect = useCallback(
     async (nodes: Array<{ data: FileNode }>) => {
+      if (contextMenuOpen) {
+        contextMenuOpen = false;
+        return;
+      }
       const selected = nodes[0]?.data;
       if (!selected || selected.isFolder || !projectId) return;
 
@@ -118,6 +124,43 @@ export function FileTree({ projectId }: FileTreeProps) {
       }
     },
     [projectId, selectFile, canvasStore],
+  );
+
+  // Handle inline rename submit
+  const handleRename = useCallback(
+    async ({ id, name }: { id: string; name: string }) => {
+      if (!projectId || !name.trim()) return;
+      const oldPath = id as string; // id === path
+      const segments = oldPath.split("/");
+      segments[segments.length - 1] = name.trim();
+      const newPath = segments.join("/");
+      if (newPath === oldPath) return;
+
+      try {
+        const res = await fetch(
+          `${getApiBaseUrl()}/api/workspace/projects/${projectId}/files/rename`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+          },
+        );
+        if (res.ok) {
+          // Update file store with rename event
+          useFileStore.getState().applyFileChange({
+            type: "workspace:file-change",
+            operation: "rename",
+            path: newPath,
+            old_path: oldPath,
+            commit_sha: null,
+          });
+        }
+      } catch {
+        // Silently fail
+      }
+    },
+    [projectId],
   );
 
   // Loading state
@@ -170,6 +213,7 @@ export function FileTree({ projectId }: FileTreeProps) {
           paddingTop={4}
           paddingBottom={4}
           onSelect={handleSelect}
+          onRename={handleRename}
           childrenAccessor="children"
           idAccessor="id"
           disableDrag

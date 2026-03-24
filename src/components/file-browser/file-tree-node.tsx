@@ -99,8 +99,27 @@ export function FileTreeNode({
       {/* File/folder icon */}
       {getFileIcon(data, isOpen)}
 
-      {/* Name */}
-      <span className="truncate">{data.name}</span>
+      {/* Name — inline edit when node.isEditing */}
+      {node.isEditing ? (
+        <input
+          autoFocus
+          type="text"
+          defaultValue={data.name}
+          className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-0 text-sm outline-none dark:bg-zinc-800"
+          onFocus={(e) => {
+            // Select filename without extension
+            const dot = e.target.value.lastIndexOf(".");
+            e.target.setSelectionRange(0, dot > 0 ? dot : e.target.value.length);
+          }}
+          onBlur={(e) => node.submit(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") node.submit(e.currentTarget.value);
+            if (e.key === "Escape") node.reset();
+          }}
+        />
+      ) : (
+        <span className="truncate">{data.name}</span>
+      )}
     </div>
   );
 }
