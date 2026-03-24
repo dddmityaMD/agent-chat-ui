@@ -137,6 +137,8 @@ export class SaisStreamManager {
         this.abortController = null;
         // Signal a final message fetch when stream ends (catches any last messages)
         this.onNewMessageSignal?.();
+        // Signal stream completion for decoupled listeners (e.g. workspace file tree)
+        window.dispatchEvent(new Event("stream_complete"));
       }
     }
 

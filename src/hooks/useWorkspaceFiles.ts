@@ -7,10 +7,10 @@
  * Returns { files, isLoading, error } from the Zustand file store.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { getApiBaseUrl } from "@/lib/api-url";
-import type { FileNode, WorkspaceFileChangeEvent } from "@/types/workspace";
+import type { FileNode } from "@/types/workspace";
 
 // ---------------------------------------------------------------------------
 // Transform flat file list from API into tree structure
@@ -81,97 +81,61 @@ function buildTree(flatFiles: ApiFileEntry[]): FileNode[] {
 // ---------------------------------------------------------------------------
 
 export function useWorkspaceFiles(projectId: string | null) {
-  const { files, setFiles, applyFileChange } = useFileStore();
+  const { files, setFiles } = useFileStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debounce timer for SSE updates
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingEventsRef = useRef<WorkspaceFileChangeEvent[]>([]);
-
-  // Flush pending SSE events
-  const flushPendingEvents = useCallback(() => {
-    const events = pendingEventsRef.current;
-    pendingEventsRef.current = [];
-    for (const event of events) {
-      applyFileChange(event);
-    }
-  }, [applyFileChange]);
-
-  // Fetch files from API
-  useEffect(() => {
+  // Stable fetch function — called on mount and after each stream completes
+  const fetchFiles = useCallback(async () => {
     if (!projectId) {
       setFiles([]);
       return;
     }
 
-    let cancelled = false;
     setIsLoading(true);
     setError(null);
 
-    const fetchFiles = async () => {
-      try {
-        const res = await fetch(
-          `${getApiBaseUrl()}/api/workspace/projects/${projectId}/files`,
-          { credentials: "include" },
-        );
-        if (cancelled) return;
+    try {
+      const res = await fetch(
+        `${getApiBaseUrl()}/api/workspace/projects/${projectId}/files`,
+        { credentials: "include" },
+      );
 
-        if (!res.ok) {
-          setError(`Failed to fetch files: ${res.status}`);
-          setFiles([]);
-          return;
-        }
-
-        const data = await res.json();
-        if (cancelled) return;
-
-        const tree = buildTree(data.files || []);
-        setFiles(tree);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to fetch files");
+      if (!res.ok) {
+        setError(`Failed to fetch files: ${res.status}`);
         setFiles([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+        return;
       }
-    };
 
-    fetchFiles();
-
-    return () => {
-      cancelled = true;
-    };
+      const data = await res.json();
+      const tree = buildTree(data.files || []);
+      setFiles(tree);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch files");
+      setFiles([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [projectId, setFiles]);
 
-  // Subscribe to SSE workspace:file-change events
+  // Initial fetch on mount / projectId change
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  // Refetch after each stream completes (agent may have written files)
   useEffect(() => {
     if (!projectId) return;
 
-    // Listen for custom events dispatched by the SSE stream manager
-    const handleFileChange = (e: Event) => {
-      const customEvent = e as CustomEvent<WorkspaceFileChangeEvent>;
-      const event = customEvent.detail;
-      if (!event?.operation || !event?.path) return;
-
-      // Debounce: batch rapid events (e.g. agent writing multiple files)
-      pendingEventsRef.current.push(event);
-
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      debounceTimerRef.current = setTimeout(flushPendingEvents, 200);
+    const handleStreamComplete = () => {
+      fetchFiles();
     };
 
-    window.addEventListener("workspace:file-change", handleFileChange);
-
+    window.addEventListener("stream_complete", handleStreamComplete);
     return () => {
-      window.removeEventListener("workspace:file-change", handleFileChange);
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
+      window.removeEventListener("stream_complete", handleStreamComplete);
     };
-  }, [projectId, flushPendingEvents]);
+  }, [projectId, fetchFiles]);
 
   return { files, isLoading, error };
 }
