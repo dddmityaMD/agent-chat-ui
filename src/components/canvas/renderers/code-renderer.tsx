@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy, Check } from "lucide-react";
+import { MarkdownText } from "@/components/thread/markdown-text";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -56,6 +57,32 @@ export function CodeRenderer({ data }: CodeRendererProps) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-zinc-400">
         No code to display
+      </div>
+    );
+  }
+
+  const isMarkdown =
+    data.language === "markdown" || data.language === "md";
+
+  // Markdown files: render as formatted markdown instead of syntax-highlighted source
+  if (isMarkdown) {
+    return (
+      <div className="relative h-full overflow-auto" data-testid="code-renderer">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="absolute right-3 top-3 z-10 rounded border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 p-1.5 text-zinc-500 dark:text-zinc-300 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700"
+          aria-label={copied ? "Copied" : "Copy source"}
+        >
+          {copied ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </button>
+        <div className="p-6 prose prose-sm dark:prose-invert max-w-none">
+          <MarkdownText>{data.code}</MarkdownText>
+        </div>
       </div>
     );
   }
