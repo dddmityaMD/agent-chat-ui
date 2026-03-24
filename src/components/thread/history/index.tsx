@@ -477,7 +477,7 @@ export default function ThreadHistory({
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="shadow-inner-right hidden h-screen w-[300px] shrink-0 flex-col items-start justify-start border-r-[1px] border-slate-300 lg:flex">
+      <div className="shadow-inner-right hidden h-screen w-[300px] shrink-0 flex-col items-stretch justify-start border-r-[1px] border-slate-300 lg:flex">
         {sidebarContent}
       </div>
 
