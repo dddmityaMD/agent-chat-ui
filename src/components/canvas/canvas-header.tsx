@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Network, Table2, Code2 } from "lucide-react";
+import { X, Network, Table2, Code2, GitCompareArrows, FileEdit } from "lucide-react";
 import type { CanvasContentType } from "@/stores/canvas-store";
 
 // ---------------------------------------------------------------------------
@@ -21,6 +21,8 @@ const CONTENT_LABELS: Record<CanvasContentType, { label: string; Icon: typeof Ne
   lineage: { label: "Lineage Graph", Icon: Network },
   table: { label: "Data Table", Icon: Table2 },
   code: { label: "Code Preview", Icon: Code2 },
+  diff: { label: "Diff Viewer", Icon: GitCompareArrows },
+  editor: { label: "File Editor", Icon: FileEdit },
 };
 
 // ---------------------------------------------------------------------------

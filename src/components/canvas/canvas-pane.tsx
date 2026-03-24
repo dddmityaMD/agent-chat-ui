@@ -6,6 +6,8 @@ import { CanvasHeader } from "./canvas-header";
 import { LineageRenderer } from "./renderers/lineage-renderer";
 import { TableRenderer } from "./renderers/table-renderer";
 import { CodeRenderer } from "./renderers/code-renderer";
+import { DiffRenderer } from "./renderers/diff-renderer";
+import { EditorRenderer } from "./renderers/editor-renderer";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -39,6 +41,8 @@ export function CanvasPane() {
         {contentType === "lineage" && <LineageRenderer data={contentData} />}
         {contentType === "table" && <TableRenderer data={contentData} />}
         {contentType === "code" && <CodeRenderer data={contentData} />}
+        {contentType === "diff" && <DiffRenderer data={contentData} />}
+        {contentType === "editor" && <EditorRenderer data={contentData} />}
       </div>
     </div>
   );
