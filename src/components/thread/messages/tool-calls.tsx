@@ -13,6 +13,7 @@ import {
 import { deriveOneLiner } from "@/lib/panel-blocks/constants";
 import { cn } from "@/lib/utils";
 import type { ToolInteraction } from "@/lib/message-groups";
+import { SubagentGroup, groupToolsBySubagent } from "./subagent-group";
 
 function isComplexValue(value: any): boolean {
   return Array.isArray(value) || (typeof value === "object" && value !== null);
@@ -194,7 +195,80 @@ export function LiveToolCalls({
 }) {
   if (interactions.length === 0) return null;
 
-  // Convert ToolInteraction[] to AIMessage["tool_calls"] + ToolMessage[]
+  const grouped = groupToolsBySubagent(interactions);
+  const hasSubagentGroups = grouped.some((e) => e.type === "subagent");
+
+  // If there are subagent groups, render with SubagentGroup wrappers
+  // (same pattern as ai.tsx for historical tools)
+  if (hasSubagentGroups) {
+    return (
+      <div data-testid="live-tool-calls" className="space-y-1">
+        {grouped.map((entry, gIdx) => {
+          if (entry.type === "subagent") {
+            return (
+              <SubagentGroup
+                key={`live-sa-${entry.subagentId}-${gIdx}`}
+                subagentId={entry.subagentId}
+                subagentTask={entry.subagentTask}
+                toolCount={entry.indices.length}
+                defaultExpanded
+              >
+                {entry.indices.map((i) => {
+                  const ti = interactions[i];
+                  return ti.result ? (
+                    <ToolResult
+                      key={ti.result.id ?? i}
+                      message={ti.result as ToolMessage}
+                      toolName={ti.toolName}
+                    />
+                  ) : (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md",
+                        "border border-border/60 bg-muted/20 px-3 py-1.5",
+                        "text-xs text-muted-foreground",
+                      )}
+                    >
+                      <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-blue-500" />
+                      <code className="font-mono text-foreground/80">
+                        {ti.toolName}
+                      </code>
+                    </div>
+                  );
+                })}
+              </SubagentGroup>
+            );
+          }
+          // Standalone tool
+          const ti = interactions[entry.index];
+          return ti.result ? (
+            <ToolResult
+              key={ti.result.id ?? entry.index}
+              message={ti.result as ToolMessage}
+              toolName={ti.toolName}
+            />
+          ) : (
+            <div
+              key={entry.index}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md",
+                "border border-border/60 bg-muted/20 px-3 py-1.5",
+                "text-xs text-muted-foreground",
+              )}
+            >
+              <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-blue-500" />
+              <code className="font-mono text-foreground/80">
+                {ti.toolName}
+              </code>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // No subagent groups — flat ToolCalls display (original behavior)
   const toolCalls = interactions.map((ti, i) => ({
     name: ti.toolName,
     id: `live-${i}`,
@@ -204,12 +278,10 @@ export function LiveToolCalls({
 
   const toolResults = interactions
     .filter((ti) => ti.result)
-    .map((ti, i) => {
-      const result = ti.result!;
-      // Create a ToolMessage-compatible object with a matching tool_call_id
+    .map((ti) => {
       const idx = interactions.indexOf(ti);
       return {
-        ...result,
+        ...ti.result!,
         tool_call_id: `live-${idx}`,
       } as ToolMessage;
     });

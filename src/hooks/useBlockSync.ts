@@ -47,20 +47,38 @@ export function routeToolResultEvent(
   toolName: string,
   resultData: Record<string, unknown>,
   actions: BlockSyncActions,
+  existingBlocks?: Record<string, { data?: unknown }>,
 ): void {
   const mapping =
     TOOL_BLOCK_MAP[toolName as keyof typeof TOOL_BLOCK_MAP];
   if (!mapping) return;
 
-  actions.upsertBlock({
-    id: mapping.blockId,
-    type: mapping.blockId,
-    level: mapping.level,
-    data: resultData,
-    priority: 0.5,
-    state: "populated",
-    updatedAt: Date.now(),
-  });
+  // If block already exists, merge data instead of replacing (Gap 15 fix).
+  // Multiple tools can target the same block (e.g. profile_columns +
+  // detect_temporal_grain both → data-profile). Replacing would lose
+  // earlier tool data; merging preserves it.
+  const existing = existingBlocks?.[mapping.blockId];
+  if (existing?.data && typeof existing.data === "object") {
+    actions.upsertBlock({
+      id: mapping.blockId,
+      type: mapping.blockId,
+      level: mapping.level,
+      data: { ...(existing.data as Record<string, unknown>), ...resultData },
+      priority: 0.5,
+      state: "populated",
+      updatedAt: Date.now(),
+    });
+  } else {
+    actions.upsertBlock({
+      id: mapping.blockId,
+      type: mapping.blockId,
+      level: mapping.level,
+      data: resultData,
+      priority: 0.5,
+      state: "populated",
+      updatedAt: Date.now(),
+    });
+  }
 }
 
 /**
@@ -136,6 +154,7 @@ export function routeActionResolution(
 export function hydrateBlocksFromSaisUi(
   saisUi: Record<string, unknown>,
   actions: BlockSyncActions,
+  existingBlocks?: Record<string, { data?: unknown }>,
 ): void {
   const now = Date.now();
 
@@ -148,7 +167,7 @@ export function hydrateBlocksFromSaisUi(
         const toolName = entry.tool_name as string | undefined;
         const data = entry.data as Record<string, unknown> | undefined;
         if (toolName && data) {
-          routeToolResultEvent(toolName, data, actions);
+          routeToolResultEvent(toolName, data, actions, existingBlocks);
         }
       }
     }
@@ -161,7 +180,7 @@ export function hydrateBlocksFromSaisUi(
     const toolName = bu.tool_name as string | undefined;
     const data = bu.data as Record<string, unknown> | undefined;
     if (toolName && data) {
-      routeToolResultEvent(toolName, data, actions);
+      routeToolResultEvent(toolName, data, actions, existingBlocks);
     }
   }
 
@@ -376,7 +395,7 @@ export function useBlockSync(
 
     const saisUi = streamValues.sais_ui as Record<string, unknown> | undefined;
     if (saisUi && typeof saisUi === "object") {
-      hydrateBlocksFromSaisUi(saisUi, actions);
+      hydrateBlocksFromSaisUi(saisUi, actions, store.blocks);
     }
   }, [streamValues, isStreaming]);
 
@@ -438,7 +457,7 @@ export function useBlockSync(
 
       processedToolMsgIdsRef.current.add(msg.id);
       if (resultData) {
-        routeToolResultEvent(toolName, resultData, actions);
+        routeToolResultEvent(toolName, resultData, actions, store.blocks);
       }
     }
 

@@ -149,6 +149,8 @@ export interface ArtifactListData {
     operation: string;
     language?: string;
     line_count?: number;
+    /** File content for canvas code preview */
+    code?: string;
   }>;
 }
 
