@@ -119,6 +119,7 @@ function LazyCodeMirror({
 export function EditorRenderer({ data }: EditorRendererProps) {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
+  const [viewContent, setViewContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const originalContentRef = useRef("");
@@ -131,7 +132,9 @@ export function EditorRenderer({ data }: EditorRendererProps) {
     );
   }
 
-  const { content, filePath, projectId, language: langHint } = data;
+  const { content: initialContent, filePath, projectId, language: langHint } = data;
+  // Use viewContent if set (after save), otherwise use initial data
+  const content = viewContent || initialContent;
   const language = langHint ?? inferLanguage(filePath);
   const filename = filePath.split("/").pop() ?? filePath;
   const isMarkdown = language === "markdown";
@@ -173,8 +176,10 @@ export function EditorRenderer({ data }: EditorRendererProps) {
         throw new Error(body.detail ?? `Save failed (${res.status})`);
       }
 
-      // Mark clean — update the original ref
+      // Mark clean, update view content, return to view mode
       originalContentRef.current = editContent;
+      setViewContent(editContent);
+      setEditing(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
