@@ -154,6 +154,17 @@ export function useSaisStream(
         uiMessagesRef.current = uiMessageReducer(uiMessagesRef.current, data);
       }
 
+      // Bridge named custom events to window for decoupled listeners
+      // (e.g. useWorkspaceFiles listens for "workspace:file-change")
+      if (data && typeof data === "object" && "type" in data) {
+        const eventType = (data as Record<string, unknown>).type;
+        if (typeof eventType === "string") {
+          window.dispatchEvent(
+            new CustomEvent(eventType, { detail: data }),
+          );
+        }
+      }
+
       // Forward to consumer
       onCustomEvent?.(data, namespace);
     };
