@@ -84,7 +84,11 @@ export function FileContextMenu({
       if (!res.ok) return;
       const data = await res.json();
       const language = getLanguageFromPath(file.path);
-      canvasStore.open("code", { code: data.content, language }, `file:${file.path}`);
+      canvasStore.open(
+        "editor",
+        { content: data.content, filePath: file.path, projectId, language },
+        `file:${file.path}`,
+      );
     } catch {
       // Silently fail — canvas will show empty state
     }
@@ -104,16 +108,15 @@ export function FileContextMenu({
       );
       if (!res.ok) return;
       const data = await res.json();
-      if (data.commits?.length > 0) {
-        const sha = data.commits[0].sha;
-        const diffRes = await fetch(
-          `${getApiBaseUrl()}/api/workspace/projects/${projectId}/git/diff/${sha}`,
-          { credentials: "include" },
+      // API returns flat array of CommitEntry, not { commits: [...] }
+      const commits = Array.isArray(data) ? data : data.commits ?? [];
+      if (commits.length > 0) {
+        const sha = commits[0].sha;
+        canvasStore.open(
+          "diff",
+          { oldContent: null, newContent: "", filename: file.path, commitSha: sha, projectId },
+          `diff:${file.path}`,
         );
-        if (diffRes.ok) {
-          const diffData = await diffRes.json();
-          canvasStore.open("code", { code: diffData.diff, language: "diff" }, `diff:${file.path}`);
-        }
       }
     } catch {
       // Silently fail

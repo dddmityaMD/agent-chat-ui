@@ -20,6 +20,7 @@ import { useCanvasStore } from "@/stores/canvas-store";
 import { getApiBaseUrl } from "@/lib/api-url";
 import { FileTreeNode } from "./file-tree-node";
 import { FileContextMenu } from "./file-context-menu";
+import { HistoryPanel } from "./history-panel";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -108,8 +109,8 @@ export function FileTree({ projectId }: FileTreeProps) {
         const data = await res.json();
         const language = getLanguageFromPath(selected.path);
         canvasStore.open(
-          "code",
-          { code: data.content, language },
+          "editor",
+          { content: data.content, filePath: selected.path, projectId, language },
           `file:${selected.path}`,
         );
       } catch {
@@ -157,26 +158,29 @@ export function FileTree({ projectId }: FileTreeProps) {
   }
 
   return (
-    <div className="h-full overflow-auto" data-testid="file-tree">
-      <Tree<FileNode>
-        ref={treeRef}
-        data={files}
-        openByDefault={false}
-        width="100%"
-        indent={16}
-        rowHeight={28}
-        paddingTop={4}
-        paddingBottom={4}
-        onSelect={handleSelect}
-        childrenAccessor="children"
-        idAccessor="id"
-        disableDrag
-        disableDrop
-      >
-        {(props) => (
-          <NodeWithContextMenu {...props} projectId={projectId} />
-        )}
-      </Tree>
+    <div className="flex h-full flex-col" data-testid="file-tree">
+      <div className="flex-1 overflow-auto">
+        <Tree<FileNode>
+          ref={treeRef}
+          data={files}
+          openByDefault={false}
+          width="100%"
+          indent={16}
+          rowHeight={28}
+          paddingTop={4}
+          paddingBottom={4}
+          onSelect={handleSelect}
+          childrenAccessor="children"
+          idAccessor="id"
+          disableDrag
+          disableDrop
+        >
+          {(props) => (
+            <NodeWithContextMenu {...props} projectId={projectId} />
+          )}
+        </Tree>
+      </div>
+      {projectId && <HistoryPanel projectId={projectId} />}
     </div>
   );
 }

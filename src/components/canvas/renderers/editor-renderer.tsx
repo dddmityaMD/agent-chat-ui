@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pencil, Save, X } from "lucide-react";
 import { MarkdownText } from "@/components/thread/markdown-text";
 import type { EditorContentData } from "@/stores/canvas-store";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,7 +162,7 @@ export function EditorRenderer({ data }: EditorRendererProps) {
     setSaveError(null);
 
     try {
-      const res = await fetch(`/api/workspace/projects/${projectId}/files/content`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/workspace/projects/${projectId}/files/content`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: filePath, content: editContent }),

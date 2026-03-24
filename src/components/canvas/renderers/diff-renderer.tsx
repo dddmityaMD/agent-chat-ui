@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { diffLines, type Change } from "diff";
 import type { DiffContentData } from "@/stores/canvas-store";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +119,7 @@ export function DiffRenderer({ data }: DiffRendererProps) {
     if (commitSha && projectId && oldContent === null && newContent === "") {
       setLoading(true);
       setFetchError(null);
-      fetch(`/api/workspace/projects/${projectId}/git/diff/${commitSha}`)
+      fetch(`${getApiBaseUrl()}/api/workspace/projects/${projectId}/git/diff/${commitSha}`, { credentials: "include" })
         .then((res) => {
           if (!res.ok) throw new Error(`Failed to fetch diff (${res.status})`);
           return res.json();

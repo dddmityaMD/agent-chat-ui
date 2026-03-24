@@ -14,6 +14,7 @@ import { X, GitCommitHorizontal } from "lucide-react";
 import { useFileStore } from "@/stores/file-store";
 import { useCanvasStore } from "@/stores/canvas-store";
 import type { DiffContentData } from "@/stores/canvas-store";
+import { getApiBaseUrl } from "@/lib/api-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,7 +77,8 @@ export function HistoryPanel({ projectId }: HistoryPanelProps) {
     setError(null);
 
     fetch(
-      `/api/workspace/projects/${projectId}/git/history?path=${encodeURIComponent(historyFile.path)}`,
+      `${getApiBaseUrl()}/api/workspace/projects/${projectId}/git/history?path=${encodeURIComponent(historyFile.path)}`,
+      { credentials: "include" },
     )
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch history (${res.status})`);
