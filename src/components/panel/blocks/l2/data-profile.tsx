@@ -32,12 +32,51 @@ interface DataProfileBlockProps {
  * Expanded: full column table.
  * Canvas expand: opens table renderer (D-14, D-15).
  */
+/**
+ * Normalise backend profile data into the shape the component renders.
+ * Backend sends: {profile_results: {tableName: [{column_name, data_type, null_pct, cardinality, ...}]}}
+ * Component needs: {columns: [{name, type, null_rate, cardinality}]}
+ */
+function normaliseProfileData(
+  raw: Record<string, unknown> | undefined,
+): DataProfileData | undefined {
+  if (!raw) return undefined;
+
+  // Already in the expected shape (future-proof)
+  if (Array.isArray((raw as unknown as DataProfileData).columns)) {
+    return raw as unknown as DataProfileData;
+  }
+
+  // Backend shape: {profile_results: {tableName: [...]}}
+  const profileResults = raw.profile_results as
+    | Record<string, Array<Record<string, unknown>>>
+    | undefined;
+  if (!profileResults || typeof profileResults !== "object") return undefined;
+
+  // Flatten all tables into a single column list
+  const columns: DataProfileData["columns"] = [];
+  for (const rows of Object.values(profileResults)) {
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      columns.push({
+        name: (row.column_name as string) ?? (row.name as string) ?? "",
+        type: (row.data_type as string) ?? (row.type as string) ?? "",
+        null_rate: (row.null_pct as number) ?? (row.null_rate as number) ?? 0,
+        cardinality: (row.cardinality as number) ?? 0,
+      });
+    }
+  }
+  return columns.length > 0 ? { columns } : undefined;
+}
+
 export function DataProfileBlock({
   block,
   state,
   onCanvasOpen,
 }: DataProfileBlockProps) {
-  const data = block.data as DataProfileData | undefined;
+  const data = normaliseProfileData(
+    block.data as Record<string, unknown> | undefined,
+  );
   const [expanded, setExpanded] = useState(false);
 
   if (state === "loading" || !data) {
