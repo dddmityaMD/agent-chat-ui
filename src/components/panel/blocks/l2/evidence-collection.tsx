@@ -192,13 +192,20 @@ export function EvidenceCollectionBlock({
                       quality: item.quality_flag || "",
                     };
                   }
-                  // StructuredToolResult shape — flatten content into row
+                  // StructuredToolResult shape — flatten content into row,
+                  // serializing nested objects so table cells render cleanly
                   const content = item.content || {};
-                  return {
+                  const flat: Record<string, unknown> = {
                     entity: item.entity || "",
                     source: item.source,
-                    ...content,
                   };
+                  for (const [k, v] of Object.entries(content)) {
+                    flat[k] =
+                      typeof v === "object" && v !== null
+                        ? JSON.stringify(v)
+                        : v;
+                  }
+                  return flat;
                 });
                 onCanvasOpen("table", { rows });
               }}
