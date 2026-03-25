@@ -75,14 +75,25 @@ export interface EntityMapData {
   }>;
 }
 
+/** Evidence item — supports two backend shapes:
+ *  1. Dynamic evidence (from make_evidence_tool): {source, tool_name, finding, quality_flag}
+ *  2. Structured tool result (from query_metadata, inspect_data_quality): {type, source, entity, content}
+ */
+export type EvidenceItem = {
+  source: string;
+  // Dynamic evidence shape
+  tool_name?: string;
+  finding?: string;
+  quality_flag?: string;
+  // StructuredToolResult shape
+  type?: string;
+  entity?: string;
+  content?: Record<string, unknown>;
+};
+
 /** L2: Evidence items grouped by connector */
 export interface EvidenceCollectionData {
-  items: Array<{
-    source: string;
-    tool_name: string;
-    finding: string;
-    quality_flag: string;
-  }>;
+  items: Array<EvidenceItem>;
   count: number;
 }
 

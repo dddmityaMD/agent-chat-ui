@@ -13,6 +13,7 @@ import type {
   PanelBlock,
   BlockState,
   EvidenceCollectionData,
+  EvidenceItem,
 } from "@/lib/panel-blocks/types";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,37 @@ function QualityIcon({ flag }: { flag: string }) {
     );
   }
   return <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" />;
+}
+
+/** Derive display text from either backend item shape */
+function getItemDisplay(item: EvidenceItem): { text: string; source: string } {
+  // Shape 1: dynamic_evidence — finding + tool_name present
+  if (item.finding) {
+    return {
+      text: item.finding,
+      source: item.tool_name ? `via ${item.tool_name}` : "",
+    };
+  }
+
+  // Shape 2: StructuredToolResult — entity + content present
+  if (item.entity) {
+    const content = item.content || {};
+    const itemsCount = content.items_count;
+    const summary =
+      itemsCount != null
+        ? `${item.entity}: ${itemsCount} item(s) found`
+        : `${item.entity}: metadata collected`;
+    return {
+      text: summary,
+      source: item.source ? `from ${item.source}` : "",
+    };
+  }
+
+  // Fallback: show source only
+  return {
+    text: item.source || "Evidence collected",
+    source: "",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -124,11 +156,22 @@ export function EvidenceCollectionBlock({
                     key={idx}
                     className="flex items-start gap-1.5 text-xs py-0.5"
                   >
-                    <QualityIcon flag={item.quality_flag} />
-                    <span className="text-foreground">{item.finding}</span>
-                    <span className="text-muted-foreground/50 flex-shrink-0">
-                      via {item.tool_name}
-                    </span>
+                    {(() => {
+                      const display = getItemDisplay(item);
+                      return (
+                        <>
+                          <QualityIcon flag={item.quality_flag || "info"} />
+                          <span className="text-foreground">
+                            {display.text}
+                          </span>
+                          {display.source && (
+                            <span className="text-muted-foreground/50 flex-shrink-0">
+                              {display.source}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -138,7 +181,27 @@ export function EvidenceCollectionBlock({
           {/* Canvas expand for table results (D-14) */}
           {onCanvasOpen && (
             <button
-              onClick={() => onCanvasOpen("table", { items })}
+              onClick={() => {
+                // Transform evidence items into table rows for canvas TableRenderer
+                const rows = items.map((item) => {
+                  if (item.finding) {
+                    // Dynamic evidence shape
+                    return {
+                      source: item.source,
+                      finding: item.finding,
+                      quality: item.quality_flag || "",
+                    };
+                  }
+                  // StructuredToolResult shape — flatten content into row
+                  const content = item.content || {};
+                  return {
+                    entity: item.entity || "",
+                    source: item.source,
+                    ...content,
+                  };
+                });
+                onCanvasOpen("table", { rows });
+              }}
               className="flex items-center gap-1 mt-1 text-[11px] text-primary hover:text-primary/80 transition-colors"
             >
               <ExternalLink className="w-3 h-3" />
