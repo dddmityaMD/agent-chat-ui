@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Network, Table2, Code2, GitCompareArrows, FileEdit } from "lucide-react";
+import { X, Network, Table2, Code2, GitCompareArrows, FileEdit, Share2 } from "lucide-react";
 import type { CanvasContentType } from "@/stores/canvas-store";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,7 @@ const CONTENT_LABELS: Record<CanvasContentType, { label: string; Icon: typeof Ne
   code: { label: "Code Preview", Icon: Code2 },
   diff: { label: "Diff Viewer", Icon: GitCompareArrows },
   editor: { label: "File Editor", Icon: FileEdit },
+  "graph-explorer": { label: "Knowledge Graph", Icon: Share2 },
 };
 
 // ---------------------------------------------------------------------------

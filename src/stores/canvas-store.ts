@@ -11,7 +11,7 @@ import { create } from "zustand";
 // Types
 // ---------------------------------------------------------------------------
 
-export type CanvasContentType = "lineage" | "table" | "code" | "diff" | "editor";
+export type CanvasContentType = "lineage" | "table" | "code" | "diff" | "editor" | "graph-explorer";
 
 // ---------------------------------------------------------------------------
 // Diff & Editor content data shapes

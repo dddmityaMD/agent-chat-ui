@@ -8,6 +8,7 @@ import { TableRenderer } from "./renderers/table-renderer";
 import { CodeRenderer } from "./renderers/code-renderer";
 import { DiffRenderer } from "./renderers/diff-renderer";
 import { EditorRenderer } from "./renderers/editor-renderer";
+import { GraphExplorerRenderer } from "./renderers/graph-explorer-renderer";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -43,6 +44,7 @@ export function CanvasPane() {
         {contentType === "code" && <CodeRenderer data={contentData} />}
         {contentType === "diff" && <DiffRenderer data={contentData} />}
         {contentType === "editor" && <EditorRenderer data={contentData} />}
+        {contentType === "graph-explorer" && <GraphExplorerRenderer data={contentData} />}
       </div>
     </div>
   );

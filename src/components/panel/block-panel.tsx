@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronRight, Expand, Maximize2, Minimize2, X, Network } from "lucide-react";
+import { ChevronDown, ChevronRight, Expand, Maximize2, Minimize2, X, Network, Share2 } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { useBlockStore } from "@/stores/block-store";
@@ -15,6 +15,7 @@ const selectBlocks = (s: { blocks: Record<string, PanelBlock> }) => s.blocks;
 import { BlockRenderer } from "./block-renderer";
 import { PanelEmptyState } from "./panel-empty-state";
 import { LineageGraphInner } from "@/components/lineage/LineageGraphInner";
+import { KnowledgeGraphButton } from "./knowledge-graph-button";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -113,7 +114,16 @@ export function BlockPanel({
 
   // Empty state
   if (allBlocks.length === 0) {
-    return <PanelEmptyState projectName={projectName} />;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-end px-3 py-1.5 border-b border-border">
+          <KnowledgeGraphButton onCanvasOpen={onCanvasOpen} />
+        </div>
+        <div className="flex-1">
+          <PanelEmptyState projectName={projectName} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -121,6 +131,10 @@ export function BlockPanel({
       className="flex h-full flex-col"
       data-testid="block-panel-content"
     >
+      {/* Panel header with KG button */}
+      <div className="flex items-center justify-end px-3 py-1.5 border-b border-border">
+        <KnowledgeGraphButton onCanvasOpen={onCanvasOpen} />
+      </div>
       {/* Blocks section — scrollable, shrinks when lineage is open */}
       <div className={`overflow-y-auto ${lineageEntityKey ? "flex-1 min-h-0" : "h-full"}`}>
         <div className="flex flex-col gap-2 p-3">
